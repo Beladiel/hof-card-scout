@@ -380,7 +380,27 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
           <div class="form-grid">
             <div class="field full"><label for="shopPlayer">Player</label><input id="shopPlayer" list="playerNames" required placeholder="Rickey Henderson"><datalist id="playerNames"></datalist></div>
             <div class="field"><label for="shopYear">Card year</label><input id="shopYear" inputmode="numeric" maxlength="4" placeholder="1980"></div>
-            <div class="field"><label for="shopSet">Set</label><input id="shopSet" placeholder="Topps"></div>
+            <div class="field"><label for="shopSetPreset">Set</label>
+              <select id="shopSetPreset">
+                <option value="">Choose a set…</option>
+                <option>Topps</option>
+                <option>1953 Topps Archives</option>
+                <option>Fleer</option>
+                <option>Upper Deck</option>
+                <option>Donruss</option>
+                <option>Kmart</option>
+                <option>Fleer Update</option>
+                <option>Topps Circle K</option>
+                <option>Fleer Ultra</option>
+                <option>Bowman</option>
+                <option>Score</option>
+                <option>Topps Traded</option>
+                <option>Topps Heritage</option>
+                <option>Topps Finest</option>
+                <option value="__other__">Other / Enter manually…</option>
+              </select>
+              <input id="shopSet" placeholder="Enter set name" style="margin-top:7px" hidden>
+            </div>
             <div class="field"><label for="shopNum">Card #</label><input id="shopNum" placeholder="482"></div>
             <div class="field"><label for="shopPrice">Shop price</label><input id="shopPrice" inputmode="decimal" placeholder="25.00"></div>
             <div class="field"><label for="shopGrade">Raw / grading</label>
@@ -403,7 +423,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v3.2</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v3.3</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -731,16 +751,36 @@ function importUpdatesFile(file){
   reader.readAsText(file);
 }
 
+const SHOP_SET_PRESETS=["Topps","1953 Topps Archives","Fleer","Upper Deck","Donruss","Kmart","Fleer Update","Topps Circle K","Fleer Ultra","Bowman","Score","Topps Traded","Topps Heritage","Topps Finest"];
+function canonicalSetPreset(value){
+  const raw=String(value||"").trim();
+  const simple=raw.toLowerCase().replace(/[^a-z0-9]/g,"");
+  const aliases={upperdeck:"Upper Deck",uppdeckrookieclass:"Upper Deck",upperdeckgm:"Upper Deck"};
+  if(aliases[simple])return aliases[simple];
+  return SHOP_SET_PRESETS.find(x=>x.toLowerCase()===raw.toLowerCase())||"";
+}
+function setShopSetValue(value){
+  const raw=String(value||"").trim(),preset=canonicalSetPreset(raw);
+  if(!raw){$("shopSetPreset").value="";$("shopSet").value="";$("shopSet").hidden=true;return}
+  if(preset){$("shopSetPreset").value=preset;$("shopSet").value=preset;$("shopSet").hidden=true;return}
+  $("shopSetPreset").value="__other__";$("shopSet").hidden=false;$("shopSet").value=raw;
+}
+function syncShopSetPicker(){
+  const choice=$("shopSetPreset").value;
+  if(choice==="__other__"){$("shopSet").hidden=false;$("shopSet").value="";$("shopSet").focus();}
+  else{$("shopSet").hidden=true;$("shopSet").value=choice;}
+}
 function openShop(prefill){
   returnScreen=document.querySelector(".screen.active")?.id||"homeScreen";
   if(prefill){
     $("shopPlayer").value=prefill.name||"";
     $("shopYear").value=prefill.cardYear||"";
-    $("shopSet").value=prefill.set||"";
+    setShopSetValue(prefill.set||"");
     $("shopNum").value=prefill.cardNum||"";
     $("shopNotes").value=prefill.description||"";
   }else{
     $("shopForm").reset();
+    setShopSetValue("");
   }
   $("shopResult").hidden=true;showScreen("shopScreen");
 }
@@ -996,6 +1036,7 @@ document.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{
   if(activeFilter==="target"&&!activeLetter&&!$("playerSearch").value) $("listRegion").hidden=false;
   renderList();
 }));
+$("shopSetPreset").addEventListener("change",syncShopSetPicker);
 $("shopForm").addEventListener("submit",shopAnalysis);
 $("savePricingBtn").addEventListener("click",savePricingConfig);
 $("testPricingBtn").addEventListener("click",testPricingConnection);
