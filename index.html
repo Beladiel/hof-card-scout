@@ -147,6 +147,21 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .comp a{color:var(--text);text-decoration:none;font-size:12px;line-height:1.3}.comp .price{font-weight:950;color:var(--green)}.comp .date{font-size:10px;color:var(--muted);margin-top:2px}
 .source-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.source-row button{min-height:38px;font-size:11px}
 .loading-line{padding:10px 0;color:var(--muted);font-size:13px}
+.shop-tools{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 12px}
+.fast-toggle{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);border-radius:999px;padding:8px 12px;font-size:12px;font-weight:900}
+.fast-toggle input{width:18px;height:18px}
+.recent-wrap{border:1px solid var(--line);border-radius:15px;background:rgba(255,255,255,.035);padding:11px 12px;margin:0 0 13px}
+.recent-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.recent-title{font-size:10px;font-weight:950;letter-spacing:.11em;color:var(--gold)}
+.recent-list{display:flex;gap:7px;overflow:auto;scrollbar-width:none}
+.recent-list::-webkit-scrollbar{display:none}
+.recent-card{flex:0 0 auto;max-width:245px;border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--text);border-radius:12px;padding:8px 10px;text-align:left}
+.recent-card strong{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recent-card span{display:block;color:var(--muted);font-size:10px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fast-mode .advanced-shop{display:none}
+.fast-note{display:none;color:var(--gold);font-size:11px;font-weight:850;margin:-4px 0 10px}
+.fast-mode .fast-note{display:block}
+.grade-other[hidden]{display:none}
 @media(max-width:620px){.connect-grid,.market-grid{grid-template-columns:1fr}.market-grid{grid-template-columns:1fr 1fr}.market-grid .market-stat:last-child{grid-column:1/-1}}
 .result-box{margin-top:14px;border-radius:17px;border:1px solid var(--line);padding:14px;background:rgba(0,0,0,.12)}
 .result-box h3{margin:0 0 7px;font-size:17px}
@@ -376,6 +391,17 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
           <div class="connect-actions"><button type="button" class="secondary" id="savePricingBtn">SAVE CONNECTION</button><button type="button" class="ghost" id="testPricingBtn">TEST CONNECTION</button></div>
           <div id="pricingStatus" class="loading-line">Not connected yet.</div>
         </details>
+        <div class="shop-tools">
+          <label class="fast-toggle"><input type="checkbox" id="fastModeToggle"> ⚡ Card Show Fast Entry</label>
+        </div>
+        <div class="fast-note">Fast Entry hides optional details. Scout still uses player, year, set, card #, price, grader and grade.</div>
+        <div class="recent-wrap" id="recentWrap">
+          <div class="recent-head">
+            <div class="recent-title">RECENT SEARCHES</div>
+            <button type="button" class="back" id="clearRecentBtn" style="margin:0;padding:2px 0;font-size:11px">Clear</button>
+          </div>
+          <div class="recent-list" id="recentSearches"></div>
+        </div>
         <form id="shopForm">
           <div class="form-grid">
             <div class="field full"><label for="shopPlayer">Player</label><input id="shopPlayer" list="playerNames" required placeholder="Rickey Henderson"><datalist id="playerNames"></datalist></div>
@@ -403,27 +429,42 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
             </div>
             <div class="field"><label for="shopNum">Card #</label><input id="shopNum" placeholder="482"></div>
             <div class="field"><label for="shopPrice">Shop price</label><input id="shopPrice" inputmode="decimal" placeholder="25.00"></div>
-            <div class="field"><label for="shopGrade">Raw / grading</label>
-              <select id="shopGrade"><option>Raw</option><option>PSA</option><option>SGC</option><option>CGC</option><option>BGS / Beckett</option><option>CSG</option><option>Other graded</option></select>
+            <div class="field"><label for="shopGrade">Raw / grading company</label>
+              <select id="shopGrade">
+                <option>Raw</option>
+                <option>PSA</option>
+                <option>SGC</option>
+                <option>CGC</option>
+                <option>BGS / Beckett</option>
+                <option>CSG</option>
+                <option>HGA</option>
+                <option>TAG</option>
+                <option>ISA</option>
+                <option value="__other__">Other graded…</option>
+              </select>
+              <input class="grade-other" id="shopGradeOther" placeholder="Enter grading company" style="margin-top:7px" hidden>
             </div>
-            <div class="field"><label for="shopGradeNum">Grade / condition</label><input id="shopGradeNum" placeholder="PSA 7 or VG-EX"></div>
-            <div class="field"><label for="shopSerial">Serial #</label><input id="shopSerial" placeholder="38/99"></div>
-            <div class="field full"><label for="shopNotes">Other details</label><textarea id="shopNotes" placeholder="Centering, creases, corner wear, variation, etc."></textarea></div>
-            <div class="field full">
+            <div class="field"><label for="shopGradeNum">Grade / condition</label><input id="shopGradeNum" placeholder="9, 7.5, VG-EX, etc."></div>
+            <div class="field advanced-shop"><label for="shopSerial">Serial #</label><input id="shopSerial" placeholder="38/99"></div>
+            <div class="field full advanced-shop"><label for="shopNotes">Other details</label><textarea id="shopNotes" placeholder="Centering, creases, corner wear, variation, etc."></textarea></div>
+            <div class="field full advanced-shop">
               <div class="checks">
                 <label class="check"><input type="checkbox" id="shopAuto"> Autograph</label>
                 <label class="check"><input type="checkbox" id="shopRelic"> Relic / memorabilia</label>
               </div>
             </div>
           </div>
-          <button class="secondary" style="width:100%;margin-top:14px" type="submit">SCOUT THIS CARD</button>
+          <div class="action-row" style="margin-top:14px">
+            <button class="secondary" type="submit">SCOUT THIS CARD</button>
+            <button class="ghost" type="button" id="nextCardBtn">NEXT CARD</button>
+          </div>
         </form>
         <div class="result-box" id="shopResult" hidden></div>
       </div>
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v3.3</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v3.4</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -714,7 +755,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"3.2",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"3.4",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -770,6 +811,108 @@ function syncShopSetPicker(){
   if(choice==="__other__"){$("shopSet").hidden=false;$("shopSet").value="";$("shopSet").focus();}
   else{$("shopSet").hidden=true;$("shopSet").value=choice;}
 }
+const RECENT_SEARCH_KEY="hofScoutRecentSearchesV1";
+const FAST_MODE_KEY="hofScoutFastEntryV1";
+function resolvedShopGrader(){
+  const g=$("shopGrade").value;
+  return g==="__other__"?($("shopGradeOther").value.trim()||"Other graded"):g;
+}
+function syncShopGrader(){
+  const other=$("shopGrade").value==="__other__";
+  $("shopGradeOther").hidden=!other;
+  if(other&&!$("shopGradeOther").value)$("shopGradeOther").focus();
+}
+function recentSearches(){
+  try{
+    const x=JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY)||"[]");
+    return Array.isArray(x)?x:[];
+  }catch{return []}
+}
+function recentSearchId(card){
+  return [card.player,card.year,card.set,card.cardNum,card.grader,card.grade]
+    .map(v=>String(v||"").trim().toLowerCase()).join("|");
+}
+function saveRecentSearch(card){
+  if(!card.player)return;
+  const clean={
+    player:card.player,
+    year:Number.isFinite(card.year)?card.year:"",
+    set:card.set||"",
+    cardNum:card.cardNum||"",
+    shopPrice:Number.isFinite(card.shopPrice)?card.shopPrice:"",
+    grader:card.grader||"Raw",
+    grade:card.grade||"",
+    serial:card.serial||"",
+    notes:card.notes||"",
+    autograph:!!card.autograph,
+    relic:!!card.relic,
+    ts:Date.now()
+  };
+  const id=recentSearchId(clean);
+  const next=[clean,...recentSearches().filter(x=>recentSearchId(x)!==id)].slice(0,8);
+  localStorage.setItem(RECENT_SEARCH_KEY,JSON.stringify(next));
+  renderRecentSearches();
+}
+function loadRecentSearch(card){
+  $("shopPlayer").value=card.player||"";
+  $("shopYear").value=card.year||"";
+  setShopSetValue(card.set||"");
+  $("shopNum").value=card.cardNum||"";
+  $("shopPrice").value=card.shopPrice!==""&&card.shopPrice!=null?card.shopPrice:"";
+  const known=["Raw","PSA","SGC","CGC","BGS / Beckett","CSG","HGA","TAG","ISA"];
+  const grader=card.grader||"Raw";
+  if(known.includes(grader)){
+    $("shopGrade").value=grader;
+    $("shopGradeOther").value="";
+  }else{
+    $("shopGrade").value="__other__";
+    $("shopGradeOther").value=grader;
+  }
+  syncShopGrader();
+  $("shopGradeNum").value=card.grade||"";
+  $("shopSerial").value=card.serial||"";
+  $("shopNotes").value=card.notes||"";
+  $("shopAuto").checked=!!card.autograph;
+  $("shopRelic").checked=!!card.relic;
+  $("shopResult").hidden=true;
+  $("shopPrice").focus();
+  toast("Recent card loaded. Update the shop price and Scout it again.");
+}
+function renderRecentSearches(){
+  const wrap=$("recentWrap"),list=$("recentSearches"),items=recentSearches();
+  wrap.hidden=!items.length;
+  list.innerHTML="";
+  items.forEach(card=>{
+    const b=document.createElement("button");
+    b.type="button";
+    b.className="recent-card";
+    const line=[card.year,card.set,card.cardNum?"#"+card.cardNum:"",card.grader!=="Raw"?card.grader:"",card.grade]
+      .filter(Boolean).join(" · ");
+    b.innerHTML=`<strong>${escapeHtml(card.player)}</strong><span>${escapeHtml(line||"Recent card")}</span>`;
+    b.addEventListener("click",()=>loadRecentSearch(card));
+    list.appendChild(b);
+  });
+}
+function clearRecentSearches(){
+  localStorage.removeItem(RECENT_SEARCH_KEY);
+  renderRecentSearches();
+  toast("Recent card searches cleared.");
+}
+function nextCard(){
+  $("shopForm").reset();
+  setShopSetValue("");
+  $("shopGrade").value="Raw";
+  $("shopGradeOther").value="";
+  syncShopGrader();
+  $("shopResult").hidden=true;
+  $("shopPlayer").focus();
+  toast("Next card. Scout is ready.");
+}
+function applyFastMode(on){
+  $("fastModeToggle").checked=!!on;
+  $("shopScreen").classList.toggle("fast-mode",!!on);
+  localStorage.setItem(FAST_MODE_KEY,on?"1":"0");
+}
 function openShop(prefill){
   returnScreen=document.querySelector(".screen.active")?.id||"homeScreen";
   if(prefill){
@@ -782,6 +925,9 @@ function openShop(prefill){
     $("shopForm").reset();
     setShopSetValue("");
   }
+  syncShopGrader();
+  renderRecentSearches();
+  applyFastMode(localStorage.getItem(FAST_MODE_KEY)==="1");
   $("shopResult").hidden=true;showScreen("shopScreen");
 }
 function findPlayer(name){
@@ -833,7 +979,7 @@ function shopCardPayload(){
     set:$("shopSet").value.trim(),
     cardNum:$("shopNum").value.trim(),
     shopPrice:parseFloat($("shopPrice").value),
-    grader:$("shopGrade").value,
+    grader:resolvedShopGrader(),
     grade:$("shopGradeNum").value.trim(),
     serial:$("shopSerial").value.trim(),
     notes:$("shopNotes").value.trim(),
@@ -952,6 +1098,7 @@ async function shopAnalysis(e){
   e.preventDefault();
   const card=shopCardPayload(),ctx=shopCollectionContext(card),r=$("shopResult"); r.hidden=false;
   if(!card.player||!Number.isInteger(card.year)||!card.set){renderPricingError(card,ctx,"Player, 4-digit year, and set are required for a trustworthy search.");return}
+  saveRecentSearch(card);
   const c=pricingConfig();
   if(!c.endpoint||!c.accessKey){
     renderPricingError(card,ctx,"Live pricing is not connected yet. Open Live Pricing Connection above and save the Worker URL and Scout access key.");
@@ -1037,11 +1184,18 @@ document.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{
   renderList();
 }));
 $("shopSetPreset").addEventListener("change",syncShopSetPicker);
+$("shopGrade").addEventListener("change",syncShopGrader);
+$("clearRecentBtn").addEventListener("click",clearRecentSearches);
+$("nextCardBtn").addEventListener("click",nextCard);
+$("fastModeToggle").addEventListener("change",e=>applyFastMode(e.target.checked));
 $("shopForm").addEventListener("submit",shopAnalysis);
 $("savePricingBtn").addEventListener("click",savePricingConfig);
 $("testPricingBtn").addEventListener("click",testPricingConnection);
 
 loadPricingConfig();
+renderRecentSearches();
+applyFastMode(localStorage.getItem(FAST_MODE_KEY)==="1");
+syncShopGrader();
 stats();rotateMission();buildAlphabet();populateNames();renderList();
 </script>
 </body>
