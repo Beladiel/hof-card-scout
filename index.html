@@ -91,6 +91,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .status-pill{border-radius:999px;padding:7px 10px;font-size:11px;font-weight:950;white-space:nowrap}
 .status-pill.owned{background:rgba(86,197,138,.16);color:#8be2b0;border:1px solid rgba(86,197,138,.35)}
 .status-pill.need{background:rgba(239,108,108,.15);color:#ff9c9c;border:1px solid rgba(239,108,108,.34)}
+.status-pill.incoming{background:rgba(230,189,99,.14);color:#f4d58a;border:1px solid rgba(230,189,99,.38)}
+.incoming-tag{display:inline-flex;align-items:center;gap:5px;margin-left:6px;padding:2px 7px;border-radius:999px;background:rgba(230,189,99,.12);color:#f2cf7a;border:1px solid rgba(230,189,99,.28);font-size:10px;font-weight:900;vertical-align:1px}
+.purchase-box{margin:12px 0;padding:13px 14px;border:1px solid var(--line);border-radius:15px;background:rgba(255,255,255,.035)}
+.purchase-box[hidden]{display:none}
+.purchase-title{font-size:11px;font-weight:950;letter-spacing:.08em;color:var(--gold);margin-bottom:6px}
+.purchase-line{font-size:13px;color:var(--muted);line-height:1.5}
+.purchase-line strong{color:var(--text)}
+.received-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}
 .card-stage{background:linear-gradient(145deg,#e9dfc5,#fff8e9);color:var(--ink);border-radius:20px;padding:16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
 .card-stage:after{content:"";position:absolute;width:140px;height:140px;border:30px solid rgba(160,54,54,.08);border-radius:50%;right:-45px;bottom:-58px}
 .card-meta{position:relative;z-index:1}
@@ -107,6 +115,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .scout-says .title{font-size:10px;color:var(--gold);letter-spacing:.13em;font-weight:950}
 .scout-says .line{font-size:15px;font-weight:850;margin-top:2px;line-height:1.3}
 .card-manage-row,.action-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}
+.card-secondary-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
 .form-panel{background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:18px;padding:14px}
 .form-title{font-size:24px;font-weight:950;margin:0}
 .form-sub{font-size:12px;color:var(--muted);margin:4px 0 16px}
@@ -132,7 +141,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .alphabet{grid-template-columns:repeat(7,1fr)}
   .stats{grid-template-columns:1fr 1fr 1.15fr}
   .stat{padding:10px}.stat .value{font-size:21px}
-  .quick-grid,.card-manage-row,.action-row,.result-actions{grid-template-columns:1fr}
+  .quick-grid,.card-manage-row,.card-secondary-row,.action-row,.result-actions{grid-template-columns:1fr}
   .detail-grid{grid-template-columns:1fr 1fr}
   .detail-grid .metric:last-child{grid-column:1/-1}
   .form-grid{grid-template-columns:1fr}
@@ -245,6 +254,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
         <div class="metric"><div class="m-label">UPGRADE TARGET</div><div class="m-value" id="upgradeTarget">Scout research</div></div>
       </div>
 
+      <div class="purchase-box" id="purchaseBox" hidden>
+        <div class="purchase-title">PURCHASE INFO</div>
+        <div class="purchase-line" id="purchaseLine"></div>
+      </div>
+
       <div class="scout-says">
         <svg class="mini-mascot" viewBox="0 0 90 90" aria-hidden="true">
           <circle cx="45" cy="49" r="31" fill="#fffdf5" stroke="#c7bfae" stroke-width="2"/>
@@ -259,6 +273,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <div class="card-manage-row">
         <button class="primary" id="manageCardBtn">＋ ADD CARD</button>
         <button class="ghost" id="upgradeCardBtn" hidden>↑ REPLACE WITH UPGRADE</button>
+      </div>
+      <div class="card-secondary-row">
+        <button class="ghost" id="receivedBtn" hidden>📦 MARK RECEIVED</button>
+        <button class="danger" id="removeCardBtn" hidden>REMOVE CARD</button>
+        <button class="ghost" id="undoRemoveBtn" hidden>↩ UNDO REMOVE</button>
       </div>
 
       <div class="action-row">
@@ -287,8 +306,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
               <div class="checks">
                 <label class="check"><input type="checkbox" id="manageAuto"> Autograph</label>
                 <label class="check"><input type="checkbox" id="manageRelic"> Relic / memorabilia</label>
+                <label class="check"><input type="checkbox" id="manageIncoming"> 📦 Card is still in transit</label>
               </div>
             </div>
+            <div class="field"><label for="managePricePaid">Price paid</label><input id="managePricePaid" inputmode="decimal" placeholder="24.99"></div>
+            <div class="field"><label for="managePurchaseDate">Purchase date</label><input id="managePurchaseDate" type="date"></div>
+            <div class="field full"><label for="manageSource">Where bought</label><input id="manageSource" placeholder="eBay, card shop, card show, trade…"></div>
             <div class="field full"><label for="manageNotes">Notes</label><textarea id="manageNotes" placeholder="Corner wear, rookie, favorite card, etc."></textarea></div>
           </div>
           <button class="primary" id="manageSaveBtn" type="submit" style="width:100%;margin-top:14px">SAVE CARD</button>
@@ -300,7 +323,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <button class="back" id="shopBack">← Back</button>
       <div class="form-panel">
         <h2 class="form-title">Card Shop Mode</h2>
-        <p class="form-sub">Give Scout the card in front of you. V1 checks it against your collection and can open sold listings; the automatic median-price engine is the next phase.</p>
+        <p class="form-sub">Give Scout the card in front of you. Scout checks it against your collection and can open sold listings; the automatic median-price engine is the next phase.</p>
         <form id="shopForm">
           <div class="form-grid">
             <div class="field full"><label for="shopPlayer">Player</label><input id="shopPlayer" list="playerNames" required placeholder="Rickey Henderson"><datalist id="playerNames"></datalist></div>
@@ -342,6 +365,7 @@ let activeFilter="all";
 let currentPlayer=null;
 let returnScreen="homeScreen";
 let manageMode="add";
+let lastRemovedCard=null;
 
 function loadLocalEdits(){
   try{
@@ -358,6 +382,7 @@ function savePlayerEdit(p){
   edits[p.name]={
     owned:p.owned,cardYear:p.cardYear||null,set:p.set||"",cardNum:p.cardNum||"",description:p.description||"",
     grader:p.grader||"Raw",gradeCondition:p.gradeCondition||"",autograph:!!p.autograph,serial:p.serial||"",relic:!!p.relic,
+    incoming:!!p.incoming,pricePaid:p.pricePaid??null,purchaseDate:p.purchaseDate||"",purchaseSource:p.purchaseSource||"",
     userNotes:p.userNotes||"",target:p.target||"",median:p.median??null,low:p.low??null,high:p.high??null,comps:p.comps??null,confidence:p.confidence||"",lastChecked:p.lastChecked||""
   };
   localStorage.setItem(STORAGE_KEY,JSON.stringify(edits));
@@ -378,6 +403,23 @@ function cardLabel(p){
   if(p.set) bits.push(p.set);
   if(p.cardNum) bits.push("#"+p.cardNum);
   return bits.join(" ") || "Owned card";
+}
+function formatMoney(v){
+  const n=Number(v);return Number.isFinite(n)?"$"+n.toFixed(2):"";
+}
+function formatPurchaseDate(v){
+  if(!v)return "";
+  const parts=String(v).split("-");
+  if(parts.length!==3)return v;
+  const d=new Date(Date.UTC(Number(parts[0]),Number(parts[1])-1,Number(parts[2])));
+  return d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric",timeZone:"UTC"});
+}
+function purchaseSummary(p){
+  const bits=[];
+  if(Number.isFinite(Number(p.pricePaid))&&p.pricePaid!==null&&p.pricePaid!=="") bits.push("Paid "+formatMoney(p.pricePaid));
+  if(p.purchaseSource) bits.push("Bought via "+p.purchaseSource);
+  if(p.purchaseDate) bits.push(formatPurchaseDate(p.purchaseDate));
+  return bits.join(" · ");
 }
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
 function showScreen(id){
@@ -446,15 +488,16 @@ function renderList(){
   list.forEach(p=>{
     const row=document.createElement("button");row.type="button";row.className="player-row";
     row.innerHTML='<span class="mark '+(p.owned?'owned':'need')+'">'+(p.owned?'✓':'✕')+'</span>'+
-      '<span><span class="pname">'+escapeHtml(p.name)+'</span><span class="psub">'+escapeHtml(cardLabel(p))+(p.target?' · 🎯 '+escapeHtml(p.target):'')+'</span></span><span class="chev">›</span>';
+      '<span><span class="pname">'+escapeHtml(p.name)+(p.incoming?' <span class="incoming-tag">📦 Incoming</span>':'')+'</span><span class="psub">'+escapeHtml(cardLabel(p))+(p.target?' · 🎯 '+escapeHtml(p.target):'')+'</span></span><span class="chev">›</span>';
     row.addEventListener("click",()=>openPlayer(p));box.appendChild(row);
   });
 }
 function openPlayer(p){
   currentPlayer=p;returnScreen="homeScreen";
   $("detailName").textContent=p.name;
-  $("detailStatus").textContent=p.owned?"✓ OWNED":"✕ NEED";
-  $("detailStatus").className="status-pill "+(p.owned?"owned":"need");
+  const statusText=p.owned?(p.incoming?"✓ OWNED · 📦 INCOMING":"✓ OWNED"):"✕ NEED";
+  $("detailStatus").textContent=statusText;
+  $("detailStatus").className="status-pill "+(p.owned?(p.incoming?"incoming":"owned"):"need");
   $("detailCardline").textContent=p.owned?cardLabel(p):"No representative card yet";
   if(p.owned){
     $("cardYearBig").textContent=p.cardYear||"—";$("cardSetBig").textContent=p.set||"Set not entered";
@@ -470,14 +513,21 @@ function openPlayer(p){
   $("medianValue").textContent=p.median?"$"+Number(p.median).toFixed(2):"Not priced yet";
   $("lastChecked").textContent=p.lastChecked||"—";
   $("upgradeTarget").textContent=p.target||(!p.owned?"First card":"Scout research");
+  const purchase=purchaseSummary(p);
+  $("purchaseBox").hidden=!(p.owned&&(purchase||p.incoming));
+  $("purchaseLine").innerHTML=p.owned?((purchase?"<strong>"+escapeHtml(purchase)+"</strong>":"Purchase details not entered.")+(p.incoming?" · 📦 Still in transit":"")):"";
   const lines=[];
-  if(p.target) lines.push("Target locked: "+p.target+". If one shows up at a sane price, we pay attention.");
+  if(p.incoming) lines.push("Card acquired. Now we wait for the postal service to complete the double play.");
+  else if(p.target) lines.push("Target locked: "+p.target+". If one shows up at a sane price, we pay attention.");
   else if(!p.owned) lines.push("Open roster spot. Find a card you actually like — Scout is not here to fill the Hall with junk.");
   else if(p.description) lines.push("You’ve got "+p.name+" covered. Notes matter here: "+p.description+".");
   else lines.push("You’ve got "+p.name+" covered. Next question: is there an older card worth upgrading to?");
   $("scoutDetailLine").textContent=lines[0];
   $("manageCardBtn").textContent=p.owned?"✎ EDIT MY CARD":"＋ ADD CARD TO COLLECTION";
   $("upgradeCardBtn").hidden=!p.owned;
+  $("receivedBtn").hidden=!(p.owned&&p.incoming);
+  $("removeCardBtn").hidden=!p.owned;
+  $("undoRemoveBtn").hidden=!(lastRemovedCard&&lastRemovedCard.name===p.name&&!p.owned);
   showScreen("detailScreen");
 }
 function buildDescriptionFromForm(){
@@ -495,16 +545,21 @@ function openManage(mode){
   if(!currentPlayer)return;
   manageMode=mode;
   const p=currentPlayer;
+  const keepExisting=p.owned&&mode!=="upgrade";
   $("managePlayer").value=p.name;
-  $("manageYear").value=p.owned&&mode!=="upgrade"?(p.cardYear||""):"";
-  $("manageSet").value=p.owned&&mode!=="upgrade"?(p.set||""):"";
-  $("manageNum").value=p.owned&&mode!=="upgrade"?(p.cardNum||""):"";
-  $("manageGrader").value=p.owned&&mode!=="upgrade"?(p.grader||"Raw"):"Raw";
-  $("manageGradeCond").value=p.owned&&mode!=="upgrade"?(p.gradeCondition||""):"";
-  $("manageSerial").value=p.owned&&mode!=="upgrade"?(p.serial||""):"";
-  $("manageAuto").checked=p.owned&&mode!=="upgrade"?!!p.autograph:false;
-  $("manageRelic").checked=p.owned&&mode!=="upgrade"?!!p.relic:false;
-  $("manageNotes").value=p.owned&&mode!=="upgrade"?(p.userNotes||p.description||""):"";
+  $("manageYear").value=keepExisting?(p.cardYear||""):"";
+  $("manageSet").value=keepExisting?(p.set||""):"";
+  $("manageNum").value=keepExisting?(p.cardNum||""):"";
+  $("manageGrader").value=keepExisting?(p.grader||"Raw"):"Raw";
+  $("manageGradeCond").value=keepExisting?(p.gradeCondition||""):"";
+  $("manageSerial").value=keepExisting?(p.serial||""):"";
+  $("manageAuto").checked=keepExisting?!!p.autograph:false;
+  $("manageRelic").checked=keepExisting?!!p.relic:false;
+  $("manageIncoming").checked=keepExisting?!!p.incoming:false;
+  $("managePricePaid").value=keepExisting&&p.pricePaid!==null&&p.pricePaid!==undefined?(p.pricePaid||""):"";
+  $("managePurchaseDate").value=keepExisting?(p.purchaseDate||""):"";
+  $("manageSource").value=keepExisting?(p.purchaseSource||""):"";
+  $("manageNotes").value=keepExisting?(p.userNotes||p.description||""):"";
   if(mode==="add"){
     $("manageTitle").textContent="Add Card to Collection";
     $("manageSub").textContent="Give "+p.name+" a roster spot. Saving flips this player from Need to Owned and updates your Hall percentage.";
@@ -526,29 +581,67 @@ function saveManagedCard(e){
   const year=parseInt($("manageYear").value,10),set=$("manageSet").value.trim();
   if(!Number.isInteger(year)||year<1800||year>2100){toast("Card year needs to be a 4-digit year.");return}
   if(!set){toast("Scout needs the set name.");return}
+  const rawPrice=$("managePricePaid").value.trim();
+  const pricePaid=rawPrice===""?null:Number(rawPrice);
+  if(rawPrice!==""&&(!Number.isFinite(pricePaid)||pricePaid<0)){toast("Price paid needs to be a valid amount.");return}
   const p=currentPlayer,wasOwned=p.owned,oldYear=p.cardYear;
   p.owned=true;p.cardYear=year;p.set=set;p.cardNum=$("manageNum").value.trim();
   p.grader=$("manageGrader").value;p.gradeCondition=$("manageGradeCond").value.trim();p.serial=$("manageSerial").value.trim();
-  p.autograph=$("manageAuto").checked;p.relic=$("manageRelic").checked;p.userNotes=$("manageNotes").value.trim();
+  p.autograph=$("manageAuto").checked;p.relic=$("manageRelic").checked;p.incoming=$("manageIncoming").checked;
+  p.pricePaid=pricePaid;p.purchaseDate=$("managePurchaseDate").value;p.purchaseSource=$("manageSource").value.trim();
+  p.userNotes=$("manageNotes").value.trim();
   p.description=buildDescriptionFromForm();
   // A new representative card needs a fresh valuation later.
   if(manageMode==="upgrade" || !wasOwned){p.median=null;p.low=null;p.high=null;p.comps=null;p.confidence="";p.lastChecked="";}
   savePlayerEdit(p);stats();rotateMission();buildAlphabet();renderList();openPlayer(p);
+  const remaining=needCount();
   const celebrations=[
-    "Another Hall of Famer off the board. Nice work.",
-    "Green check acquired. Scout approves.",
-    "Roster spot filled. That red X has left the building.",
-    "One less card hiding from you. Excellent.",
-    "Hall progress increased. Wallet damage: hopefully reasonable."
+    p.name+" is off the board. "+remaining+" still hiding from you.",
+    "Green check acquired. "+p.name+" has joined the collection.",
+    "Roster spot filled. The red X for "+p.name+" has been officially evicted.",
+    "Another Hall of Famer captured. Scout approves this behavior.",
+    "Collection percentage just moved north. That’s the good stuff.",
+    "One less legend to hunt. Your wallet may file a complaint later.",
+    "Nice pickup. "+p.name+" is now represented — exactly one card, as nature intended."
   ];
   if(!wasOwned) toast(celebrations[Math.floor(Math.random()*celebrations.length)]);
-  else if(manageMode==="upgrade") toast(oldYear&&year<oldYear?"Older cardboard wins. Upgrade saved.":"Upgrade saved. Scout will allow it.");
+  else if(manageMode==="upgrade") toast(oldYear&&year<oldYear?"Older cardboard wins. Upgrade saved.":"Upgrade saved. Scout has updated the lineup.");
   else toast("Card details updated.");
+}
+function markReceived(){
+  if(!currentPlayer||!currentPlayer.owned||!currentPlayer.incoming)return;
+  currentPlayer.incoming=false;
+  savePlayerEdit(currentPlayer);renderList();openPlayer(currentPlayer);
+  const msgs=[
+    "Package landed. Card is officially home.",
+    "Mail call complete. No more porch surveillance required.",
+    "Card received. The postal service has done its part.",
+    "It arrived. You may now stop refreshing the tracking page."
+  ];
+  toast(msgs[Math.floor(Math.random()*msgs.length)]);
+}
+function removeCurrentCard(){
+  if(!currentPlayer||!currentPlayer.owned)return;
+  const p=currentPlayer;
+  const ok=window.confirm("Remove "+p.name+"’s representative card and return this player to NEED? This will lower your completion percentage.");
+  if(!ok)return;
+  lastRemovedCard={name:p.name,snapshot:{...p}};
+  p.owned=false;p.cardYear=null;p.set="";p.cardNum="";p.description="";p.grader="Raw";p.gradeCondition="";p.serial="";p.autograph=false;p.relic=false;p.userNotes="";
+  p.incoming=false;p.pricePaid=null;p.purchaseDate="";p.purchaseSource="";
+  p.median=null;p.low=null;p.high=null;p.comps=null;p.confidence="";p.lastChecked="";
+  savePlayerEdit(p);stats();rotateMission();buildAlphabet();renderList();openPlayer(p);
+  toast("Card removed. Scout has returned "+p.name+" to the hunt.");
+}
+function undoRemove(){
+  if(!lastRemovedCard||!currentPlayer||lastRemovedCard.name!==currentPlayer.name)return;
+  Object.assign(currentPlayer,lastRemovedCard.snapshot);
+  savePlayerEdit(currentPlayer);lastRemovedCard=null;stats();rotateMission();buildAlphabet();renderList();openPlayer(currentPlayer);
+  toast("Removal undone. Crisis averted.");
 }
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"2.1",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -595,7 +688,7 @@ function shopAnalysis(e){
   const query=[year||"",set,name,num?"#"+num:"",grader!=="Raw"?grader:"",grade,auto?"autograph":"",relic?"relic":"",serial,notes].filter(Boolean).join(" ");
   const ebay="https://www.ebay.com/sch/i.html?_nkw="+encodeURIComponent(query)+"&LH_Sold=1&LH_Complete=1";
   const prompt="Value this baseball card using recent SOLD comps, not asking prices. Card: "+query+(Number.isFinite(price)?". Shop price: $"+price.toFixed(2):"")+". Give me the median sold value, useful range, comp count/confidence, and a Scout-style buy/walk verdict.";
-  r.innerHTML='<h3>'+escapeHtml(call)+'</h3><p>'+escapeHtml(detail)+'</p><p class="result-call">'+escapeHtml(priceLine)+'Live median pricing is not connected in this static V1, and Scout refuses to fake a number with your money.</p><div class="result-actions"><button type="button" class="primary" id="soldBtn">OPEN SOLD LISTINGS</button><button type="button" class="ghost" id="copyBtn">COPY SCOUT REQUEST</button></div>';
+  r.innerHTML='<h3>'+escapeHtml(call)+'</h3><p>'+escapeHtml(detail)+'</p><p class="result-call">'+escapeHtml(priceLine)+'Live median pricing is not connected in this static build, and Scout refuses to fake a number with your money.</p><div class="result-actions"><button type="button" class="primary" id="soldBtn">OPEN SOLD LISTINGS</button><button type="button" class="ghost" id="copyBtn">COPY SCOUT REQUEST</button></div>';
   $("soldBtn").addEventListener("click",()=>window.open(ebay,"_blank","noopener"));
   $("copyBtn").addEventListener("click",async()=>{
     try{await navigator.clipboard.writeText(prompt);toast("Scout request copied.");}
@@ -624,6 +717,9 @@ $("shopModeBtn").addEventListener("click",()=>openShop(null));
 $("detailShopBtn").addEventListener("click",()=>openShop(null));
 $("manageCardBtn").addEventListener("click",()=>openManage(currentPlayer&&currentPlayer.owned?"edit":"add"));
 $("upgradeCardBtn").addEventListener("click",()=>openManage("upgrade"));
+$("receivedBtn").addEventListener("click",markReceived);
+$("removeCardBtn").addEventListener("click",removeCurrentCard);
+$("undoRemoveBtn").addEventListener("click",undoRemove);
 $("manageForm").addEventListener("submit",saveManagedCard);
 $("exportBtn").addEventListener("click",exportUpdates);
 $("refreshValueBtn").addEventListener("click",valueRefresh);
