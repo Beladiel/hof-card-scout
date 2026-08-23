@@ -403,7 +403,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v3.1</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v3.2</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -694,7 +694,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"3.1",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"3.2",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -801,18 +801,55 @@ function shopCardPayload(){
     relic:$("shopRelic").checked
   };
 }
+function comparableText(v){return String(v||"").toLowerCase().replace(/[^a-z0-9]+/g,"")}
+function numericCardGrade(v){
+  const m=String(v||"").match(/(?:^|\s)(10|9\.5|9|8\.5|8|7\.5|7|6\.5|6|5\.5|5|4\.5|4|3\.5|3|2\.5|2|1\.5|1)(?:\s|$)/);
+  return m?Number(m[1]):null;
+}
+function playerCurrentGrader(p){
+  if(p.grader&&p.grader!=="Raw")return String(p.grader).toUpperCase();
+  const d=String(p.description||"").toUpperCase();
+  for(const g of ["PSA","SGC","BGS","CGC","CSG"]){if(new RegExp("\\b"+g+"\\b").test(d))return g;}
+  return p.grader||"Raw";
+}
+function playerCurrentGrade(p){return numericCardGrade(p.gradeCondition)||numericCardGrade(p.description)}
+function sameRepresentativeCard(p,card){
+  if(Number(p.cardYear)!==Number(card.year))return false;
+  if(comparableText(p.set)!==comparableText(card.set))return false;
+  const a=comparableText(p.cardNum),b=comparableText(card.cardNum);
+  return !a||!b||a===b;
+}
 function shopCollectionContext(card){
   const p=findPlayer(card.player); let call="",detail="";
   if(p){
-    if(!p.owned) call="Scout alert: this player is still on your NEED list.";
-    else if(card.year&&p.cardYear&&card.year<p.cardYear) call="Potential upgrade — this card is older than your current "+p.cardYear+" representative.";
-    else call="You already have "+p.name+" represented. This card has to earn its roster spot.";
+    if(!p.owned){
+      call="Scout alert: this player is still on your NEED list.";
+    }else if(sameRepresentativeCard(p,card)){
+      const currentGrader=playerCurrentGrader(p), checkGrader=String(card.grader||"Raw").toUpperCase();
+      const currentGrade=playerCurrentGrade(p), checkGrade=numericCardGrade(card.grade);
+      if(currentGrader!=="RAW"&&checkGrader!=="RAW"&&currentGrader===checkGrader&&currentGrade!==null&&checkGrade!==null){
+        if(checkGrade>currentGrade) call=`⬆️ CLEAR UPGRADE — same card, ${currentGrader} ${currentGrade} → ${checkGrader} ${checkGrade}.`;
+        else if(checkGrade<currentGrade) call=`Your current copy is better — ${currentGrader} ${currentGrade} beats the ${checkGrader} ${checkGrade} you’re checking.`;
+        else call=`Exact-grade duplicate — you already have this card in ${currentGrader} ${currentGrade}.`;
+      }else if(currentGrader===checkGrader){
+        call="You already own this same representative card. Compare condition/details before buying a duplicate.";
+      }else{
+        call="Same card, different grading/raw status — Scout will price it separately and compare it to your representative.";
+      }
+    }else if(card.year&&p.cardYear&&card.year<p.cardYear){
+      call="Potential upgrade — this card is older than your current "+p.cardYear+" representative.";
+    }else{
+      call="You already have "+p.name+" represented, but this is a different card. It has to earn the roster spot.";
+    }
     if(p.target){
       const targetYear=(String(p.target).match(/\b(18|19|20)\d{2}\b/)||[])[0];
       if(card.year&&Number(targetYear)===card.year) call="🎯 TARGET MATCH. Okay, now you have Scout’s full attention.";
     }
-    detail=p.owned?"Current card: "+cardLabel(p)+(p.description?" — "+p.description:""):"No current card on file.";
-  }else{call="I don’t see that exact player name in your Hall list.";detail="Check the spelling before we let money leave your wallet.";}
+    const gradeBits=[];
+    const cg=playerCurrentGrader(p),cv=playerCurrentGrade(p);
+    if(cg&&cg!=="Raw"&&cg!=="RAW")gradeBits.push(cg+(cv!==null?" "+cv:""));
+    detail=p.owned?"Current card: "+cardLabel(p)+(gradeBits.length?" — "+gradeBits.join(" "):(p.description?" — "+p.description:"")):"No current card on file.";
+  }else{call="This player isn’t part of your Baseball Hall of Fame inventory. Scout can still price the card without adding it to your HOF collection.";detail="Card Shop Mode valuation only.";}
   return {p,call,detail};
 }
 function verdictCopy(tier,card,data){
