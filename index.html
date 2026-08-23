@@ -42,7 +42,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .stat.complete{background:linear-gradient(145deg,rgba(230,189,99,.16),rgba(255,255,255,.04))}
 .progress{height:11px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;border:1px solid rgba(255,255,255,.05);margin-bottom:16px}
 .progress>span{display:block;height:100%;width:40.3%;background:linear-gradient(90deg,var(--green2),var(--gold));border-radius:999px}
-.quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+.quick-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:16px 0}
 .primary,.secondary,.danger,.ghost{min-height:48px;border-radius:14px;border:0;font-weight:900;padding:10px 14px}
 .primary{background:var(--gold);color:#211a0b}
 .secondary{background:var(--green);color:#072116}
@@ -202,6 +202,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
         <button class="primary" id="shopModeBtn">🔎 CHECK A CARD</button>
         <button class="ghost" id="targetsBtn">🎯 TARGET CARDS (<span id="targetCount">2</span>)</button>
         <button class="ghost" id="exportBtn">📤 EXPORT UPDATES</button>
+        <button class="ghost" id="importBtn">📥 IMPORT UPDATES</button>
+        <input id="importFile" type="file" accept=".json,application/json" hidden>
       </div>
 
       <div class="hero-card">
@@ -401,7 +403,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v3.1</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -692,12 +694,43 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"3.0",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"3.1",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1000);toast(names.length+" player update"+(names.length===1?"":"s")+" exported.");
 }
+function importUpdatesFile(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const payload=JSON.parse(String(reader.result||""));
+      if(!payload||typeof payload!=="object"||!payload.playerUpdates||typeof payload.playerUpdates!=="object"){
+        throw new Error("That file is not a HOF Card Scout updates export.");
+      }
+      const validNames=new Set(PLAYERS.map(p=>p.name));
+      const incoming={};
+      Object.entries(payload.playerUpdates).forEach(([name,data])=>{
+        if(validNames.has(name)&&data&&typeof data==="object") incoming[name]=data;
+      });
+      const names=Object.keys(incoming);
+      if(!names.length) throw new Error("Scout could not find any matching player updates in that file.");
+      const merged={...currentEdits(),...incoming};
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(merged));
+      PLAYERS.forEach(p=>{if(incoming[p.name]) Object.assign(p,incoming[p.name]);});
+      stats();rotateMission();buildAlphabet();renderList();
+      toast(names.length+" player update"+(names.length===1?"":"s")+" restored. Welcome back, cardboard.");
+    }catch(err){
+      toast(err.message||"Scout could not import that updates file.");
+    }finally{
+      $("importFile").value="";
+    }
+  };
+  reader.onerror=()=>toast("Scout could not read that file.");
+  reader.readAsText(file);
+}
+
 function openShop(prefill){
   returnScreen=document.querySelector(".screen.active")?.id||"homeScreen";
   if(prefill){
@@ -912,6 +945,8 @@ $("removeCardBtn").addEventListener("click",removeCurrentCard);
 $("undoRemoveBtn").addEventListener("click",undoRemove);
 $("manageForm").addEventListener("submit",saveManagedCard);
 $("exportBtn").addEventListener("click",exportUpdates);
+$("importBtn").addEventListener("click",()=>$("importFile").click());
+$("importFile").addEventListener("change",e=>importUpdatesFile(e.target.files&&e.target.files[0]));
 $("refreshValueBtn").addEventListener("click",valueRefresh);
 $("targetsBtn").addEventListener("click",showTargets);
 $("addTargetBtn").addEventListener("click",openTargetManage);
