@@ -365,21 +365,22 @@ function filteredPlayers(){
   let list=PLAYERS.slice();
   if(q) list=list.filter(p=>p.name.toLowerCase().includes(q));
   else if(activeLetter) list=list.filter(p=>lastInitial(p)===activeLetter);
-  else list=[];
+  // With no letter selected, the collection filters should still work across the entire Hall.
   if(activeFilter==="owned") list=list.filter(p=>p.owned);
   if(activeFilter==="need") list=list.filter(p=>!p.owned);
   if(activeFilter==="target") list=list.filter(p=>p.target);
+  if(!q&&!activeLetter&&activeFilter==="all") list=[];
   return list.sort((a,b)=>a.last.localeCompare(b.last)||a.name.localeCompare(b.name));
 }
 function renderList(){
   const q=$("playerSearch").value.trim();
   const list=filteredPlayers();
   const region=$("listRegion");
-  if(!q&&!activeLetter&&activeFilter!=="target"){region.hidden=true;$("letterHint").textContent=TOTAL+" players";return}
+  if(!q&&!activeLetter&&activeFilter==="all"){region.hidden=true;$("letterHint").textContent=TOTAL+" players";return}
   region.hidden=false;
-  let heading=q?"Search results":activeFilter==="target"&&!activeLetter?"Target cards":(activeLetter||"All");
+  let heading=q?"Search results":activeLetter?activeLetter:(activeFilter==="owned"?"Owned cards":activeFilter==="need"?"Needed cards":activeFilter==="target"?"Target cards":"All");
   $("listTitle").textContent=heading+" · "+list.length;
-  $("letterHint").textContent=q?list.length+" matches":activeLetter?list.length+" shown":TOTAL+" players";
+  $("letterHint").textContent=q?list.length+" matches":activeLetter?list.length+" shown":list.length+" shown";
   const box=$("playerList");box.innerHTML="";
   if(!list.length){box.innerHTML='<div class="empty">Nothing here. Scout checked twice.</div>';return}
   list.forEach(p=>{
