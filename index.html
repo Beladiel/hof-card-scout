@@ -128,6 +128,26 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .checks{display:flex;flex-wrap:wrap;gap:9px}
 .check{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.04);border:1px solid var(--line);padding:9px 11px;border-radius:12px;font-size:12px}
 .check input{width:18px;height:18px}
+
+.pricing-connect{margin:0 0 14px;border:1px solid var(--line);border-radius:15px;background:rgba(230,189,99,.07);padding:12px}
+.pricing-connect summary{cursor:pointer;font-weight:900;color:var(--gold)}
+.connect-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:9px;margin-top:10px}
+.connect-grid input{width:100%;min-height:42px;border-radius:11px;border:1px solid #3a5d52;background:#f9f4e8;color:var(--ink);padding:8px 10px}
+.connect-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+.market-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.market-stat{border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.04);padding:10px}
+.market-stat .k{font-size:9px;font-weight:950;letter-spacing:.1em;color:var(--muted)}
+.market-stat .v{font-size:20px;font-weight:950;margin-top:4px}
+.conf-badge{display:inline-block;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.07em}
+.conf-high{background:rgba(86,197,138,.16);color:#9de7bc}.conf-medium{background:rgba(230,189,99,.16);color:#f3d68e}.conf-low,.conf-insufficient{background:rgba(239,108,108,.14);color:#ffabab}
+.verdict{margin:12px 0;padding:13px;border-radius:14px;border:1px solid var(--line);background:linear-gradient(145deg,rgba(230,189,99,.12),rgba(255,255,255,.03))}
+.verdict .tag{font-size:10px;color:var(--gold);font-weight:950;letter-spacing:.12em}.verdict .big{font-size:23px;font-weight:950;margin:3px 0}.verdict .why{font-size:13px;color:var(--muted);line-height:1.45}
+.comp-list{margin-top:12px;border-top:1px solid var(--line)}
+.comp{display:grid;grid-template-columns:1fr auto;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.comp a{color:var(--text);text-decoration:none;font-size:12px;line-height:1.3}.comp .price{font-weight:950;color:var(--green)}.comp .date{font-size:10px;color:var(--muted);margin-top:2px}
+.source-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.source-row button{min-height:38px;font-size:11px}
+.loading-line{padding:10px 0;color:var(--muted);font-size:13px}
+@media(max-width:620px){.connect-grid,.market-grid{grid-template-columns:1fr}.market-grid{grid-template-columns:1fr 1fr}.market-grid .market-stat:last-child{grid-column:1/-1}}
 .result-box{margin-top:14px;border-radius:17px;border:1px solid var(--line);padding:14px;background:rgba(0,0,0,.12)}
 .result-box h3{margin:0 0 7px;font-size:17px}
 .result-box p{margin:4px 0;color:var(--muted);font-size:13px;line-height:1.4}
@@ -344,7 +364,16 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <button class="back" id="shopBack">← Back</button>
       <div class="form-panel">
         <h2 class="form-title">Card Shop Mode</h2>
-        <p class="form-sub">Give Scout the card in front of you. Scout checks it against your collection and can open sold listings; the automatic median-price engine is the next phase.</p>
+        <p class="form-sub">Give Scout the card in front of you. Live mode checks recent eBay sold comps, filters mismatches, calculates a market range, and gives you one buy / negotiate / walk verdict.</p>
+        <details class="pricing-connect" id="pricingConnect">
+          <summary>⚙️ Live Pricing Connection</summary>
+          <div class="connect-grid">
+            <div><label for="pricingEndpoint" style="display:block;font-size:11px;color:var(--muted);font-weight:850;margin-bottom:4px">Worker URL</label><input id="pricingEndpoint" placeholder="https://hof-card-scout-pricing.yourname.workers.dev"></div>
+            <div><label for="pricingAccessKey" style="display:block;font-size:11px;color:var(--muted);font-weight:850;margin-bottom:4px">Scout access key</label><input id="pricingAccessKey" type="password" autocomplete="off" placeholder="Saved only on this device"></div>
+          </div>
+          <div class="connect-actions"><button type="button" class="secondary" id="savePricingBtn">SAVE CONNECTION</button><button type="button" class="ghost" id="testPricingBtn">TEST CONNECTION</button></div>
+          <div id="pricingStatus" class="loading-line">Not connected yet.</div>
+        </details>
         <form id="shopForm">
           <div class="form-grid">
             <div class="field full"><label for="shopPlayer">Player</label><input id="shopPlayer" list="playerNames" required placeholder="Rickey Henderson"><datalist id="playerNames"></datalist></div>
@@ -663,7 +692,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"2.2",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"3.0",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -686,36 +715,145 @@ function findPlayer(name){
   const norm=name.trim().toLowerCase();
   return PLAYERS.find(p=>p.name.toLowerCase()===norm)||PLAYERS.find(p=>p.name.toLowerCase().includes(norm)||norm.includes(p.name.toLowerCase()));
 }
-function shopAnalysis(e){
-  e.preventDefault();
-  const name=$("shopPlayer").value.trim(), year=parseInt($("shopYear").value,10), set=$("shopSet").value.trim(), num=$("shopNum").value.trim();
-  const price=parseFloat($("shopPrice").value), grader=$("shopGrade").value, grade=$("shopGradeNum").value.trim(), serial=$("shopSerial").value.trim(), notes=$("shopNotes").value.trim();
-  const auto=$("shopAuto").checked,relic=$("shopRelic").checked,p=findPlayer(name);
-  const r=$("shopResult");r.hidden=false;
-  let call="",detail="";
+function pricingConfig(){
+  return {
+    endpoint:(localStorage.getItem("hofScoutPricingEndpoint")||"https://hof-card-scout-pricing.jz9j2778jh.workers.dev").trim().replace(/\/$/,""),
+    accessKey:localStorage.getItem("hofScoutAccessKey")||""
+  };
+}
+function loadPricingConfig(){
+  const c=pricingConfig();
+  $("pricingEndpoint").value=c.endpoint;
+  $("pricingAccessKey").value=c.accessKey;
+  updatePricingStatus(c.endpoint?"Connection saved on this device.":"Not connected yet.",c.endpoint?"ok":"idle");
+}
+function updatePricingStatus(text,state){
+  const el=$("pricingStatus"); if(!el)return;
+  el.textContent=text;
+  el.style.color=state==="ok"?"var(--green)":state==="bad"?"var(--red)":"var(--muted)";
+}
+function savePricingConfig(){
+  const endpoint=$("pricingEndpoint").value.trim().replace(/\/$/,"");
+  const accessKey=$("pricingAccessKey").value.trim();
+  if(!/^https:\/\//i.test(endpoint)){toast("Worker URL needs to start with https://");return false}
+  if(!accessKey){toast("Scout needs the Worker access key.");return false}
+  localStorage.setItem("hofScoutPricingEndpoint",endpoint);
+  localStorage.setItem("hofScoutAccessKey",accessKey);
+  updatePricingStatus("Connection saved on this device.","ok");
+  toast("Live pricing connection saved."); return true;
+}
+async function testPricingConnection(){
+  if(!savePricingConfig())return;
+  const c=pricingConfig(); updatePricingStatus("Testing Scout pricing backend…","idle");
+  try{
+    const res=await fetch(c.endpoint+"/health",{headers:{"X-Scout-Key":c.accessKey}});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok) throw new Error(data.message||data.error||("HTTP "+res.status));
+    if(!data.configured) throw new Error("Worker is reachable, but its SerpApi key is not configured.");
+    updatePricingStatus("Connected ✓ Live sold-comps provider is ready.","ok");toast("Scout live pricing is connected.");
+  }catch(err){updatePricingStatus("Connection failed: "+err.message,"bad");}
+}
+function shopCardPayload(){
+  return {
+    player:$("shopPlayer").value.trim(),
+    year:parseInt($("shopYear").value,10),
+    set:$("shopSet").value.trim(),
+    cardNum:$("shopNum").value.trim(),
+    shopPrice:parseFloat($("shopPrice").value),
+    grader:$("shopGrade").value,
+    grade:$("shopGradeNum").value.trim(),
+    serial:$("shopSerial").value.trim(),
+    notes:$("shopNotes").value.trim(),
+    autograph:$("shopAuto").checked,
+    relic:$("shopRelic").checked
+  };
+}
+function shopCollectionContext(card){
+  const p=findPlayer(card.player); let call="",detail="";
   if(p){
     if(!p.owned) call="Scout alert: this player is still on your NEED list.";
-    else if(year&&p.cardYear&&year<p.cardYear) call="Potential upgrade — this card is older than your current "+p.cardYear+" representative.";
-    else call="You already have "+p.name+" represented. This has to earn its roster spot.";
+    else if(card.year&&p.cardYear&&card.year<p.cardYear) call="Potential upgrade — this card is older than your current "+p.cardYear+" representative.";
+    else call="You already have "+p.name+" represented. This card has to earn its roster spot.";
     if(p.target){
-      const ty=parseInt(p.target,10);
-      if(year&&ty===year) call="🎯 TARGET MATCH. Okay, now you have Scout’s full attention.";
+      const targetYear=(String(p.target).match(/\b(18|19|20)\d{2}\b/)||[])[0];
+      if(card.year&&Number(targetYear)===card.year) call="🎯 TARGET MATCH. Okay, now you have Scout’s full attention.";
     }
     detail=p.owned?"Current card: "+cardLabel(p)+(p.description?" — "+p.description:""):"No current card on file.";
-  }else{
-    call="I don’t see that exact player name in your Hall list.";
-    detail="Check the spelling before we let money leave your wallet.";
+  }else{call="I don’t see that exact player name in your Hall list.";detail="Check the spelling before we let money leave your wallet.";}
+  return {p,call,detail};
+}
+function verdictCopy(tier,card,data){
+  const price=Number(card.shopPrice),median=Number(data.median), pct=Number.isFinite(price)&&Number.isFinite(median)&&median>0?Math.round((1-price/median)*100):null;
+  const pool={
+    steal:["BUY IT","Why are you still reading this? BUY IT.","Grab it before the shop owner changes their mind.","Scout says stop thinking and hand them the money."],
+    great_buy:["STRONG BUY","That price is doing you a favor. Accept the favor.","Very good buy. Initiate wallet deployment."],
+    good_buy:["BUY","Below the sold median with enough room to make Scout comfortable.","Good price. This one gets the green light."],
+    fair:["FAIR PRICE","Price is about right. Buy it if you love the card.","No robbery here, in either direction."],
+    high:["NEGOTIATE","Nice card. Not quite at that price.","I like the card more than I like the sticker."],
+    walk:["PASS","Nice card. Not at that price.","Tell the sticker price Scout said no.","Your wallet has been granted permission to remain closed."],
+    value_only:["MARKET CHECK","Scout has a market estimate, but needs a shop price for a buy/pass call."]
+  };
+  const arr=pool[tier]||pool.value_only; const title=arr[0], line=arr[1+Math.floor(Math.random()*Math.max(1,arr.length-1))]||arr[0];
+  let why="";
+  if(Number.isFinite(price)&&Number.isFinite(median)) why=`Shop price ${formatMoney(price)} vs. sold median ${formatMoney(median)}${pct!==null?` (${Math.abs(pct)}% ${pct>=0?"below":"above"} median)`:""}.`;
+  else if(Number.isFinite(median)) why=`Recent sold median is ${formatMoney(median)}.`;
+  return {title,line,why};
+}
+function confidenceClass(c){return ["high","medium","low","insufficient"].includes(c)?"conf-"+c:"conf-low"}
+function formatSoldDate(v){
+  if(!v)return ""; const d=new Date(v); if(Number.isNaN(d.getTime()))return String(v);
+  return d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+}
+function validationUrls(card){
+  const q=[card.year,card.set,card.player,card.cardNum?"#"+card.cardNum:"",card.grader!=="Raw"?card.grader:"",card.grade].filter(Boolean).join(" ");
+  return {
+    ebay:"https://www.ebay.com/sch/i.html?_nkw="+encodeURIComponent(q)+"&LH_Sold=1&LH_Complete=1",
+    psa:"https://www.psacard.com/auctionprices",
+    fanatics:"https://sales-history.fanaticscollect.com/?title="+encodeURIComponent(q),
+    heritage:"https://sports.ha.com/c/search/results.zx?ic4=Breadcrumb-071515"
+  };
+}
+function renderLiveResult(card,data,ctx){
+  const r=$("shopResult"), conf=(data.confidence||"low").toLowerCase(), v=verdictCopy(data.verdictTier,card,data), urls=validationUrls(card);
+  const median=Number.isFinite(Number(data.median))?formatMoney(data.median):"—";
+  const range=Number.isFinite(Number(data.low))&&Number.isFinite(Number(data.high))?formatMoney(data.low)+"–"+formatMoney(data.high):"—";
+  const comps=Number(data.used)||0;
+  const notes=(data.notes||[]).map(n=>'<p>• '+escapeHtml(n)+'</p>').join("");
+  const compHtml=(data.comps||[]).slice(0,8).map(c=>'<div class="comp"><div><a '+(c.link?'href="'+escapeHtml(c.link)+'" target="_blank" rel="noopener"':'')+'>'+escapeHtml(c.title||"Sold comp")+'</a><div class="date">'+escapeHtml(formatSoldDate(c.soldDate))+'</div></div><div class="price">'+escapeHtml(formatMoney(c.price))+'</div></div>').join("");
+  r.innerHTML=`<h3>${escapeHtml(ctx.call)}</h3><p>${escapeHtml(ctx.detail)}</p>
+    <div class="market-grid"><div class="market-stat"><div class="k">EBAY SOLD MEDIAN</div><div class="v">${median}</div></div><div class="market-stat"><div class="k">TYPICAL RANGE</div><div class="v">${range}</div></div><div class="market-stat"><div class="k">GOOD COMPS</div><div class="v">${comps}</div></div></div>
+    <div><span class="conf-badge ${confidenceClass(conf)}">${escapeHtml(conf)} confidence</span></div>
+    <div class="verdict"><div class="tag">SCOUT SAYS</div><div class="big">${escapeHtml(v.title)}</div><div class="why"><strong>${escapeHtml(v.line)}</strong><br>${escapeHtml(v.why)}</div></div>
+    ${notes?'<div>'+notes+'</div>':''}
+    <div class="source-row"><button type="button" class="ghost" id="manualEbayBtn">eBay sold</button><button type="button" class="ghost" id="psaBtn">PSA APR</button><button type="button" class="ghost" id="fanaticsBtn">Fanatics</button><button type="button" class="ghost" id="heritageBtn">Heritage</button></div>
+    ${compHtml?'<div class="comp-list"><div class="purchase-title" style="margin-top:12px">SOLD COMPS SCOUT USED</div>'+compHtml+'</div>':''}
+    <p style="margin-top:10px;font-size:10px;color:var(--muted)">eBay is the automated source in V3. PSA, Fanatics, and Heritage are validation links until we have compliant API access to their sold databases.</p>`;
+  $("manualEbayBtn").onclick=()=>window.open(urls.ebay,"_blank","noopener");
+  $("psaBtn").onclick=()=>window.open(urls.psa,"_blank","noopener");
+  $("fanaticsBtn").onclick=()=>window.open(urls.fanatics,"_blank","noopener");
+  $("heritageBtn").onclick=()=>window.open(urls.heritage,"_blank","noopener");
+}
+function renderPricingError(card,ctx,message){
+  const r=$("shopResult"),urls=validationUrls(card);
+  r.innerHTML=`<h3>${escapeHtml(ctx.call)}</h3><p>${escapeHtml(ctx.detail)}</p><p class="result-call">Live pricing couldn't finish: ${escapeHtml(message)}</p><div class="source-row"><button type="button" class="primary" id="fallbackEbay">OPEN EBAY SOLD</button></div>`;
+  $("fallbackEbay").onclick=()=>window.open(urls.ebay,"_blank","noopener");
+}
+async function shopAnalysis(e){
+  e.preventDefault();
+  const card=shopCardPayload(),ctx=shopCollectionContext(card),r=$("shopResult"); r.hidden=false;
+  if(!card.player||!Number.isInteger(card.year)||!card.set){renderPricingError(card,ctx,"Player, 4-digit year, and set are required for a trustworthy search.");return}
+  const c=pricingConfig();
+  if(!c.endpoint||!c.accessKey){
+    renderPricingError(card,ctx,"Live pricing is not connected yet. Open Live Pricing Connection above and save the Worker URL and Scout access key.");
+    $("pricingConnect").open=true;return;
   }
-  const priceLine=Number.isFinite(price)?"Shop price: $"+price.toFixed(2)+". ":"";
-  const query=[year||"",set,name,num?"#"+num:"",grader!=="Raw"?grader:"",grade,auto?"autograph":"",relic?"relic":"",serial,notes].filter(Boolean).join(" ");
-  const ebay="https://www.ebay.com/sch/i.html?_nkw="+encodeURIComponent(query)+"&LH_Sold=1&LH_Complete=1";
-  const prompt="Value this baseball card using recent SOLD comps, not asking prices. Card: "+query+(Number.isFinite(price)?". Shop price: $"+price.toFixed(2):"")+". Give me the median sold value, useful range, comp count/confidence, and a Scout-style buy/walk verdict.";
-  r.innerHTML='<h3>'+escapeHtml(call)+'</h3><p>'+escapeHtml(detail)+'</p><p class="result-call">'+escapeHtml(priceLine)+'Live median pricing is not connected in this static build, and Scout refuses to fake a number with your money.</p><div class="result-actions"><button type="button" class="primary" id="soldBtn">OPEN SOLD LISTINGS</button><button type="button" class="ghost" id="copyBtn">COPY SCOUT REQUEST</button></div>';
-  $("soldBtn").addEventListener("click",()=>window.open(ebay,"_blank","noopener"));
-  $("copyBtn").addEventListener("click",async()=>{
-    try{await navigator.clipboard.writeText(prompt);toast("Scout request copied.");}
-    catch(err){window.prompt("Copy this Scout request:",prompt);}
-  });
+  r.innerHTML=`<h3>${escapeHtml(ctx.call)}</h3><p>${escapeHtml(ctx.detail)}</p><div class="loading-line">Scout is checking recent SOLD listings and throwing out obvious mismatches… ⚾</div>`;
+  try{
+    const res=await fetch(c.endpoint+"/value",{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},body:JSON.stringify(card)});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok) throw new Error(data.message||data.error||("Pricing service returned "+res.status));
+    renderLiveResult(card,data,ctx);
+  }catch(err){renderPricingError(card,ctx,err.message||"Unknown pricing error.");}
 }
 function openTargetManage(){
   $("targetForm").reset();
@@ -787,7 +925,10 @@ document.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{
   renderList();
 }));
 $("shopForm").addEventListener("submit",shopAnalysis);
+$("savePricingBtn").addEventListener("click",savePricingConfig);
+$("testPricingBtn").addEventListener("click",testPricingConnection);
 
+loadPricingConfig();
 stats();rotateMission();buildAlphabet();populateNames();renderList();
 </script>
 </body>
