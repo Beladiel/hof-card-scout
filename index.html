@@ -392,9 +392,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
           <div id="pricingStatus" class="loading-line">Not connected yet.</div>
         </details>
         <div class="shop-tools">
-          <label class="fast-toggle"><input type="checkbox" id="fastModeToggle"> ⚡ Card Show Fast Entry</label>
+          <label class="fast-toggle"><input type="checkbox" id="fastModeToggle"> ⚡ Fast Mode</label>
         </div>
-        <div class="fast-note">Fast Entry hides optional details. Scout still uses player, year, set, card #, price, grader and grade.</div>
+        <div class="fast-note">Fast Mode hides optional details and favors speed. Scout uses recent cached comps when available and only calls the backup source when needed. Turn Fast Mode off for a deeper check.</div>
         <div class="recent-wrap" id="recentWrap">
           <div class="recent-head">
             <div class="recent-title">RECENT SEARCHES</div>
@@ -464,7 +464,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v3.4</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v3.5</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -755,7 +755,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"3.4",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"3.5",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -968,7 +968,7 @@ async function testPricingConnection(){
     const res=await fetch(c.endpoint+"/health",{headers:{"X-Scout-Key":c.accessKey}});
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok) throw new Error(data.message||data.error||("HTTP "+res.status));
-    if(!data.configured) throw new Error("Worker is reachable, but its SerpApi key is not configured.");
+    if(!data.configured) throw new Error("Worker is reachable, but no sold-comps provider is configured.");
     updatePricingStatus("Connected ✓ Live sold-comps provider is ready.","ok");toast("Scout live pricing is connected.");
   }catch(err){updatePricingStatus("Connection failed: "+err.message,"bad");}
 }
@@ -984,7 +984,8 @@ function shopCardPayload(){
     serial:$("shopSerial").value.trim(),
     notes:$("shopNotes").value.trim(),
     autograph:$("shopAuto").checked,
-    relic:$("shopRelic").checked
+    relic:$("shopRelic").checked,
+    fastMode:$("fastModeToggle").checked
   };
 }
 function comparableText(v){return String(v||"").toLowerCase().replace(/[^a-z0-9]+/g,"")}
@@ -1074,16 +1075,19 @@ function renderLiveResult(card,data,ctx){
   const median=Number.isFinite(Number(data.median))?formatMoney(data.median):"—";
   const range=Number.isFinite(Number(data.low))&&Number.isFinite(Number(data.high))?formatMoney(data.low)+"–"+formatMoney(data.high):"—";
   const comps=Number(data.used)||0;
+  const provider=data.provider||"eBay sold comps";
+  const speedBits=[data.mode==="fast"?"⚡ Fast Mode":"Deep Check",data.cacheHit?"cached result":null].filter(Boolean).join(" · ");
   const notes=(data.notes||[]).map(n=>'<p>• '+escapeHtml(n)+'</p>').join("");
   const compHtml=(data.comps||[]).slice(0,8).map(c=>'<div class="comp"><div><a '+(c.link?'href="'+escapeHtml(c.link)+'" target="_blank" rel="noopener"':'')+'>'+escapeHtml(c.title||"Sold comp")+'</a><div class="date">'+escapeHtml(formatSoldDate(c.soldDate))+'</div></div><div class="price">'+escapeHtml(formatMoney(c.price))+'</div></div>').join("");
   r.innerHTML=`<h3>${escapeHtml(ctx.call)}</h3><p>${escapeHtml(ctx.detail)}</p>
     <div class="market-grid"><div class="market-stat"><div class="k">EBAY SOLD MEDIAN</div><div class="v">${median}</div></div><div class="market-stat"><div class="k">TYPICAL RANGE</div><div class="v">${range}</div></div><div class="market-stat"><div class="k">GOOD COMPS</div><div class="v">${comps}</div></div></div>
     <div><span class="conf-badge ${confidenceClass(conf)}">${escapeHtml(conf)} confidence</span></div>
+    <p style="margin:8px 0 0;font-size:11px;color:var(--muted)"><strong>Pricing source:</strong> ${escapeHtml(provider)}${speedBits?" · "+escapeHtml(speedBits):""}</p>
     <div class="verdict"><div class="tag">SCOUT SAYS</div><div class="big">${escapeHtml(v.title)}</div><div class="why"><strong>${escapeHtml(v.line)}</strong><br>${escapeHtml(v.why)}</div></div>
     ${notes?'<div>'+notes+'</div>':''}
     <div class="source-row"><button type="button" class="ghost" id="manualEbayBtn">eBay sold</button><button type="button" class="ghost" id="psaBtn">PSA APR</button><button type="button" class="ghost" id="fanaticsBtn">Fanatics</button><button type="button" class="ghost" id="heritageBtn">Heritage</button></div>
     ${compHtml?'<div class="comp-list"><div class="purchase-title" style="margin-top:12px">SOLD COMPS SCOUT USED</div>'+compHtml+'</div>':''}
-    <p style="margin-top:10px;font-size:10px;color:var(--muted)">eBay is the automated source in V3. PSA, Fanatics, and Heritage are validation links until we have compliant API access to their sold databases.</p>`;
+    <p style="margin-top:10px;font-size:10px;color:var(--muted)">eBay sold comps are automated through SerpApi with Apify as the backup. PSA, Fanatics, and Heritage remain validation links until we have compliant API access to their sold databases.</p>`;
   $("manualEbayBtn").onclick=()=>window.open(urls.ebay,"_blank","noopener");
   $("psaBtn").onclick=()=>window.open(urls.psa,"_blank","noopener");
   $("fanaticsBtn").onclick=()=>window.open(urls.fanatics,"_blank","noopener");
@@ -1104,7 +1108,8 @@ async function shopAnalysis(e){
     renderPricingError(card,ctx,"Live pricing is not connected yet. Open Live Pricing Connection above and save the Worker URL and Scout access key.");
     $("pricingConnect").open=true;return;
   }
-  r.innerHTML=`<h3>${escapeHtml(ctx.call)}</h3><p>${escapeHtml(ctx.detail)}</p><div class="loading-line">Scout is checking recent SOLD listings and throwing out obvious mismatches… ⚾</div>`;
+  const loadingText=card.fastMode?"⚡ Fast Mode: checking recent SOLD listings…":"Deep Check: searching recent SOLD listings and backup comps when needed…";
+  r.innerHTML=`<h3>${escapeHtml(ctx.call)}</h3><p>${escapeHtml(ctx.detail)}</p><div class="loading-line">${escapeHtml(loadingText)}</div>`;
   try{
     const res=await fetch(c.endpoint+"/value",{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},body:JSON.stringify(card)});
     const data=await res.json().catch(()=>({}));
