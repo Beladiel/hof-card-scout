@@ -70,7 +70,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .chip.active{background:var(--cream);color:var(--ink)}
 .list-head{padding:13px 15px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:center}
 .list-head strong{font-size:17px}
-.legend{display:flex;gap:10px;font-size:11px;color:var(--muted);font-weight:800}
+.list-tools{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}.list-tools .primary{min-height:38px;padding:7px 11px;font-size:11px}.legend{display:flex;gap:10px;font-size:11px;color:var(--muted);font-weight:800}
 .player-list{background:rgba(0,0,0,.08)}
 .player-row{width:100%;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--text);padding:12px 14px;display:grid;grid-template-columns:30px 1fr 22px;gap:9px;align-items:center;text-align:left;min-height:62px}
 .player-row:last-child{border-bottom:0}
@@ -180,7 +180,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
       <div class="quick-grid">
         <button class="primary" id="shopModeBtn">🔎 CHECK A CARD</button>
-        <button class="ghost" id="targetsBtn">🎯 TARGET CARDS <span id="targetCount">2</span></button>
+        <button class="ghost" id="targetsBtn">🎯 TARGET CARDS (<span id="targetCount">2</span>)</button>
         <button class="ghost" id="exportBtn">📤 EXPORT UPDATES</button>
       </div>
 
@@ -222,7 +222,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
         <div id="listRegion" hidden>
           <div class="list-head">
             <strong id="listTitle"></strong>
-            <div class="legend"><span style="color:var(--green)">✓ Owned</span><span style="color:var(--red)">✕ Need</span></div>
+            <div class="list-tools">
+              <button class="primary" id="addTargetBtn" type="button" hidden>＋ ADD TARGET CARD</button>
+              <div class="legend"><span style="color:var(--green)">✓ Owned</span><span style="color:var(--red)">✕ Need</span></div>
+            </div>
           </div>
           <div class="player-list" id="playerList"></div>
         </div>
@@ -319,6 +322,24 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       </div>
     </section>
 
+    <section class="screen" id="targetManageScreen">
+      <button class="back" id="targetManageBack">← Back to Target Cards</button>
+      <div class="form-panel">
+        <h2 class="form-title">Add Target Card</h2>
+        <p class="form-sub">Add a specific card you want to hunt. Scout will keep it on your Target Cards list whether you already own the player or still need them.</p>
+        <form id="targetForm">
+          <div class="form-grid">
+            <div class="field full"><label for="targetPlayer">Player</label><input id="targetPlayer" list="playerNames" required placeholder="Rickey Henderson"></div>
+            <div class="field"><label for="targetYear">Target year</label><input id="targetYear" inputmode="numeric" maxlength="4" required placeholder="1980"></div>
+            <div class="field"><label for="targetSet">Set</label><input id="targetSet" required placeholder="Topps"></div>
+            <div class="field"><label for="targetNum">Card #</label><input id="targetNum" placeholder="482"></div>
+            <div class="field full"><label for="targetNotes">Target notes</label><textarea id="targetNotes" placeholder="Rookie, preferred grade, price ceiling, condition, etc."></textarea></div>
+          </div>
+          <button class="primary" type="submit" style="width:100%;margin-top:14px">SAVE TARGET CARD</button>
+        </form>
+      </div>
+    </section>
+
     <section class="screen" id="shopScreen">
       <button class="back" id="shopBack">← Back</button>
       <div class="form-panel">
@@ -383,7 +404,7 @@ function savePlayerEdit(p){
     owned:p.owned,cardYear:p.cardYear||null,set:p.set||"",cardNum:p.cardNum||"",description:p.description||"",
     grader:p.grader||"Raw",gradeCondition:p.gradeCondition||"",autograph:!!p.autograph,serial:p.serial||"",relic:!!p.relic,
     incoming:!!p.incoming,pricePaid:p.pricePaid??null,purchaseDate:p.purchaseDate||"",purchaseSource:p.purchaseSource||"",
-    userNotes:p.userNotes||"",target:p.target||"",median:p.median??null,low:p.low??null,high:p.high??null,comps:p.comps??null,confidence:p.confidence||"",lastChecked:p.lastChecked||""
+    userNotes:p.userNotes||"",target:p.target||"",targetNotes:p.targetNotes||"",median:p.median??null,low:p.low??null,high:p.high??null,comps:p.comps??null,confidence:p.confidence||"",lastChecked:p.lastChecked||""
   };
   localStorage.setItem(STORAGE_KEY,JSON.stringify(edits));
 }
@@ -393,7 +414,7 @@ function completion(){return ownedCount()/TOTAL*100}
 loadLocalEdits();
 
 const $=id=>document.getElementById(id);
-const homeScreen=$("homeScreen"), detailScreen=$("detailScreen"), manageScreen=$("manageScreen"), shopScreen=$("shopScreen");
+const homeScreen=$("homeScreen"), detailScreen=$("detailScreen"), manageScreen=$("manageScreen"), targetManageScreen=$("targetManageScreen"), shopScreen=$("shopScreen");
 
 function lastInitial(p){return (p.last||p.name).trim().charAt(0).toUpperCase()}
 function cardLabel(p){
@@ -423,7 +444,7 @@ function purchaseSummary(p){
 }
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
 function showScreen(id){
-  [homeScreen,detailScreen,manageScreen,shopScreen].forEach(s=>s.classList.toggle("active",s.id===id));
+  [homeScreen,detailScreen,manageScreen,targetManageScreen,shopScreen].forEach(s=>s.classList.toggle("active",s.id===id));
   window.scrollTo({top:0,behavior:"smooth"});
 }
 function toast(msg){
@@ -478,6 +499,7 @@ function renderList(){
   const q=$("playerSearch").value.trim();
   const list=filteredPlayers();
   const region=$("listRegion");
+  $("addTargetBtn").hidden=activeFilter!=="target";
   if(!q&&!activeLetter&&activeFilter==="all"){region.hidden=true;$("letterHint").textContent=TOTAL+" players";return}
   region.hidden=false;
   let heading=q?"Search results":activeLetter?activeLetter:(activeFilter==="owned"?"Owned cards":activeFilter==="need"?"Needed cards":activeFilter==="target"?"Target cards":"All");
@@ -507,7 +529,7 @@ function openPlayer(p){
   }else{
     $("cardYearBig").textContent="NEEDED";$("cardSetBig").textContent="This spot is open.";
     $("cardNumBig").textContent="Find a card you like — older-era cards get Scout bonus points.";
-    $("cardNote").textContent=p.target?"Target on file: "+p.target:"No target card entered yet.";
+    $("cardNote").textContent=p.target?("Target on file: "+p.target+(p.targetNotes?" — "+p.targetNotes:"")):"No target card entered yet.";
     $("cardStage").style.opacity=".92";
   }
   $("medianValue").textContent=p.median?"$"+Number(p.median).toFixed(2):"Not priced yet";
@@ -641,7 +663,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"2.1",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"2.2",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -695,6 +717,36 @@ function shopAnalysis(e){
     catch(err){window.prompt("Copy this Scout request:",prompt);}
   });
 }
+function openTargetManage(){
+  $("targetForm").reset();
+  showScreen("targetManageScreen");
+}
+function saveTargetCard(e){
+  e.preventDefault();
+  const name=$("targetPlayer").value.trim();
+  const p=PLAYERS.find(x=>x.name.toLowerCase()===name.toLowerCase());
+  if(!p){toast("Scout needs an exact Hall of Famer from the player list.");return}
+  const year=parseInt($("targetYear").value.trim(),10);
+  const set=$("targetSet").value.trim();
+  const num=$("targetNum").value.trim();
+  const notes=$("targetNotes").value.trim();
+  if(!Number.isInteger(year)||year<1800||year>2100){toast("Target year needs to be a 4-digit year.");return}
+  if(!set){toast("Scout needs the target set name.");return}
+  const label=[year,set,num?"#"+num:""] .filter(Boolean).join(" ");
+  if(p.target&&p.target!==label){
+    const ok=window.confirm(p.name+" already has a target: "+p.target+". Replace it with "+label+"?");
+    if(!ok)return;
+  }
+  p.target=label;p.targetNotes=notes;savePlayerEdit(p);stats();rotateMission();
+  showScreen("homeScreen");showTargets();
+  const msgs=[
+    "Target acquired. Now we wait for the cardboard gods to cooperate.",
+    p.name+" is officially on the shopping radar.",
+    "Target saved. Scout will keep an eye out for "+label+".",
+    "Wish list upgraded. Your wallet has been warned."
+  ];
+  toast(msgs[Math.floor(Math.random()*msgs.length)]);
+}
 function showTargets(){
   activeLetter=null;activeFilter="target";$("playerSearch").value="";
   document.querySelectorAll(".letter").forEach(b=>b.classList.remove("active"));
@@ -724,6 +776,9 @@ $("manageForm").addEventListener("submit",saveManagedCard);
 $("exportBtn").addEventListener("click",exportUpdates);
 $("refreshValueBtn").addEventListener("click",valueRefresh);
 $("targetsBtn").addEventListener("click",showTargets);
+$("addTargetBtn").addEventListener("click",openTargetManage);
+$("targetManageBack").addEventListener("click",()=>{showScreen("homeScreen");showTargets();});
+$("targetForm").addEventListener("submit",saveTargetCard);
 $("playerSearch").addEventListener("input",()=>{activeLetter=null;document.querySelectorAll(".letter").forEach(b=>b.classList.remove("active"));renderList()});
 document.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{
   activeFilter=c.dataset.filter;
