@@ -149,6 +149,18 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .market-stat .v{font-size:20px;font-weight:950;margin-top:4px}
 .conf-badge{display:inline-block;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.07em}
 .conf-high{background:rgba(86,197,138,.16);color:#9de7bc}.conf-medium{background:rgba(230,189,99,.16);color:#f3d68e}.conf-low,.conf-insufficient{background:rgba(239,108,108,.14);color:#ffabab}
+
+.buy-target-title{font-size:10px;font-weight:950;letter-spacing:.12em;color:var(--gold);margin:13px 0 7px}
+.buy-target-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 12px}
+.buy-target{border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.035);padding:10px}
+.buy-target.great{border-color:rgba(65,190,116,.6)}
+.buy-target.ceiling{border-color:rgba(230,189,99,.65)}
+.buy-target.walk{border-color:rgba(240,95,95,.58)}
+.buy-target .k{font-size:9px;font-weight:950;letter-spacing:.09em;color:var(--muted)}
+.buy-target .v{font-size:22px;font-weight:950;margin:3px 0}
+.buy-target .hint{font-size:10px;color:var(--muted);line-height:1.35}
+.grade-disabled{opacity:.55;cursor:not-allowed}
+
 .verdict{margin:12px 0;padding:13px;border-radius:14px;border:1px solid var(--line);background:linear-gradient(145deg,rgba(230,189,99,.12),rgba(255,255,255,.03))}
 .verdict .tag{font-size:10px;color:var(--gold);font-weight:950;letter-spacing:.12em}.verdict .big{font-size:23px;font-weight:950;margin:3px 0}.verdict .why{font-size:13px;color:var(--muted);line-height:1.45}
 .comp-list{margin-top:12px;border-top:1px solid var(--line)}
@@ -171,7 +183,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .fast-note{display:none;color:var(--gold);font-size:11px;font-weight:850;margin:-4px 0 10px}
 .fast-mode .fast-note{display:block}
 .grade-other[hidden]{display:none}
-@media(max-width:620px){.connect-grid,.market-grid{grid-template-columns:1fr}.market-grid{grid-template-columns:1fr 1fr}.market-grid .market-stat:last-child{grid-column:1/-1}}
+@media(max-width:620px){.connect-grid,.market-grid{grid-template-columns:1fr}.market-grid{grid-template-columns:1fr 1fr}.market-grid .market-stat:last-child{grid-column:1/-1}.buy-target-grid{grid-template-columns:1fr}.buy-target .v{font-size:21px}}
 .result-box{margin-top:14px;border-radius:17px;border:1px solid var(--line);padding:14px;background:rgba(0,0,0,.12)}
 .result-box h3{margin:0 0 7px;font-size:17px}
 .result-box p{margin:4px 0;color:var(--muted);font-size:13px;line-height:1.4}
@@ -391,7 +403,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <button class="back" id="shopBack">← Back</button>
       <div class="form-panel">
         <h2 class="form-title">Card Shop Mode</h2>
-        <p class="form-sub">Give Scout the card in front of you. Live mode checks recent eBay sold comps, filters mismatches, calculates a market range, and gives you one buy / negotiate / walk verdict. PSA slabs can now be verified directly by cert number.</p>
+        <p class="form-sub">Give Scout the card in front of you. Live mode checks recent eBay sold comps, filters mismatches, calculates Smart Buy Targets, and gives you a buy / fair / negotiate / pass verdict. PSA slabs can also be verified directly by cert number.</p>
         <details class="pricing-connect" id="pricingConnect">
           <summary>⚙️ Live Pricing Connection</summary>
           <div class="connect-grid">
@@ -420,13 +432,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
               <select id="shopSetPreset">
                 <option value="">Choose a set…</option>
                 <option>Topps</option>
-                <option>1953 Topps Archives</option>
                 <option>Fleer</option>
                 <option>Upper Deck</option>
                 <option>Donruss</option>
-                <option>Kmart</option>
                 <option>Fleer Update</option>
-                <option>Topps Circle K</option>
                 <option>Fleer Ultra</option>
                 <option>Bowman</option>
                 <option>Score</option>
@@ -438,7 +447,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
               <input id="shopSet" placeholder="Enter set name" style="margin-top:7px" hidden>
             </div>
             <div class="field"><label for="shopNum">Card #</label><input id="shopNum" placeholder="482"></div>
-            <div class="field"><label for="shopPrice">Shop price</label><input id="shopPrice" inputmode="decimal" placeholder="25.00"></div>
+            <div class="field"><label for="shopPrice">Shop price (optional)</label><input id="shopPrice" inputmode="decimal" placeholder="Leave blank for targets only"></div>
             <div class="field"><label for="shopGrade">Raw / grading company</label>
               <select id="shopGrade">
                 <option>Raw</option>
@@ -481,7 +490,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v3.9.0</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.0.0</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -809,7 +818,7 @@ function importUpdatesFile(file){
   reader.readAsText(file);
 }
 
-const SHOP_SET_PRESETS=["Topps","1953 Topps Archives","Fleer","Upper Deck","Donruss","Kmart","Fleer Update","Topps Circle K","Fleer Ultra","Bowman","Score","Topps Traded","Topps Heritage","Topps Finest"];
+const SHOP_SET_PRESETS=["Topps","Fleer","Upper Deck","Donruss","Fleer Update","Fleer Ultra","Bowman","Score","Topps Traded","Topps Heritage","Topps Finest"];
 function canonicalSetPreset(value){
   const raw=String(value||"").trim();
   const simple=raw.toLowerCase().replace(/[^a-z0-9]/g,"");
@@ -837,8 +846,13 @@ function resolvedShopGrader(){
 function syncShopGrader(){
   const other=$("shopGrade").value==="__other__";
   const psa=$("shopGrade").value==="PSA";
+  const raw=$("shopGrade").value==="Raw";
   $("shopGradeOther").hidden=!other;
   $("psaVerifyWrap").hidden=!psa;
+  $("shopGradeNum").disabled=raw;
+  $("shopGradeNum").classList.toggle("grade-disabled",raw);
+  $("shopGradeNum").placeholder=raw?"Not used for Raw":"9, 7.5, VG-EX, etc.";
+  if(raw)$("shopGradeNum").value="";
   if(other&&!$("shopGradeOther").value)$("shopGradeOther").focus();
   if(!psa) resetPsaVerification(false);
 }
@@ -935,10 +949,10 @@ function loadRecentSearch(card){
     $("shopGrade").value="__other__";
     $("shopGradeOther").value=grader;
   }
+  $("shopGradeNum").value=grader==="Raw"?"":(card.grade||"");
   syncShopGrader();
   $("shopPsaCert").value=card.psaCert||"";
   resetPsaVerification(false);
-  $("shopGradeNum").value=card.grade||"";
   $("shopSerial").value=card.serial||"";
   $("shopNotes").value=card.notes||"";
   $("shopAuto").checked=!!card.autograph;
@@ -1052,7 +1066,7 @@ function shopCardPayload(){
     cardNum:$("shopNum").value.trim(),
     shopPrice:parseFloat($("shopPrice").value),
     grader:resolvedShopGrader(),
-    grade:$("shopGradeNum").value.trim(),
+    grade:resolvedShopGrader()==="Raw"?"":$("shopGradeNum").value.trim(),
     psaCert:resolvedShopGrader()==="PSA"?$("shopPsaCert").value.trim():"",
     serial:$("shopSerial").value.trim(),
     notes:$("shopNotes").value.trim(),
@@ -1112,6 +1126,94 @@ function shopCollectionContext(card){
   }else{call="This player isn’t part of your Baseball Hall of Fame inventory. Scout can still price the card without adding it to your HOF collection.";detail="Card Shop Mode valuation only.";}
   return {p,call,detail};
 }
+
+function phase2dClamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function phase2dPracticalStep(v){
+  if(v<10)return .25;
+  if(v<25)return .5;
+  if(v<100)return 1;
+  if(v<250)return 2;
+  if(v<1000)return 5;
+  return 10;
+}
+function phase2dPracticalRound(v){
+  if(!Number.isFinite(v))return null;
+  const step=phase2dPracticalStep(v);
+  return Math.round(v/step)*step;
+}
+function phase2dPctText(value,median){
+  if(!Number.isFinite(value)||!Number.isFinite(median)||median<=0)return "";
+  const p=(value/median-1)*100;
+  if(Math.abs(p)<.5)return "about median";
+  return Math.abs(Math.round(p))+"% "+(p<0?"below":"above")+" median";
+}
+function smartBuyTargets(data){
+  const median=Number(data.median);
+  if(!Number.isFinite(median)||median<=0)return null;
+
+  const market=data.confidenceLab?.market||{};
+  const score=Number.isFinite(Number(market.score))?Number(market.score):Number(data.confidenceScore||50);
+  const conf=phase2dClamp(score/100,0,1);
+  const spreadRaw=Number(market.components?.priceConsistency?.iqrToMedian);
+  const low=Number(data.low),high=Number(data.high);
+  const fallbackSpread=Number.isFinite(low)&&Number.isFinite(high)&&median>0?(high-low)/median:.60;
+  const spread=phase2dClamp(Number.isFinite(spreadRaw)?spreadRaw:fallbackSpread,0,1.5);
+  const spreadForBuffer=Math.min(spread,1);
+
+  const greatDiscount=phase2dClamp(.12+.12*(1-conf)+.08*spreadForBuffer,.14,.32);
+  const ceilingDiscount=phase2dClamp(.02+.08*(1-conf)+.05*spreadForBuffer,.04,.18);
+  const walkPremium=phase2dClamp(.08*conf-.05*spreadForBuffer,-.03,.06);
+
+  let greatRaw=median*(1-greatDiscount);
+  if(Number.isFinite(low)&&low>0&&low<greatRaw){
+    const softenedLow=low*1.02;
+    greatRaw=(greatRaw*.75)+(softenedLow*.25);
+  }
+  greatRaw=Math.max(greatRaw,median*.68);
+
+  const ceilingRaw=median*(1-ceilingDiscount);
+  let walkRaw=median*(1+walkPremium);
+  if(Number.isFinite(high)&&high>0)walkRaw=Math.min(walkRaw,high*1.02);
+
+  let great=phase2dPracticalRound(greatRaw);
+  let ceiling=phase2dPracticalRound(ceilingRaw);
+  let walk=phase2dPracticalRound(walkRaw);
+
+  if(ceiling<=great)ceiling=great+phase2dPracticalStep(great);
+  if(walk<=ceiling)walk=ceiling+phase2dPracticalStep(ceiling);
+
+  return {
+    median,score,spread,great,ceiling,walk,
+    greatDiscount,ceilingDiscount,walkPremium
+  };
+}
+function phase2dVerdictTier(card,targets){
+  const price=Number(card.shopPrice);
+  if(!targets)return "insufficient";
+  if(!Number.isFinite(price)||price<=0)return "value_only";
+  if(price<=targets.great)return "steal";
+  if(price<=targets.ceiling)return "good_buy";
+  if(price<=targets.median)return "fair";
+  if(price<=targets.walk)return "high";
+  return "walk";
+}
+function smartBuyTargetsHtml(targets){
+  if(!targets){
+    return `<div class="buy-target-title">SMART BUY TARGETS</div>
+      <div class="buy-target-grid">
+        <div class="buy-target great"><div class="k">🟢 GREAT BUY</div><div class="v">—</div><div class="hint">Not enough reliable sales.</div></div>
+        <div class="buy-target ceiling"><div class="k">🟡 BUY CEILING</div><div class="v">—</div><div class="hint">Scout is withholding a target.</div></div>
+        <div class="buy-target walk"><div class="k">🔴 WALK-AWAY</div><div class="v">—</div><div class="hint">Scout will not invent a price.</div></div>
+      </div>`;
+  }
+  return `<div class="buy-target-title">SMART BUY TARGETS</div>
+    <div class="buy-target-grid">
+      <div class="buy-target great"><div class="k">🟢 GREAT BUY</div><div class="v">${escapeHtml(formatMoney(targets.great))}</div><div class="hint">${escapeHtml(phase2dPctText(targets.great,targets.median))} · grab-it territory</div></div>
+      <div class="buy-target ceiling"><div class="k">🟡 BUY CEILING</div><div class="v">${escapeHtml(formatMoney(targets.ceiling))}</div><div class="hint">${escapeHtml(phase2dPctText(targets.ceiling,targets.median))} · highest price Scout still considers a buy</div></div>
+      <div class="buy-target walk"><div class="k">🔴 WALK-AWAY</div><div class="v">${escapeHtml(formatMoney(targets.walk))}</div><div class="hint">${escapeHtml(phase2dPctText(targets.walk,targets.median))} · above this, keep walking</div></div>
+    </div>`;
+}
+
 function verdictCopy(tier,card,data){
   const price=Number(card.shopPrice),median=Number(data.median), pct=Number.isFinite(price)&&Number.isFinite(median)&&median>0?Math.round((1-price/median)*100):null;
   const pool={
@@ -1121,11 +1223,13 @@ function verdictCopy(tier,card,data){
     fair:["FAIR PRICE","Price is about right. Buy it if you love the card.","No robbery here, in either direction."],
     high:["NEGOTIATE","Nice card. Not quite at that price.","I like the card more than I like the sticker."],
     walk:["PASS","Nice card. Not at that price.","Tell the sticker price Scout said no.","Your wallet has been granted permission to remain closed."],
-    value_only:["MARKET CHECK","Scout has a market estimate, but needs a shop price for a buy/pass call."]
+    value_only:["MARKET CHECK","Scout found the market. Add a shop price whenever you want the buy/pass call."],
+    insufficient:["NOT ENOUGH MARKET EVIDENCE","Scout would rather show no number than make one up.","Too few reliable comps. False precision has been benched."]
   };
   const arr=pool[tier]||pool.value_only; const title=arr[0], line=arr[1+Math.floor(Math.random()*Math.max(1,arr.length-1))]||arr[0];
   let why="";
-  if(Number.isFinite(price)&&Number.isFinite(median)) why=`Shop price ${formatMoney(price)} vs. sold median ${formatMoney(median)}${pct!==null?` (${Math.abs(pct)}% ${pct>=0?"below":"above"} median)`:""}.`;
+  if(tier==="insufficient") why="Scout could not establish a reliable sold median for this exact card.";
+  else if(Number.isFinite(price)&&Number.isFinite(median)) why=`Shop price ${formatMoney(price)} vs. sold median ${formatMoney(median)}${pct!==null?` (${Math.abs(pct)}% ${pct>=0?"below":"above"} median)`:""}.`;
   else if(Number.isFinite(median)) why=`Recent sold median is ${formatMoney(median)}.`;
   return {title,line,why};
 }
@@ -1144,7 +1248,9 @@ function validationUrls(card){
   };
 }
 function renderLiveResult(card,data,ctx){
-  const r=$("shopResult"), conf=(data.confidence||"low").toLowerCase(), v=verdictCopy(data.verdictTier,card,data), urls=validationUrls(card);
+  const targets=smartBuyTargets(data);
+  const phase2dTier=phase2dVerdictTier(card,targets);
+  const r=$("shopResult"), conf=(data.confidence||"low").toLowerCase(), v=verdictCopy(phase2dTier,card,data), urls=validationUrls(card);
   const median=Number.isFinite(Number(data.median))?formatMoney(data.median):"—";
   const range=Number.isFinite(Number(data.low))&&Number.isFinite(Number(data.high))?formatMoney(data.low)+"–"+formatMoney(data.high):"—";
   const comps=Number(data.used)||0;
@@ -1160,7 +1266,7 @@ function renderLiveResult(card,data,ctx){
         <strong>Source agreement:</strong> ${escapeHtml(String(marketLab.components?.retrievalSourceAgreement?.score??0))}/20 ·
         <strong>Best Offer:</strong> ${escapeHtml(String(marketLab.components?.confirmedBestOfferPricing?.score??0))}/10
         ${identityLab?`<br><strong>Card identity:</strong> ${escapeHtml(String(identityLab.score))}/100 · ${escapeHtml(String(identityLab.level||"").toUpperCase())}`:""}
-        <br><em>Scout’s confidence score reflects the strength of the sold-price evidence. BUY / NEGOTIATE / PASS price thresholds are unchanged.</em>
+        <br><em>Scout’s confidence score reflects the strength of the sold-price evidence. Smart Buy Targets widen or tighten with confidence and price spread.</em>
       </div>
     </details>`:"";
   const compHtml=(data.comps||[]).slice(0,8).map(c=>'<div class="comp"><div><a '+(c.link?'href="'+escapeHtml(c.link)+'" target="_blank" rel="noopener"':'')+'>'+escapeHtml(c.title||"Sold comp")+'</a><div class="date">'+escapeHtml(formatSoldDate(c.soldDate))+'</div></div><div class="price">'+escapeHtml(formatMoney(c.price))+'</div></div>').join("");
@@ -1169,6 +1275,7 @@ function renderLiveResult(card,data,ctx){
     <div><span class="conf-badge ${confidenceClass(conf)}">${escapeHtml(conf)} confidence</span></div>
     <p style="margin:8px 0 0;font-size:11px;color:var(--muted)"><strong>Pricing source:</strong> ${escapeHtml(provider)}${speedBits?" · "+escapeHtml(speedBits):""}</p>
     ${labHtml}
+    ${smartBuyTargetsHtml(targets)}
     <div class="verdict"><div class="tag">SCOUT SAYS</div><div class="big">${escapeHtml(v.title)}</div><div class="why"><strong>${escapeHtml(v.line)}</strong><br>${escapeHtml(v.why)}</div></div>
     ${notes?'<div>'+notes+'</div>':''}
     <div class="source-row"><button type="button" class="ghost" id="manualEbayBtn">eBay sold</button><button type="button" class="ghost" id="psaBtn">PSA APR</button><button type="button" class="ghost" id="fanaticsBtn">Fanatics</button><button type="button" class="ghost" id="heritageBtn">Heritage</button></div>
