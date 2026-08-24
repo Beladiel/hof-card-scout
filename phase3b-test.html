@@ -58,7 +58,7 @@ input,select{width:100%;min-height:44px;border:1px solid #49665a;border-radius:1
 <header>
   <div class="ball">⚾</div>
   <div><h1>HOF Card Scout</h1><div class="tagline">Phase 3B workflow lab</div></div>
-  <div class="badge">PHASE 3B v0.1</div>
+  <div class="badge">PHASE 3B v0.2</div>
 </header>
 
 <section class="panel screen" id="targetsScreen">
@@ -120,7 +120,7 @@ input,select{width:100%;min-height:44px;border:1px solid #49665a;border-radius:1
   <div class="actions"><button class="primary" id="resetBtn">RESET LAB</button></div>
 </section>
 
-<div class="note">Phase 3B v0.1 · Workflow lab only · No real collection data is changed.</div>
+<div class="note">Phase 3B v0.2 · Workflow lab only · No real collection data is changed.</div>
 </div>
 
 <script>
@@ -141,9 +141,11 @@ function updateSourceDetail(){
   }else if(source==="Card show"){
     host.innerHTML='<label>SHOW / LOCATION</label><input id="placeDetail" placeholder="Example: Albuquerque Sports Card Show">';
     $("incoming").checked=false;
+  }else if(source==="eBay"){
+    host.innerHTML='<label>EBAY SELLER</label><input id="placeDetail" placeholder="Example: seller_username">';
+    $("incoming").checked=true;
   }else{
     host.innerHTML="";
-    if(source==="eBay")$("incoming").checked=true;
   }
 }
 function openPurchase(){
@@ -170,8 +172,13 @@ function openPurchase(){
 function confirmPurchase(){
   const source=$("source").value;
   const detail=$("placeDetail")?.value.trim()||"";
-  if((source==="Card shop"||source==="Card show")&&!detail){
-    alert(source==="Card shop"?"Enter the shop name so Scout can remember where you found it.":"Enter the show or location so Scout can remember where you found it.");
+  if((source==="Card shop"||source==="Card show"||source==="eBay")&&!detail){
+    const msg=source==="Card shop"
+      ?"Enter the shop name so Scout can remember where you found it."
+      :source==="Card show"
+        ?"Enter the show or location so Scout can remember where you found it."
+        :"Enter the eBay seller so Scout can remember who you bought it from.";
+    alert(msg);
     return;
   }
   state.owned=true;
