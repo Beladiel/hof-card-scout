@@ -58,7 +58,7 @@ input,select{width:100%;min-height:44px;border:1px solid #49665a;border-radius:1
 <header>
   <div class="ball">⚾</div>
   <div><h1>HOF Card Scout</h1><div class="tagline">Phase 4A — Deal Finder lab</div></div>
-  <div class="badge">PHASE 4A v0.1</div>
+  <div class="badge">PHASE 4A v0.2</div>
 </header>
 
 <section class="panel">
@@ -90,8 +90,18 @@ input,select{width:100%;min-height:44px;border:1px solid #49665a;border-radius:1
   <div class="eyebrow">SCOUT'S SHORTLIST</div>
   <h2 id="resultTitle">Best buying opportunities</h2>
   <div class="summarybar" id="summarybar"></div>
-  <div class="small">Ranked by card match first, then buying value. Shipping is included in the displayed total. Tax is not included in this lab.</div>
-  <div id="deals"></div>
+  <div class="small">Exact-card match comes first. Buy It Now listings are ranked by buying value using delivered price. Auctions are shown separately because the current bid is not a guaranteed purchase price. Tax is not included in this lab.</div>
+
+  <div style="margin-top:14px">
+    <div class="eyebrow">🔥 BEST BUY-IT-NOW DEALS</div>
+    <div id="binDeals"></div>
+  </div>
+
+  <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
+    <div class="eyebrow">⏱ AUCTIONS TO WATCH</div>
+    <div class="small" style="margin-top:4px">Scout ranks auctions by remaining bidding room under your Buy Ceiling, but never treats the current bid as a guaranteed deal.</div>
+    <div id="auctionDeals"></div>
+  </div>
 </section>
 
 <section class="panel hidden" id="rejectedPanel">
@@ -101,7 +111,7 @@ input,select{width:100%;min-height:44px;border:1px solid #49665a;border-radius:1
   <div id="rejected"></div>
 </section>
 
-<div class="note">Phase 4A v0.1 · Workflow/decision lab only · Sample active listings · No purchases and no collection data changes.</div>
+<div class="note">Phase 4A v0.2 · Workflow/decision lab only · Sample active listings · No purchases and no collection data changes.</div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -128,41 +138,35 @@ function verdict(total,great,ceiling,walk){
 function cardLabel(){return [$("year").value,$("set").value,"#"+$("num").value,$("grader").value,$("grader").value!=="Raw"?$("grade").value:""].filter(Boolean).join(" · ")}
 function render(){
   const great=num("great"),ceiling=num("ceiling"),walk=num("walk");
-  const accepted=sampleListings.filter(x=>x.match).map(x=>{
+
+  const matched=sampleListings.filter(x=>x.match).map(x=>{
     const total=x.price+x.shipping;
     if(x.type==="AUCTION"){
       const maxBid=Math.max(0,ceiling-x.shipping);
       const remaining=maxBid-x.price;
-      return {...x,total,maxBid,remaining,score:remaining>=0?1000-total:-1000-total};
+      return {...x,total,maxBid,remaining};
     }
     const v=verdict(total,great,ceiling,walk);
-    const score=(v.cls==="great"?400:v.cls==="buy"?300:v.cls==="fair"?200:100)-total;
-    return {...x,total,v,score};
-  }).sort((a,b)=>b.score-a.score);
+    const tier=v.cls==="great"?4:v.cls==="buy"?3:v.cls==="fair"?2:1;
+    return {...x,total,v,tier};
+  });
+
+  const bins=matched
+    .filter(x=>x.type==="BIN")
+    .sort((a,b)=>(b.tier-a.tier)||(a.total-b.total));
+
+  const auctions=matched
+    .filter(x=>x.type==="AUCTION")
+    .sort((a,b)=>(b.remaining-a.remaining)||(a.total-b.total));
 
   $("resultTitle").textContent=cardLabel();
   $("summarybar").innerHTML=
-    `<span class="pill good">${accepted.filter(x=>x.type==="BIN"&&["great","buy"].includes(x.v.cls)).length} buy-worthy BIN</span>`+
-    `<span class="pill warn">${accepted.filter(x=>x.type==="AUCTION").length} auction to watch</span>`+
+    `<span class="pill good">${bins.filter(x=>["great","buy"].includes(x.v.cls)).length} buy-worthy BIN</span>`+
+    `<span class="pill warn">${auctions.filter(x=>x.remaining>=0).length} auction to watch</span>`+
     `<span class="pill bad">${sampleListings.filter(x=>!x.match).length} rejected mismatch</span>`;
 
-  $("deals").innerHTML=accepted.map((x,i)=>{
-    if(x.type==="AUCTION"){
-      const currentTotal=x.total;
-      const canBid=x.remaining>=0;
-      return `<div class="deal ${canBid?"best":""}">
-        <div class="dealhead"><div class="rank">${i+1}</div><div class="dealbody"><div class="title">${x.title}</div><div class="meta">eBay Auction · Seller ${x.seller} · ${x.feedback} positive · Ends in ${x.ends}</div></div></div>
-        <div class="pricegrid">
-          <div class="pricebox"><div class="k">CURRENT BID</div><div class="v">${money(x.price)}</div></div>
-          <div class="pricebox"><div class="k">SHIPPING</div><div class="v">${money(x.shipping)}</div></div>
-          <div class="pricebox"><div class="k">MAX BID</div><div class="v">${money(x.maxBid)}</div></div>
-        </div>
-        <span class="verdict auction">${canBid?"⏱ WATCH AUCTION":"PASS"}</span>
-        <div class="reason">${canBid?`Your Buy Ceiling is ${money(ceiling)} delivered before tax. With ${money(x.shipping)} shipping, Scout says do not bid above ${money(x.maxBid)}. You currently have ${money(x.remaining)} of bidding room.`:`Current bid + shipping is already above your Buy Ceiling.`}</div>
-        <div class="actions"><button class="gold view" data-id="${x.id}">VIEW LISTING →</button></div>
-      </div>`;
-    }
-    return `<div class="deal ${x.v.cls==="great"?"best":""}">
+  $("binDeals").innerHTML=bins.map((x,i)=>`
+    <div class="deal ${x.v.cls==="great"?"best":""}">
       <div class="dealhead"><div class="rank">${i+1}</div><div class="dealbody"><div class="title">${x.title}</div><div class="meta">eBay Buy It Now · Seller ${x.seller} · ${x.feedback} positive</div></div></div>
       <div class="pricegrid">
         <div class="pricebox"><div class="k">LIST PRICE</div><div class="v">${money(x.price)}</div></div>
@@ -172,6 +176,21 @@ function render(){
       <span class="verdict ${x.v.cls}">${x.v.label}</span>
       <div class="reason">${x.v.why} Exact target identity matched before ranking.</div>
       <div class="actions"><button class="gold view" data-id="${x.id}">VIEW LISTING →</button><button class="ghost bought" data-id="${x.id}">💳 I BOUGHT THIS</button></div>
+    </div>
+  `).join("");
+
+  $("auctionDeals").innerHTML=auctions.map((x,i)=>{
+    const canBid=x.remaining>=0;
+    return `<div class="deal ${canBid?"best":""}">
+      <div class="dealhead"><div class="rank">${i+1}</div><div class="dealbody"><div class="title">${x.title}</div><div class="meta">eBay Auction · Seller ${x.seller} · ${x.feedback} positive · Ends in ${x.ends}</div></div></div>
+      <div class="pricegrid">
+        <div class="pricebox"><div class="k">CURRENT BID</div><div class="v">${money(x.price)}</div></div>
+        <div class="pricebox"><div class="k">SHIPPING</div><div class="v">${money(x.shipping)}</div></div>
+        <div class="pricebox"><div class="k">MAX BID</div><div class="v">${money(x.maxBid)}</div></div>
+      </div>
+      <span class="verdict auction">${canBid?"⏱ WATCH AUCTION":"PASS"}</span>
+      <div class="reason">${canBid?`Your Buy Ceiling is ${money(ceiling)} delivered before tax. With ${money(x.shipping)} shipping, Scout says do not bid above ${money(x.maxBid)}. You currently have ${money(x.remaining)} of bidding room.`:`Current bid + shipping is already above your Buy Ceiling.`}</div>
+      <div class="actions"><button class="gold view" data-id="${x.id}">VIEW LISTING →</button></div>
     </div>`;
   }).join("");
 
@@ -185,6 +204,7 @@ function render(){
   $("rejectedPanel").classList.remove("hidden");
   $("resultsPanel").scrollIntoView({behavior:"smooth",block:"start"});
 }
+
 $("grader").onchange=()=>{const raw=$("grader").value==="Raw";$("grade").disabled=raw;if(raw)$("grade").value=""};
 $("findBtn").onclick=()=>{
   if(!$("player").value.trim()||!$("year").value.trim()||!$("set").value.trim()||!$("num").value.trim()){alert("Player, year, set, and card # are required for Deal Finder.");return}
