@@ -144,7 +144,7 @@ summary{cursor:pointer;font-weight:900;color:var(--gold);font-size:12px}
     <div class="conn" id="connState"></div>
   </details>
 
-  <p class="small">Phase 2D v0.1. This lab does not modify your collection, the v3.9.0 app, the Worker confidence model, or existing BUY / NEGOTIATE / PASS rules.</p>
+  <p class="small">Phase 2D v0.2. This lab does not modify your collection, the v3.9.0 app, the Worker confidence model, or existing BUY / NEGOTIATE / PASS rules.</p>
 </div>
 <script>
 const $=id=>document.getElementById(id);
@@ -178,7 +178,7 @@ function pctFromMedian(value,median){
 }
 
 /*
- Phase 2D v0.1
+ Phase 2D v0.2
  - Confidence controls how tightly Scout can trust the median.
  - IQR/median spread expands the safety margin when prices are messy.
  - Q1 can pull Great Buy lower; Q3 can cap the Walk-Away ceiling.
@@ -202,7 +202,15 @@ function smartTargets(data){
   const walkPremium=clamp(.08*conf - .05*spreadForBuffer,-.03,.06);
 
   let greatRaw=median*(1-greatDiscount);
-  if(Number.isFinite(low)&&low>0)greatRaw=Math.min(greatRaw,low*1.02);
+
+  // v0.2: Cheap sales may pull the Great Buy target lower, but they no longer
+  // dictate it. If Q1 is below the model target, blend only 25% toward Q1 and
+  // never let Great Buy fall below 68% of the sold median.
+  if(Number.isFinite(low)&&low>0&&low<greatRaw){
+    const softenedLow=low*1.02;
+    greatRaw=(greatRaw*0.75)+(softenedLow*0.25);
+  }
+  greatRaw=Math.max(greatRaw,median*0.68);
 
   const fairRaw=median*(1-fairDiscount);
 
@@ -315,12 +323,13 @@ function render(data,card){
     `<b>Evidence:</b> ${Number(data.used)||0} good comps · confidence ${t.score}/100 ${t.level}.<br>`+
     `<b>Price spread:</b> IQR is about ${spreadPct}% of the median. ${qBits}<br>`+
     `<b>Safety buffer:</b> Phase 2D asks for bigger discounts when confidence is lower or sales are more scattered. `+
-    `That produced a Great Buy buffer of ${Math.round(t.greatDiscount*100)}% and a Fair Buy buffer of ${Math.round(t.fairDiscount*100)}%.<br>`+
+    `That produced a base Great Buy buffer of ${Math.round(t.greatDiscount*100)}% and a Fair Buy buffer of ${Math.round(t.fairDiscount*100)}%. `+
+    `Very cheap sales can gently pull Great Buy lower, but cannot drag it below 68% of the sold median.<br>`+
     `<b>Walk-Away:</b> Scout allows at most ${Math.round(t.walkPremium*100)}% relative to the median before the typical-range cap is applied.<br>`+
     ((countScore!=null)?`<b>Confidence ingredients:</b> comp count ${countScore}/35 · consistency ${consistencyScore}/35 · source agreement ${sourceScore}/20 · Best Offer ${boScore}/10.<br>`:"")+
     `<b>Important:</b> This is Phase 2D lab math only. It has not changed the live app’s existing verdict rules.`;
 
-  $("modelPill").textContent=`Phase 2D v0.1 · spread ${spreadPct}% · ${data.provider||"eBay sold comps"}`;
+  $("modelPill").textContent=`Phase 2D v0.2 · spread ${spreadPct}% · ${data.provider||"eBay sold comps"}`;
   $("results").scrollIntoView({behavior:"smooth",block:"start"});
 }
 async function run(){
