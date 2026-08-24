@@ -91,9 +91,10 @@ summary{cursor:pointer;font-weight:900;color:var(--gold);font-size:12px}
     </div>
     <div class="actions">
       <button class="primary" id="runBtn">SCOUT SMART BUY TARGETS</button>
+      <button class="ghost" id="priceOnlyBtn">TEST SHOP PRICE ONLY</button>
       <button class="ghost" id="recentBtn">LOAD RECENT SCOUT CARD</button>
     </div>
-    <div class="status" id="status">Deep Mode is used for lab tests so Scout has the best evidence available.</div>
+    <div class="status" id="status">Deep Mode is used for lab tests so Scout has the best evidence available. After one valuation, use TEST SHOP PRICE ONLY to keep the comps locked.</div>
   </section>
 
   <section class="card results" id="results">
@@ -144,12 +145,14 @@ summary{cursor:pointer;font-weight:900;color:var(--gold);font-size:12px}
     <div class="conn" id="connState"></div>
   </details>
 
-  <p class="small">Phase 2D v0.4. This lab does not modify your collection, the v3.9.0 app, the Worker confidence model, or existing BUY / NEGOTIATE / PASS rules.</p>
+  <p class="small">Phase 2D v0.5. This lab does not modify your collection, the v3.9.0 app, the Worker confidence model, or existing BUY / NEGOTIATE / PASS rules. TEST SHOP PRICE ONLY reuses the last successful valuation so boundary tests do not change comps mid-test.</p>
 </div>
 <script>
 const $=id=>document.getElementById(id);
 const DEFAULT_ENDPOINT="https://hof-card-scout-pricing.jz9j2778jh.workers.dev";
 const RECENT_KEY="hofScoutRecentSearchesV1";
+let lockedValuation=null;
+let lockedCard=null;
 
 function money(n){
   const v=Number(n);
@@ -178,7 +181,7 @@ function pctFromMedian(value,median){
 }
 
 /*
- Phase 2D v0.4
+ Phase 2D v0.5
  - Confidence controls how tightly Scout can trust the median.
  - IQR/median spread expands the safety margin when prices are messy.
  - Q1 can pull Great Buy lower; Q3 can cap the Walk-Away ceiling.
@@ -292,6 +295,8 @@ function loadRecent(){
 }
 
 function renderInsufficient(data,card){
+  lockedValuation=null;
+  lockedCard=null;
   const lab=data.confidenceLab?.market||{};
   const score=Number.isFinite(Number(lab.score))?Number(lab.score):Number(data.confidenceScore||0);
   const level=String(data.confidence||lab.proposedLevel||"insufficient").toUpperCase();
@@ -322,12 +327,14 @@ function renderInsufficient(data,card){
     (reasons.length?`<b>What Scout saw:</b> ${reasons.map(x=>String(x)).join(" ")}<br>`:"")+
     `<b>Why this matters:</b> On a thin market, a made-up target would create false precision. Phase 2D would rather show no number than a bad number.`;
 
-  $("modelPill").textContent=`Phase 2D v0.4 · insufficient market evidence · ${data.provider||"sold comps"}`;
+  $("modelPill").textContent=`Phase 2D v0.5 · insufficient market evidence · ${data.provider||"sold comps"}`;
   $("status").textContent="Scout found too little reliable market evidence to set Smart Buy Targets. Nothing is broken.";
   $("results").scrollIntoView({behavior:"smooth",block:"start"});
 }
 
 function render(data,card){
+  lockedValuation=data;
+  lockedCard={...card};
   const t=smartTargets(data);
   $("results").style.display="block";
   $("resultTitle").textContent=[card.year,card.set,card.player,card.cardNum?"#"+card.cardNum:"",card.grader!=="Raw"?card.grader:"",card.grade].filter(Boolean).join(" · ");
@@ -367,9 +374,25 @@ function render(data,card){
     ((countScore!=null)?`<b>Confidence ingredients:</b> comp count ${countScore}/35 · consistency ${consistencyScore}/35 · source agreement ${sourceScore}/20 · Best Offer ${boScore}/10.<br>`:"")+
     `<b>Important:</b> This is Phase 2D lab math only. It has not changed the live app’s existing verdict rules.`;
 
-  $("modelPill").textContent=`Phase 2D v0.4 · spread ${spreadPct}% · ${data.provider||"eBay sold comps"}`;
+  $("modelPill").textContent=`Phase 2D v0.5 · spread ${spreadPct}% · ${data.provider||"eBay sold comps"}`;
   $("results").scrollIntoView({behavior:"smooth",block:"start"});
 }
+
+function testShopPriceOnly(){
+  if(!lockedValuation||!lockedCard){
+    $("status").textContent="Run SCOUT SMART BUY TARGETS once first. Then Scout can lock that valuation while you test different shop prices.";
+    return;
+  }
+  const price=parseFloat($("shopPrice").value);
+  if(!Number.isFinite(price)||price<=0){
+    $("status").textContent="Enter a shop price, then tap TEST SHOP PRICE ONLY.";
+    return;
+  }
+  const card={...lockedCard,shopPrice:price};
+  render(lockedValuation,card);
+  $("status").textContent=`Valuation locked: ${Number(lockedValuation.used)||0} comps · ${lockedValuation.confidenceScore||lockedValuation.confidenceLab?.market?.score||"?"}/100. Only the shop price changed.`;
+}
+
 async function run(){
   const card=cardPayload();
   if(!card.player||!Number.isInteger(card.year)||!card.set){alert("Player, year, and set are required.");return}
@@ -398,6 +421,7 @@ async function run(){
   }
 }
 $("runBtn").addEventListener("click",run);
+$("priceOnlyBtn").addEventListener("click",testShopPriceOnly);
 $("recentBtn").addEventListener("click",loadRecent);
 $("saveConn").addEventListener("click",saveConfig);
 loadConfig();
