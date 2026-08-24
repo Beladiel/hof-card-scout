@@ -481,7 +481,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v3.8.1</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v3.8.2</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -1151,11 +1151,24 @@ function renderLiveResult(card,data,ctx){
   const provider=data.provider||"eBay sold comps";
   const speedBits=[data.mode==="fast"?"⚡ Fast Mode":"Deep Check",data.cacheHit?"cached result":null].filter(Boolean).join(" · ");
   const notes=(data.notes||[]).map(n=>'<p>• '+escapeHtml(n)+'</p>').join("");
+  const lab=data.confidenceLab||null, marketLab=lab&&lab.market?lab.market:null, identityLab=lab&&lab.identity?lab.identity:null;
+  const labHtml=marketLab?`<details style="margin-top:10px;border:1px solid var(--border);border-radius:10px;padding:10px;background:rgba(255,255,255,.025)">
+      <summary style="cursor:pointer;font-weight:800;color:var(--gold)">🧪 Phase 2C confidence lab: ${escapeHtml(String(marketLab.score))}/100 · ${escapeHtml(String(marketLab.proposedLevel||"").toUpperCase())}</summary>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.55">
+        <strong>Comp count:</strong> ${escapeHtml(String(marketLab.components?.compCount?.score??0))}/35 ·
+        <strong>Consistency:</strong> ${escapeHtml(String(marketLab.components?.priceConsistency?.score??0))}/35 ·
+        <strong>Source agreement:</strong> ${escapeHtml(String(marketLab.components?.retrievalSourceAgreement?.score??0))}/20 ·
+        <strong>Best Offer:</strong> ${escapeHtml(String(marketLab.components?.confirmedBestOfferPricing?.score??0))}/10
+        ${identityLab?`<br><strong>Card identity:</strong> ${escapeHtml(String(identityLab.score))}/100 · ${escapeHtml(String(identityLab.level||"").toUpperCase())}`:""}
+        <br><em>Experimental only — this score does not change Scout's verdict yet.</em>
+      </div>
+    </details>`:"";
   const compHtml=(data.comps||[]).slice(0,8).map(c=>'<div class="comp"><div><a '+(c.link?'href="'+escapeHtml(c.link)+'" target="_blank" rel="noopener"':'')+'>'+escapeHtml(c.title||"Sold comp")+'</a><div class="date">'+escapeHtml(formatSoldDate(c.soldDate))+'</div></div><div class="price">'+escapeHtml(formatMoney(c.price))+'</div></div>').join("");
   r.innerHTML=`<h3>${escapeHtml(ctx.call)}</h3><p>${escapeHtml(ctx.detail)}</p>
     <div class="market-grid"><div class="market-stat"><div class="k">EBAY SOLD MEDIAN</div><div class="v">${median}</div></div><div class="market-stat"><div class="k">TYPICAL RANGE</div><div class="v">${range}</div></div><div class="market-stat"><div class="k">GOOD COMPS</div><div class="v">${comps}</div></div></div>
     <div><span class="conf-badge ${confidenceClass(conf)}">${escapeHtml(conf)} confidence</span></div>
     <p style="margin:8px 0 0;font-size:11px;color:var(--muted)"><strong>Pricing source:</strong> ${escapeHtml(provider)}${speedBits?" · "+escapeHtml(speedBits):""}</p>
+    ${labHtml}
     <div class="verdict"><div class="tag">SCOUT SAYS</div><div class="big">${escapeHtml(v.title)}</div><div class="why"><strong>${escapeHtml(v.line)}</strong><br>${escapeHtml(v.why)}</div></div>
     ${notes?'<div>'+notes+'</div>':''}
     <div class="source-row"><button type="button" class="ghost" id="manualEbayBtn">eBay sold</button><button type="button" class="ghost" id="psaBtn">PSA APR</button><button type="button" class="ghost" id="fanaticsBtn">Fanatics</button><button type="button" class="ghost" id="heritageBtn">Heritage</button></div>
