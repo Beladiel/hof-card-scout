@@ -125,6 +125,15 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .field label{display:block;font-size:11px;color:var(--muted);font-weight:850;margin:0 0 5px}
 .field input,.field select,.field textarea{width:100%;min-height:46px;border-radius:12px;border:1px solid #3a5d52;background:#f9f4e8;color:var(--ink);padding:9px 11px;font-size:16px}
 .field textarea{min-height:74px;resize:vertical}
+.psa-verify-wrap{grid-column:1/-1;border:1px solid rgba(86,197,138,.32);background:rgba(86,197,138,.07);border-radius:15px;padding:12px}
+.psa-verify-row{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end}
+.psa-verify-row .secondary{min-height:46px;white-space:nowrap}
+.psa-status{margin-top:9px;font-size:12px;color:var(--muted);line-height:1.45}
+.psa-verified{margin-top:10px;border:1px solid rgba(86,197,138,.42);background:rgba(86,197,138,.12);border-radius:13px;padding:11px 12px}
+.psa-verified .badge{font-size:12px;font-weight:950;color:#8be2b0;letter-spacing:.06em}
+.psa-verified .line{margin-top:5px;font-size:13px;color:var(--text);font-weight:800}
+.psa-verified .meta{margin-top:4px;font-size:11px;color:var(--muted)}
+.psa-warning{margin-top:10px;border:1px solid rgba(230,189,99,.42);background:rgba(230,189,99,.10);border-radius:13px;padding:11px 12px;color:#f4d58a;font-size:12px;font-weight:800}
 .checks{display:flex;flex-wrap:wrap;gap:9px}
 .check{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.04);border:1px solid var(--line);padding:9px 11px;border-radius:12px;font-size:12px}
 .check input{width:18px;height:18px}
@@ -177,6 +186,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .stats{grid-template-columns:1fr 1fr 1.15fr}
   .stat{padding:10px}.stat .value{font-size:21px}
   .quick-grid,.card-manage-row,.card-secondary-row,.action-row,.result-actions{grid-template-columns:1fr}
+  .psa-verify-row{grid-template-columns:1fr}
   .detail-grid{grid-template-columns:1fr 1fr}
   .detail-grid .metric:last-child{grid-column:1/-1}
   .form-grid{grid-template-columns:1fr}
@@ -381,7 +391,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <button class="back" id="shopBack">← Back</button>
       <div class="form-panel">
         <h2 class="form-title">Card Shop Mode</h2>
-        <p class="form-sub">Give Scout the card in front of you. Live mode checks recent eBay sold comps, filters mismatches, calculates a market range, and gives you one buy / negotiate / walk verdict.</p>
+        <p class="form-sub">Give Scout the card in front of you. Live mode checks recent eBay sold comps, filters mismatches, calculates a market range, and gives you one buy / negotiate / walk verdict. PSA slabs can now be verified directly by cert number.</p>
         <details class="pricing-connect" id="pricingConnect">
           <summary>⚙️ Live Pricing Connection</summary>
           <div class="connect-grid">
@@ -445,6 +455,13 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
               <input class="grade-other" id="shopGradeOther" placeholder="Enter grading company" style="margin-top:7px" hidden>
             </div>
             <div class="field"><label for="shopGradeNum">Grade / condition</label><input id="shopGradeNum" placeholder="9, 7.5, VG-EX, etc."></div>
+            <div class="psa-verify-wrap" id="psaVerifyWrap" hidden>
+              <div class="psa-verify-row">
+                <div class="field"><label for="shopPsaCert">PSA cert #</label><input id="shopPsaCert" inputmode="numeric" autocomplete="off" placeholder="Enter PSA certification number"></div>
+                <button type="button" class="secondary" id="verifyPsaBtn">VERIFY PSA CERT</button>
+              </div>
+              <div id="psaVerifyStatus" class="psa-status">Optional: verify the slab directly with PSA before Scout prices it.</div>
+            </div>
             <div class="field advanced-shop"><label for="shopSerial">Serial #</label><input id="shopSerial" placeholder="38/99"></div>
             <div class="field full advanced-shop"><label for="shopNotes">Other details</label><textarea id="shopNotes" placeholder="Centering, creases, corner wear, variation, etc."></textarea></div>
             <div class="field full advanced-shop">
@@ -464,7 +481,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v3.5</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v3.6</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -755,7 +772,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"3.5",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"3.6",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -819,8 +836,57 @@ function resolvedShopGrader(){
 }
 function syncShopGrader(){
   const other=$("shopGrade").value==="__other__";
+  const psa=$("shopGrade").value==="PSA";
   $("shopGradeOther").hidden=!other;
+  $("psaVerifyWrap").hidden=!psa;
   if(other&&!$("shopGradeOther").value)$("shopGradeOther").focus();
+  if(!psa) resetPsaVerification(false);
+}
+function resetPsaVerification(clearCert=true){
+  if(clearCert&&$("shopPsaCert")) $("shopPsaCert").value="";
+  const status=$("psaVerifyStatus");
+  if(status){
+    status.className="psa-status";
+    status.innerHTML="Optional: verify the slab directly with PSA before Scout prices it.";
+  }
+}
+function psaDisplayLine(card){
+  return [card.year,card.set,card.cardNumber?"#"+card.cardNumber:"",card.grade?"PSA "+card.grade:""].filter(Boolean).join(" · ");
+}
+function setIfBlank(id,value){
+  if(!value)return;
+  const el=$(id);
+  if(el&&!String(el.value||"").trim())el.value=value;
+}
+async function verifyPsaCert(){
+  const cert=String($("shopPsaCert").value||"").replace(/[\s-]+/g,"");
+  const status=$("psaVerifyStatus"),btn=$("verifyPsaBtn");
+  if(!/^\d{4,12}$/.test(cert)){
+    status.className="psa-warning";status.textContent="Enter the numeric PSA cert number from the slab label.";return;
+  }
+  const c=pricingConfig();
+  if(!c.endpoint||!c.accessKey){
+    status.className="psa-warning";status.textContent="Connect Scout to the Worker first under Live Pricing Connection.";$("pricingConnect").open=true;return;
+  }
+  btn.disabled=true;btn.textContent="VERIFYING…";status.className="psa-status";status.textContent="Checking PSA certification…";
+  try{
+    const res=await fetch(c.endpoint+"/psa/verify",{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},body:JSON.stringify({certNumber:cert})});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.message||data.error||("PSA verification returned "+res.status));
+    if(!data.verified){status.className="psa-warning";status.textContent=data.message||"PSA could not verify that certification number.";return;}
+    const card=data.card||{};
+    setIfBlank("shopPlayer",card.subject);
+    setIfBlank("shopYear",card.year);
+    if(!$('shopSet').value.trim()&&!$('shopSetPreset').value&&card.set)setShopSetValue(card.set);
+    setIfBlank("shopNum",card.cardNumber);
+    setIfBlank("shopGradeNum",card.grade);
+    const line=psaDisplayLine(card)||("Cert #"+escapeHtml(data.certNumber||cert));
+    const cache=data.cached?" · cached":"";
+    status.className="psa-verified";
+    status.innerHTML='<div class="badge">✓ PSA VERIFIED</div><div class="line">'+escapeHtml(card.subject||"PSA certified card")+'</div><div class="meta">'+escapeHtml(line)+cache+'</div>';
+  }catch(err){
+    status.className="psa-warning";status.textContent=err.message||"PSA verification failed.";
+  }finally{btn.disabled=false;btn.textContent="VERIFY PSA CERT";}
 }
 function recentSearches(){
   try{
@@ -842,6 +908,7 @@ function saveRecentSearch(card){
     shopPrice:Number.isFinite(card.shopPrice)?card.shopPrice:"",
     grader:card.grader||"Raw",
     grade:card.grade||"",
+    psaCert:card.psaCert||"",
     serial:card.serial||"",
     notes:card.notes||"",
     autograph:!!card.autograph,
@@ -869,6 +936,8 @@ function loadRecentSearch(card){
     $("shopGradeOther").value=grader;
   }
   syncShopGrader();
+  $("shopPsaCert").value=card.psaCert||"";
+  resetPsaVerification(false);
   $("shopGradeNum").value=card.grade||"";
   $("shopSerial").value=card.serial||"";
   $("shopNotes").value=card.notes||"";
@@ -904,6 +973,7 @@ function nextCard(){
   $("shopGrade").value="Raw";
   $("shopGradeOther").value="";
   syncShopGrader();
+  resetPsaVerification(true);
   $("shopResult").hidden=true;
   $("shopPlayer").focus();
   toast("Next card. Scout is ready.");
@@ -926,6 +996,7 @@ function openShop(prefill){
     setShopSetValue("");
   }
   syncShopGrader();
+  resetPsaVerification(true);
   renderRecentSearches();
   applyFastMode(localStorage.getItem(FAST_MODE_KEY)==="1");
   $("shopResult").hidden=true;showScreen("shopScreen");
@@ -969,7 +1040,8 @@ async function testPricingConnection(){
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok) throw new Error(data.message||data.error||("HTTP "+res.status));
     if(!data.configured) throw new Error("Worker is reachable, but no sold-comps provider is configured.");
-    updatePricingStatus("Connected ✓ Live sold-comps provider is ready.","ok");toast("Scout live pricing is connected.");
+    const psaReady=!!data.providers?.psa;
+    updatePricingStatus("Connected ✓ Live sold comps"+(psaReady?" + PSA verification":"")+" ready.","ok");toast(psaReady?"Scout pricing + PSA verification connected.":"Scout live pricing is connected.");
   }catch(err){updatePricingStatus("Connection failed: "+err.message,"bad");}
 }
 function shopCardPayload(){
@@ -981,6 +1053,7 @@ function shopCardPayload(){
     shopPrice:parseFloat($("shopPrice").value),
     grader:resolvedShopGrader(),
     grade:$("shopGradeNum").value.trim(),
+    psaCert:resolvedShopGrader()==="PSA"?$("shopPsaCert").value.trim():"",
     serial:$("shopSerial").value.trim(),
     notes:$("shopNotes").value.trim(),
     autograph:$("shopAuto").checked,
@@ -1190,6 +1263,8 @@ document.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{
 }));
 $("shopSetPreset").addEventListener("change",syncShopSetPicker);
 $("shopGrade").addEventListener("change",syncShopGrader);
+$("verifyPsaBtn").addEventListener("click",verifyPsaCert);
+$("shopPsaCert").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();verifyPsaCert();}});
 $("clearRecentBtn").addEventListener("click",clearRecentSearches);
 $("nextCardBtn").addEventListener("click",nextCard);
 $("fastModeToggle").addEventListener("change",e=>applyFastMode(e.target.checked));
