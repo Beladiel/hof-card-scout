@@ -481,7 +481,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v3.8.2</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v3.9.0</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -1153,14 +1153,14 @@ function renderLiveResult(card,data,ctx){
   const notes=(data.notes||[]).map(n=>'<p>• '+escapeHtml(n)+'</p>').join("");
   const lab=data.confidenceLab||null, marketLab=lab&&lab.market?lab.market:null, identityLab=lab&&lab.identity?lab.identity:null;
   const labHtml=marketLab?`<details style="margin-top:10px;border:1px solid var(--border);border-radius:10px;padding:10px;background:rgba(255,255,255,.025)">
-      <summary style="cursor:pointer;font-weight:800;color:var(--gold)">🧪 Phase 2C confidence lab: ${escapeHtml(String(marketLab.score))}/100 · ${escapeHtml(String(marketLab.proposedLevel||"").toUpperCase())}</summary>
+      <summary style="cursor:pointer;font-weight:800;color:var(--gold)">Scout confidence: ${escapeHtml(String(marketLab.score))}/100 · ${escapeHtml(String(data.confidence||marketLab.proposedLevel||"").toUpperCase())}</summary>
       <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.55">
         <strong>Comp count:</strong> ${escapeHtml(String(marketLab.components?.compCount?.score??0))}/35 ·
         <strong>Consistency:</strong> ${escapeHtml(String(marketLab.components?.priceConsistency?.score??0))}/35 ·
         <strong>Source agreement:</strong> ${escapeHtml(String(marketLab.components?.retrievalSourceAgreement?.score??0))}/20 ·
         <strong>Best Offer:</strong> ${escapeHtml(String(marketLab.components?.confirmedBestOfferPricing?.score??0))}/10
         ${identityLab?`<br><strong>Card identity:</strong> ${escapeHtml(String(identityLab.score))}/100 · ${escapeHtml(String(identityLab.level||"").toUpperCase())}`:""}
-        <br><em>Experimental only — this score does not change Scout's verdict yet.</em>
+        <br><em>Scout’s confidence score reflects the strength of the sold-price evidence. BUY / NEGOTIATE / PASS price thresholds are unchanged.</em>
       </div>
     </details>`:"";
   const compHtml=(data.comps||[]).slice(0,8).map(c=>'<div class="comp"><div><a '+(c.link?'href="'+escapeHtml(c.link)+'" target="_blank" rel="noopener"':'')+'>'+escapeHtml(c.title||"Sold comp")+'</a><div class="date">'+escapeHtml(formatSoldDate(c.soldDate))+'</div></div><div class="price">'+escapeHtml(formatMoney(c.price))+'</div></div>').join("");
