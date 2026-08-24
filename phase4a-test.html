@@ -58,7 +58,7 @@ input,select{width:100%;min-height:44px;border:1px solid #49665a;border-radius:1
 <header>
   <div class="ball">⚾</div>
   <div><h1>HOF Card Scout</h1><div class="tagline">Phase 4A — Deal Finder lab</div></div>
-  <div class="badge">PHASE 4A v0.4 DIAGNOSTIC</div>
+  <div class="badge">PHASE 4A v0.5 LIVE</div>
 </header>
 
 <section class="panel">
@@ -95,6 +95,11 @@ input,select{width:100%;min-height:44px;border:1px solid #49665a;border-radius:1
   <div class="eyebrow">SCOUT'S SHORTLIST</div>
   <h2 id="resultTitle">Best buying opportunities</h2>
   <div class="summarybar" id="summarybar"></div>
+  <div id="dealDecision" style="margin:10px 0 12px;border:1px solid var(--line);border-radius:13px;padding:11px;background:rgba(255,255,255,.03)">
+    <div class="eyebrow">SCOUT'S DECISION</div>
+    <div id="dealDecisionMain" style="font-size:16px;font-weight:950;margin-top:4px"></div>
+    <div id="dealDecisionDetail" class="small" style="margin-top:4px"></div>
+  </div>
   <div class="small">Exact-card match comes first. Buy It Now listings are ranked by buying value using delivered price. Auctions are shown separately because the current bid is not a guaranteed purchase price. Tax is not included in this lab.</div>
 
   <div style="margin-top:14px">
@@ -116,7 +121,7 @@ input,select{width:100%;min-height:44px;border:1px solid #49665a;border-radius:1
   <div id="rejected"></div>
 </section>
 
-<div class="note">Phase 4A v0.4 DIAGNOSTIC · Real active eBay listings · Permanent on-screen diagnostics · No collection data changes.</div>
+<div class="note">Phase 4A v0.5 LIVE · Real active eBay listings · Clear buy/wait decision · No collection data changes.</div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -175,13 +180,32 @@ function renderLive(data){
   const auctions=Array.isArray(data.auctions)?data.auctions:[];
   const rejected=Array.isArray(data.rejected)?data.rejected:[];
 
+  const buyWorthy=bins.filter(x=>["great","buy"].includes(x.dealTier));
   $("summarybar").innerHTML=
-    `<span class="pill good">${bins.filter(x=>["great","buy"].includes(x.dealTier)).length} buy-worthy BIN</span>`+
+    `<span class="pill good">${buyWorthy.length} buy-worthy BIN</span>`+
     `<span class="pill warn">${auctions.filter(x=>x.watch).length} auction${auctions.filter(x=>x.watch).length===1?"":"s"} to watch</span>`+
     `<span class="pill bad">${Number(data.rejectedCount||rejected.length)} rejected mismatch</span>`+
     `<span class="pill">${Number(data.searched||0)} searched</span>`;
 
-  $("binDeals").innerHTML=bins.length?bins.map((x,i)=>{
+  const bestBin=bins[0]||null;
+  if(buyWorthy.length){
+    $("dealDecisionMain").textContent=`${buyWorthy.length} BUY-WORTHY DEAL${buyWorthy.length===1?"":"S"} FOUND`;
+    $("dealDecisionDetail").textContent=bestBin
+      ?`Best delivered price: ${money(bestBin.delivered)}. Scout's Buy Ceiling is ${money(num("ceiling"))}.`
+      :"Scout found at least one listing at or below the Buy Ceiling.";
+  }else if(bestBin){
+    const overWalk=bestBin.delivered-num("walk");
+    $("dealDecisionMain").textContent="NO BUY-WORTHY DEALS RIGHT NOW";
+    $("dealDecisionDetail").textContent=overWalk>0
+      ?`Closest trustworthy Buy It Now listing is ${money(bestBin.delivered)}, which is ${money(overWalk)} above your ${money(num("walk"))} Walk-Away. Scout says wait.`
+      :`Closest trustworthy listing is ${money(bestBin.delivered)} — below Walk-Away, but still above your ${money(num("ceiling"))} Buy Ceiling. Scout says negotiate or wait.`;
+  }else{
+    $("dealDecisionMain").textContent="NO TRUSTWORTHY BUY-IT-NOW MATCHES";
+    $("dealDecisionDetail").textContent="Scout did not find a clean active Buy It Now match in this search.";
+  }
+
+  const binHeader=bins.length?`<div class="small" style="margin-top:7px">Showing Scout's top ${bins.length} trustworthy Buy It Now matches.</div>`:"";
+  $("binDeals").innerHTML=binHeader+(bins.length?bins.map((x,i)=>{
     const cls=dealClass(x.dealTier);
     const delta=x.delivered<=num("great")
       ?`${money(num("great")-x.delivered)} under Great Buy.`
@@ -207,7 +231,7 @@ function renderLive(data){
         <button class="ghost bought" data-title="${escapeAttr(x.title)}" data-price="${Number(x.price)}" data-shipping="${Number(x.shipping)}">💳 I BOUGHT THIS</button>
       </div>
     </div>`;
-  }).join(""):`<div class="small" style="margin-top:10px">No trustworthy matching Buy It Now listings were found in this search.</div>`;
+  }).join(""):`<div class="small" style="margin-top:10px">No trustworthy matching Buy It Now listings were found in this search.</div>`);
 
   $("auctionDeals").innerHTML=auctions.length?auctions.map((x,i)=>{
     return `<div class="deal ${x.watch?"best":""}">
@@ -310,7 +334,7 @@ async function findDeals(){
     const health=await checkWorker(config);
     if(!health.ok){
       showDiag("WORKER CHECK FAILED",
-        "HTTP "+health.status+"\n"+health.message+"\n\nExpected Worker version: 3.10.0 or newer.",
+        "HTTP "+health.status+"\n"+health.message+"\n\nExpected Worker version: 3.10.1 or newer.",
         "bad");
       return;
     }
