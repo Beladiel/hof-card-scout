@@ -58,28 +58,28 @@ input,select{width:100%;min-height:44px;border:1px solid #49665a;border-radius:1
 <header>
   <div class="ball">⚾</div>
   <div><h1>HOF Card Scout</h1><div class="tagline">Phase 4A — Deal Finder lab</div></div>
-  <div class="badge">PHASE 4A v0.2</div>
+  <div class="badge">PHASE 4A v0.3 LIVE</div>
 </header>
 
 <section class="panel">
   <div class="eyebrow">FIND ME THIS CARD</div>
   <h2>Turn market value into actual buying opportunities</h2>
-  <div class="small">Lab mode uses realistic sample listings so we can perfect the decision logic and screen flow before connecting live active listings.</div>
+  <div class="small">Live lab: Scout asks your existing Worker for current active eBay listings. It uses the same saved connection as the real HOF Card Scout app.</div>
 
   <div class="grid" style="margin-top:12px">
-    <div class="field full"><label>PLAYER</label><input id="player" value="Dave Bancroft"></div>
-    <div class="field"><label>YEAR</label><input id="year" value="1960"></div>
-    <div class="field"><label>SET</label><input id="set" value="Fleer"></div>
-    <div class="field"><label>CARD #</label><input id="num" value="17"></div>
+    <div class="field full"><label>PLAYER</label><input id="player" value="Rickey Henderson"></div>
+    <div class="field"><label>YEAR</label><input id="year" value="1981"></div>
+    <div class="field"><label>SET</label><input id="set" value="Donruss"></div>
+    <div class="field"><label>CARD #</label><input id="num" value="119"></div>
     <div class="field"><label>RAW / GRADING</label><select id="grader"><option>Raw</option><option>PSA</option><option>SGC</option><option>CGC</option></select></div>
     <div class="field"><label>GRADE</label><input id="grade" disabled placeholder="Disabled for Raw"></div>
   </div>
 
   <div class="targets">
-    <div class="target"><div class="k">MARKET MEDIAN</div><div class="v"><input id="median" inputmode="decimal" value="46.00" style="min-height:34px;padding:4px 7px"></div></div>
-    <div class="target great"><div class="k">GREAT BUY</div><div class="v"><input id="great" inputmode="decimal" value="35.00" style="min-height:34px;padding:4px 7px"></div></div>
-    <div class="target ceiling"><div class="k">BUY CEILING</div><div class="v"><input id="ceiling" inputmode="decimal" value="42.00" style="min-height:34px;padding:4px 7px"></div></div>
-    <div class="target"><div class="k">WALK-AWAY</div><div class="v"><input id="walk" inputmode="decimal" value="48.00" style="min-height:34px;padding:4px 7px"></div></div>
+    <div class="target"><div class="k">MARKET MEDIAN</div><div class="v"><input id="median" inputmode="decimal" value="3.97" style="min-height:34px;padding:4px 7px"></div></div>
+    <div class="target great"><div class="k">GREAT BUY</div><div class="v"><input id="great" inputmode="decimal" value="2.75" style="min-height:34px;padding:4px 7px"></div></div>
+    <div class="target ceiling"><div class="k">BUY CEILING</div><div class="v"><input id="ceiling" inputmode="decimal" value="3.50" style="min-height:34px;padding:4px 7px"></div></div>
+    <div class="target"><div class="k">WALK-AWAY</div><div class="v"><input id="walk" inputmode="decimal" value="4.00" style="min-height:34px;padding:4px 7px"></div></div>
   </div>
 
   <div class="actions"><button class="primary" id="findBtn">🔎 FIND DEALS</button><button class="ghost" id="resetBtn">RESET LAB</button></div>
@@ -107,113 +107,190 @@ input,select{width:100%;min-height:44px;border:1px solid #49665a;border-radius:1
 <section class="panel hidden" id="rejectedPanel">
   <div class="eyebrow">SCOUT REJECTED THESE</div>
   <h2>Listings that look cheap for a reason</h2>
-  <div class="small">Scout should show you why a listing was excluded instead of letting a misleading price sneak into the shortlist.</div>
+  <div class="small">These are real active results Scout excluded before ranking. The reason is shown so you can audit what Scout threw away.</div>
   <div id="rejected"></div>
 </section>
 
-<div class="note">Phase 4A v0.2 · Workflow/decision lab only · Sample active listings · No purchases and no collection data changes.</div>
+<div class="note">Phase 4A v0.3 LIVE · Real active eBay listings · No purchases and no collection data changes.</div>
 </div>
 <div class="toast" id="toast"></div>
 
 <script>
 const $=id=>document.getElementById(id);
-const sampleListings=[
-  {id:"A1",type:"BIN",title:"1960 Fleer Baseball #17 Dave Bancroft HOF EX-NM",price:31.00,shipping:3.99,seller:"heritage_cardboard",feedback:"99.8% · 18,420",match:true},
-  {id:"A2",type:"BIN",title:"1960 Fleer #17 Dave Bancroft New York Giants",price:39.99,shipping:0,seller:"vintage_diamond",feedback:"100% · 4,116",match:true},
-  {id:"A3",type:"AUCTION",title:"1960 Fleer Dave Bancroft #17 HOF",price:27.00,shipping:5.00,seller:"oldschoolwax",feedback:"99.5% · 2,807",match:true,ends:"3h 22m"},
-  {id:"A4",type:"BIN",title:"1960 Fleer #17 Dave Bancroft VG-EX",price:44.00,shipping:4.50,seller:"cardboard_corner",feedback:"99.9% · 31,202",match:true},
-  {id:"R1",type:"BIN",title:"1960 Fleer Dave Bancroft LOT OF 4 CARDS",price:24.99,shipping:4.99,seller:"biglotsports",feedback:"99.4% · 8,812",match:false,reject:"Multi-card lot — not a one-card comparable purchase."},
-  {id:"R2",type:"BIN",title:"1961 Fleer Dave Bancroft #18",price:19.99,shipping:1.25,seller:"cheap_vintage",feedback:"98.7% · 1,104",match:false,reject:"Wrong year and card number."},
-  {id:"R3",type:"BIN",title:"1960 Fleer Dave Bancroft #17 PSA 7",price:84.00,shipping:6.00,seller:"slab_city",feedback:"100% · 5,580",match:false,reject:"Graded PSA listing does not match a Raw target."}
-];
-function money(n){return "$"+Number(n).toFixed(2)}
-function num(id){return Number($(id).value)||0}
-function toast(msg){const t=$("toast");t.textContent=msg;t.style.display="block";clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.display="none",1900)}
-function verdict(total,great,ceiling,walk){
-  if(total<=great)return {label:"🔥 GREAT BUY",cls:"great",why:`${money(great-total)} under Great Buy.`};
-  if(total<=ceiling)return {label:"✅ BUY",cls:"buy",why:`${money(ceiling-total)} under your Buy Ceiling.`};
-  if(total<=walk)return {label:"FAIR / NEGOTIATE",cls:"fair",why:`Above Buy Ceiling, but still below Walk-Away.`};
-  return {label:"PASS",cls:"pass",why:`${money(total-walk)} above Walk-Away.`};
+
+function money(n){
+  const v=Number(n);
+  return Number.isFinite(v)?"$"+v.toFixed(2):"—";
 }
-function cardLabel(){return [$("year").value,$("set").value,"#"+$("num").value,$("grader").value,$("grader").value!=="Raw"?$("grade").value:""].filter(Boolean).join(" · ")}
-function render(){
-  const great=num("great"),ceiling=num("ceiling"),walk=num("walk");
-
-  const matched=sampleListings.filter(x=>x.match).map(x=>{
-    const total=x.price+x.shipping;
-    if(x.type==="AUCTION"){
-      const maxBid=Math.max(0,ceiling-x.shipping);
-      const remaining=maxBid-x.price;
-      return {...x,total,maxBid,remaining};
-    }
-    const v=verdict(total,great,ceiling,walk);
-    const tier=v.cls==="great"?4:v.cls==="buy"?3:v.cls==="fair"?2:1;
-    return {...x,total,v,tier};
-  });
-
-  const bins=matched
-    .filter(x=>x.type==="BIN")
-    .sort((a,b)=>(b.tier-a.tier)||(a.total-b.total));
-
-  const auctions=matched
-    .filter(x=>x.type==="AUCTION")
-    .sort((a,b)=>(b.remaining-a.remaining)||(a.total-b.total));
-
+function num(id){return Number($(id).value)||0}
+function toast(msg){
+  const t=$("toast");t.textContent=msg;t.style.display="block";
+  clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.display="none",2200);
+}
+function pricingConfig(){
+  return {
+    endpoint:(localStorage.getItem("hofScoutPricingEndpoint")||"https://hof-card-scout-pricing.jz9j2778jh.workers.dev").trim().replace(/\/$/,""),
+    accessKey:localStorage.getItem("hofScoutAccessKey")||""
+  };
+}
+function cardPayload(){
+  const grader=$("grader").value;
+  return {
+    player:$("player").value.trim(),
+    year:parseInt($("year").value,10),
+    set:$("set").value.trim(),
+    cardNum:$("num").value.trim(),
+    grader,
+    grade:grader==="Raw"?"":$("grade").value.trim(),
+    autograph:false,relic:false,serial:"",notes:""
+  };
+}
+function targetPayload(){
+  return {greatBuy:num("great"),buyCeiling:num("ceiling"),walkAway:num("walk")};
+}
+function cardLabel(){
+  const c=cardPayload();
+  return [c.year,c.set,c.cardNum?"#"+c.cardNum:"",c.grader,c.grader!=="Raw"&&c.grade?c.grade:""].filter(Boolean).join(" · ");
+}
+function sellerText(s){
+  if(!s)return "Seller details unavailable";
+  const bits=[];
+  if(s.username)bits.push("Seller "+s.username);
+  if(Number.isFinite(Number(s.positivePct)))bits.push(Number(s.positivePct).toFixed(1).replace(/\.0$/,"")+"% positive");
+  if(Number.isFinite(Number(s.reviews)))bits.push(Number(s.reviews).toLocaleString()+" feedback");
+  return bits.length?bits.join(" · "):"Seller details unavailable";
+}
+function dealClass(tier){
+  return tier==="great"?"great":tier==="buy"?"buy":tier==="fair"?"fair":"pass";
+}
+function renderLive(data){
   $("resultTitle").textContent=cardLabel();
-  $("summarybar").innerHTML=
-    `<span class="pill good">${bins.filter(x=>["great","buy"].includes(x.v.cls)).length} buy-worthy BIN</span>`+
-    `<span class="pill warn">${auctions.filter(x=>x.remaining>=0).length} auction to watch</span>`+
-    `<span class="pill bad">${sampleListings.filter(x=>!x.match).length} rejected mismatch</span>`;
 
-  $("binDeals").innerHTML=bins.map((x,i)=>`
-    <div class="deal ${x.v.cls==="great"?"best":""}">
-      <div class="dealhead"><div class="rank">${i+1}</div><div class="dealbody"><div class="title">${x.title}</div><div class="meta">eBay Buy It Now · Seller ${x.seller} · ${x.feedback} positive</div></div></div>
+  const bins=Array.isArray(data.buyItNow)?data.buyItNow:[];
+  const auctions=Array.isArray(data.auctions)?data.auctions:[];
+  const rejected=Array.isArray(data.rejected)?data.rejected:[];
+
+  $("summarybar").innerHTML=
+    `<span class="pill good">${bins.filter(x=>["great","buy"].includes(x.dealTier)).length} buy-worthy BIN</span>`+
+    `<span class="pill warn">${auctions.filter(x=>x.watch).length} auction${auctions.filter(x=>x.watch).length===1?"":"s"} to watch</span>`+
+    `<span class="pill bad">${Number(data.rejectedCount||rejected.length)} rejected mismatch</span>`+
+    `<span class="pill">${Number(data.searched||0)} searched</span>`;
+
+  $("binDeals").innerHTML=bins.length?bins.map((x,i)=>{
+    const cls=dealClass(x.dealTier);
+    const delta=x.delivered<=num("great")
+      ?`${money(num("great")-x.delivered)} under Great Buy.`
+      :x.delivered<=num("ceiling")
+        ?`${money(num("ceiling")-x.delivered)} under your Buy Ceiling.`
+        :x.delivered<=num("walk")
+          ?"Above Buy Ceiling, but still below Walk-Away."
+          :`${money(x.delivered-num("walk"))} above Walk-Away.`;
+    return `<div class="deal ${cls==="great"?"best":""}">
+      <div class="dealhead"><div class="rank">${i+1}</div><div class="dealbody">
+        <div class="title">${escapeHtml(x.title)}</div>
+        <div class="meta">eBay ${x.acceptsOffers?"Buy It Now / Best Offer":"Buy It Now"} · ${escapeHtml(sellerText(x.seller))}${x.condition?" · "+escapeHtml(x.condition):""}</div>
+      </div></div>
       <div class="pricegrid">
         <div class="pricebox"><div class="k">LIST PRICE</div><div class="v">${money(x.price)}</div></div>
-        <div class="pricebox"><div class="k">SHIPPING</div><div class="v">${x.shipping?money(x.shipping):"FREE"}</div></div>
-        <div class="pricebox"><div class="k">DELIVERED*</div><div class="v">${money(x.total)}</div></div>
+        <div class="pricebox"><div class="k">SHIPPING</div><div class="v">${Number(x.shipping)===0?"FREE":money(x.shipping)}</div></div>
+        <div class="pricebox"><div class="k">DELIVERED*</div><div class="v">${money(x.delivered)}</div></div>
       </div>
-      <span class="verdict ${x.v.cls}">${x.v.label}</span>
-      <div class="reason">${x.v.why} Exact target identity matched before ranking.</div>
-      <div class="actions"><button class="gold view" data-id="${x.id}">VIEW LISTING →</button><button class="ghost bought" data-id="${x.id}">💳 I BOUGHT THIS</button></div>
-    </div>
-  `).join("");
+      <span class="verdict ${cls}">${x.dealTier==="great"?"🔥 ":""}${escapeHtml(x.dealLabel||"")}</span>
+      <div class="reason">${escapeHtml(delta)} Scout matched the target identity before ranking.</div>
+      <div class="actions">
+        <button class="gold view" data-link="${escapeAttr(x.link)}">VIEW LISTING →</button>
+        <button class="ghost bought" data-title="${escapeAttr(x.title)}" data-price="${Number(x.price)}" data-shipping="${Number(x.shipping)}">💳 I BOUGHT THIS</button>
+      </div>
+    </div>`;
+  }).join(""):`<div class="small" style="margin-top:10px">No trustworthy matching Buy It Now listings were found in this search.</div>`;
 
-  $("auctionDeals").innerHTML=auctions.map((x,i)=>{
-    const canBid=x.remaining>=0;
-    return `<div class="deal ${canBid?"best":""}">
-      <div class="dealhead"><div class="rank">${i+1}</div><div class="dealbody"><div class="title">${x.title}</div><div class="meta">eBay Auction · Seller ${x.seller} · ${x.feedback} positive · Ends in ${x.ends}</div></div></div>
+  $("auctionDeals").innerHTML=auctions.length?auctions.map((x,i)=>{
+    return `<div class="deal ${x.watch?"best":""}">
+      <div class="dealhead"><div class="rank">${i+1}</div><div class="dealbody">
+        <div class="title">${escapeHtml(x.title)}</div>
+        <div class="meta">eBay Auction · ${escapeHtml(sellerText(x.seller))}${x.timeLeft?" · "+escapeHtml(x.timeLeft)+" left":""}${Number.isFinite(Number(x.bidCount))?" · "+Number(x.bidCount)+" bids":""}</div>
+      </div></div>
       <div class="pricegrid">
         <div class="pricebox"><div class="k">CURRENT BID</div><div class="v">${money(x.price)}</div></div>
-        <div class="pricebox"><div class="k">SHIPPING</div><div class="v">${money(x.shipping)}</div></div>
+        <div class="pricebox"><div class="k">SHIPPING</div><div class="v">${Number(x.shipping)===0?"FREE":money(x.shipping)}</div></div>
         <div class="pricebox"><div class="k">MAX BID</div><div class="v">${money(x.maxBid)}</div></div>
       </div>
-      <span class="verdict auction">${canBid?"⏱ WATCH AUCTION":"PASS"}</span>
-      <div class="reason">${canBid?`Your Buy Ceiling is ${money(ceiling)} delivered before tax. With ${money(x.shipping)} shipping, Scout says do not bid above ${money(x.maxBid)}. You currently have ${money(x.remaining)} of bidding room.`:`Current bid + shipping is already above your Buy Ceiling.`}</div>
-      <div class="actions"><button class="gold view" data-id="${x.id}">VIEW LISTING →</button></div>
+      <span class="verdict auction">${x.watch?"⏱ WATCH AUCTION":"PASS"}</span>
+      <div class="reason">${x.watch
+        ?`Buy Ceiling ${money(num("ceiling"))} minus ${money(x.shipping)} shipping = MAX BID ${money(x.maxBid)}. Current bid leaves ${money(x.biddingRoom)} of room.`
+        :`Current bid is already above Scout's maximum bid after shipping.`}</div>
+      <div class="actions"><button class="gold view" data-link="${escapeAttr(x.link)}">VIEW LISTING →</button></div>
     </div>`;
-  }).join("");
+  }).join(""):`<div class="small" style="margin-top:10px">No trustworthy matching auctions were found in this search.</div>`;
 
-  $("rejected").innerHTML=sampleListings.filter(x=>!x.match).map(x=>`
-    <div class="reject"><div class="title">${x.title}</div><div class="meta">${money(x.price)} + ${money(x.shipping)} shipping · Seller ${x.seller}</div><div class="why">REJECTED: ${x.reject}</div></div>
-  `).join("");
+  $("rejected").innerHTML=rejected.length?rejected.map(x=>`
+    <div class="reject">
+      <div class="title">${escapeHtml(x.title)}</div>
+      <div class="meta">${money(x.price)}${Number.isFinite(Number(x.shipping))?" + "+money(x.shipping)+" shipping":""}${x.seller?.username?" · Seller "+escapeHtml(x.seller.username):""}</div>
+      <div class="why">REJECTED: ${escapeHtml(x.reason||"Did not match target.")}</div>
+      ${x.link?`<div class="actions"><button class="ghost view" data-link="${escapeAttr(x.link)}">INSPECT LISTING →</button></div>`:""}
+    </div>
+  `).join(""):`<div class="small" style="margin-top:10px">No rejected listings were returned.</div>`;
 
-  document.querySelectorAll(".view").forEach(b=>b.onclick=()=>toast("Lab: this would open the live eBay listing."));
-  document.querySelectorAll(".bought").forEach(b=>b.onclick=()=>toast("Lab: this would feed the listing into I BOUGHT IT."));
+  document.querySelectorAll(".view").forEach(b=>b.onclick=()=>{
+    const link=b.dataset.link;
+    if(link)window.open(link,"_blank","noopener");
+  });
+  document.querySelectorAll(".bought").forEach(b=>b.onclick=()=>{
+    toast("Live lab: next we will feed this exact listing into I BOUGHT IT.");
+  });
+
   $("resultsPanel").classList.remove("hidden");
   $("rejectedPanel").classList.remove("hidden");
   $("resultsPanel").scrollIntoView({behavior:"smooth",block:"start"});
 }
+function escapeHtml(s){
+  return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+}
+function escapeAttr(s){return escapeHtml(s)}
+async function findDeals(){
+  const card=cardPayload(),targets=targetPayload(),config=pricingConfig();
 
-$("grader").onchange=()=>{const raw=$("grader").value==="Raw";$("grade").disabled=raw;if(raw)$("grade").value=""};
-$("findBtn").onclick=()=>{
-  if(!$("player").value.trim()||!$("year").value.trim()||!$("set").value.trim()||!$("num").value.trim()){alert("Player, year, set, and card # are required for Deal Finder.");return}
+  if(!card.player||!Number.isInteger(card.year)||!card.set||!card.cardNum){
+    alert("Player, year, set, and card # are required for Deal Finder.");return;
+  }
+  if(!(targets.greatBuy>0&&targets.buyCeiling>targets.greatBuy&&targets.walkAway>=targets.buyCeiling)){
+    alert("Enter valid Smart Buy Targets: Great Buy < Buy Ceiling ≤ Walk-Away.");return;
+  }
+  if(!config.accessKey){
+    alert("Scout's access key is not saved on this device. Open the real HOF Card Scout app, save/test Live Pricing Connection once, then return to this lab.");
+    return;
+  }
+
   $("searching").style.display="block";
+  $("searching").textContent="Scout is checking REAL active eBay listings, matching identity, adding shipping, and comparing each listing to your Buy Ceiling…";
   $("resultsPanel").classList.add("hidden");$("rejectedPanel").classList.add("hidden");
-  setTimeout(()=>{$("searching").style.display="none";render()},650);
+
+  try{
+    const res=await fetch(config.endpoint+"/deals",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Scout-Key":config.accessKey},
+      body:JSON.stringify({card,targets})
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.message||data.error||("HTTP "+res.status));
+    renderLive(data);
+    toast("Live eBay search complete.");
+  }catch(err){
+    alert("Deal Finder could not finish: "+err.message);
+  }finally{
+    $("searching").style.display="none";
+  }
+}
+$("grader").onchange=()=>{
+  const raw=$("grader").value==="Raw";
+  $("grade").disabled=raw;
+  if(raw)$("grade").value="";
 };
+$("findBtn").onclick=findDeals;
 $("resetBtn").onclick=()=>{
-  $("median").value="46.00";$("great").value="35.00";$("ceiling").value="42.00";$("walk").value="48.00";
+  $("player").value="Rickey Henderson";$("year").value="1981";$("set").value="Donruss";$("num").value="119";
+  $("median").value="3.97";$("great").value="2.75";$("ceiling").value="3.50";$("walk").value="4.00";
   $("grader").value="Raw";$("grade").value="";$("grade").disabled=true;
   $("resultsPanel").classList.add("hidden");$("rejectedPanel").classList.add("hidden");
   window.scrollTo({top:0,behavior:"smooth"});
