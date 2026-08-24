@@ -140,7 +140,35 @@ button{min-height:46px;border-radius:13px;border:0;font-weight:950;padding:10px 
     </div>
   </section>
 
-  <p class="note">Phase 3A v0.2. This page only tests the workflow and wording. It never writes to HOF Card Scout’s real collection storage.</p>
+
+  <section class="panel purchase" id="targetPanel">
+    <h2>2. Save as a Target Card</h2>
+    <div class="summary">
+      <div class="title">SCOUT CARRIED THIS FORWARD</div>
+      <div class="main" id="targetCard"></div>
+      <div class="details" id="targetDetails"></div>
+    </div>
+
+    <div class="grid" style="margin-top:12px">
+      <div class="full">
+        <label>TARGET NOTES (OPTIONAL)</label>
+        <input id="targetNotes" placeholder="Preferred grade, max price, condition, etc.">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="primary" type="button" id="saveTargetBtn">🎯 SAVE TARGET CARD</button>
+      <button class="ghost" type="button" id="cancelTargetBtn">CANCEL</button>
+    </div>
+
+    <div class="preview" id="targetPreview">
+      <div class="ok">DRY-RUN RESULT</div>
+      <div class="big" id="targetPreviewTitle"></div>
+      <div class="text" id="targetPreviewText"></div>
+    </div>
+  </section>
+
+  <p class="note">Phase 3A v0.3. This page only tests the workflow and wording. It never writes to HOF Card Scout’s real collection storage.</p>
 </div>
 
 <script>
@@ -184,6 +212,7 @@ function syncScenario(){
 function beginPurchase(){
   const c=card();
   if(!c.player||!c.year||!c.set||!Number.isFinite(c.price)){alert("Enter player, year, set, and shop price first.");return}
+  $("targetPanel").style.display="none";
   $("purchasePanel").style.display="block";
   $("carryCard").textContent=c.player+" · "+cardLabel(c);
   $("carryDetails").textContent="Scout verdict "+c.verdict+" · shop price "+money(c.price)+". Price is pre-filled below.";
@@ -246,7 +275,34 @@ $("boughtBtn").onclick=beginPurchase;
 $("savePurchaseBtn").onclick=()=>showPreview("need");
 $("replaceBtn").onclick=()=>{selectOwnedChoice("replace");showPreview("replace")};
 $("keepBtn").onclick=()=>{selectOwnedChoice("keep");showPreview("keep")};
-$("targetBtn").onclick=()=>{ $("purchasePanel").style.display="block"; showPreview("target"); $("purchasePanel").scrollIntoView({behavior:"smooth",block:"start"}) };
+$("targetBtn").onclick=()=>{
+  const c=card();
+  if(!c.player||!c.year||!c.set){
+    alert("Enter player, year, and set first.");
+    return;
+  }
+  $("purchasePanel").style.display="none";
+  $("targetPanel").style.display="block";
+  $("targetCard").textContent=c.player+" · "+cardLabel(c);
+  $("targetDetails").textContent=
+    "Scout will save this specific card to Target Cards without changing your current collection status.";
+  $("targetPreview").style.display="none";
+  $("targetNotes").value="";
+  $("targetPanel").scrollIntoView({behavior:"smooth",block:"start"});
+};
+
+$("saveTargetBtn").onclick=()=>{
+  const c=card();
+  const notes=$("targetNotes").value.trim();
+  $("targetPreview").style.display="block";
+  $("targetPreviewTitle").textContent=c.player+" target would be saved";
+  $("targetPreviewText").textContent=
+    cardLabel(c)+" would be added to Target Cards"+
+    (notes?" with notes: "+notes+".":".")+
+    " Your Owned/Need status and current representative card would remain unchanged.";
+};
+$("cancelTargetBtn").onclick=()=>{$("targetPanel").style.display="none"};
+
 $("cancelBtn").onclick=()=>{$("purchasePanel").style.display="none"};
 $("source").onchange=()=>{
   if($("source").value==="eBay")$("incoming").checked=true;
