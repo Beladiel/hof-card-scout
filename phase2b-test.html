@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0c1b2b">
+<title>HOF Card Scout — Phase 2B Lab</title>
+<style>
+:root{
+  --bg:#07111c;--panel:#102337;--panel2:#132b42;--gold:#f3c85a;--cream:#fff7df;
+  --muted:#aebdca;--green:#54d18a;--red:#ff7c7c;--blue:#6fc5ff;--line:#29455f;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:
+radial-gradient(circle at 15% 5%,#183550 0,transparent 30%),var(--bg);color:var(--cream)}
+.wrap{max-width:900px;margin:auto;padding:20px 14px 60px}
+header{display:flex;gap:14px;align-items:center;margin-bottom:16px}
+.ball{width:54px;height:54px;border-radius:50%;background:#f7f3e9;color:#b62d2d;display:grid;
+place-items:center;font-size:30px;box-shadow:0 7px 18px #0008;flex:none}
+h1{font-size:24px;margin:0;color:var(--gold)}
+.sub{color:var(--muted);font-size:13px;margin-top:4px}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 12px 30px #0004}
+.banner{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:999px;
+padding:7px 10px;font-size:12px;font-weight:800;background:#0a1826}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.dot.ok{background:var(--green)} .dot.bad{background:var(--red)}
+.note{font-size:13px;color:var(--muted);line-height:1.45}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.full{grid-column:1/-1}
+label{display:block;font-size:11px;font-weight:850;color:#c7d4df;margin-bottom:5px;text-transform:uppercase;
+letter-spacing:.05em}
+input,select{width:100%;padding:12px 11px;border-radius:10px;border:1px solid #36536e;background:#081725;
+color:var(--cream);font-size:16px;outline:none}
+input:focus,select:focus{border-color:var(--gold)}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+button,a.btn{border:0;border-radius:10px;padding:12px 14px;font-weight:900;font-size:13px;cursor:pointer;
+text-decoration:none;display:inline-block}
+.primary{background:var(--gold);color:#17202a}
+.secondary{background:#24445f;color:white;border:1px solid #426683}
+.ghost{background:transparent!important;color:var(--cream)!important;border:1px solid #426683!important}
+button:disabled{opacity:.55;cursor:wait}
+h2{font-size:16px;color:var(--gold);margin:0 0 10px}
+.big{font-size:32px;font-weight:950;color:white}
+.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:12px}
+.source{background:#081725;border:1px solid var(--line);border-radius:11px;padding:10px;text-align:center}
+.source .name{text-transform:uppercase;color:var(--muted);font-size:10px;font-weight:900}
+.source .n{font-size:22px;font-weight:950;margin-top:3px}
+.source .small{font-size:10px;color:var(--muted)}
+.comp{border-top:1px solid var(--line);padding:12px 0}
+.comp:first-child{border-top:0}
+.comp-title{font-weight:800;line-height:1.3}
+.comp-meta{color:var(--muted);font-size:12px;margin-top:5px}
+.price{color:var(--green);font-size:20px;font-weight:950}
+.error{color:#ffd1d1;background:#421c25;border:1px solid #7a3342;padding:11px;border-radius:10px}
+.good{color:#d6ffe5;background:#153a2a;border:1px solid #2f6b4e;padding:11px;border-radius:10px}
+pre{white-space:pre-wrap;word-break:break-word;background:#07121d;padding:10px;border-radius:9px;color:#c9dae7;font-size:11px}
+details{margin-top:12px}
+footer{text-align:center;color:#7f94a6;font-size:11px;margin-top:24px}
+@media(max-width:650px){
+ .grid{grid-template-columns:1fr}.full{grid-column:auto}
+ .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+ header{align-items:flex-start}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="ball">⚾</div>
+  <div>
+    <h1>HOF Card Scout — Phase 2B Lab</h1>
+    <div class="sub">Independent auction-house test bench · your live Scout pricing engine stays untouched</div>
+  </div>
+</header>
+
+<div class="card">
+  <div class="banner">
+    <div>
+      <h2>Connection</h2>
+      <div class="note">Uses the same Worker URL and Scout access key saved by HOF Card Scout.</div>
+    </div>
+    <div class="pill"><span class="dot" id="statusDot"></span><span id="statusText">Not tested</span></div>
+  </div>
+  <div class="grid" style="margin-top:12px">
+    <div class="full"><label>Worker URL</label><input id="endpoint"></div>
+    <div class="full"><label>Scout access key</label><input id="accessKey" type="password" autocomplete="off" placeholder="Uses your existing saved key"></div>
+  </div>
+  <div class="actions">
+    <button class="secondary" id="connectBtn" type="button">TEST CONNECTION</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="banner">
+    <div>
+      <h2>Card to test</h2>
+      <div class="note">The lab asks only Goldin, REA, Lelands, SCP and Hake’s. eBay is intentionally excluded.</div>
+    </div>
+    <button class="ghost" id="sampleBtn" type="button">LOAD RICKEY SAMPLE</button>
+  </div>
+
+  <div class="grid" style="margin-top:13px">
+    <div><label>Player</label><input id="player" placeholder="Rickey Henderson"></div>
+    <div><label>Year</label><input id="year" inputmode="numeric" placeholder="1981"></div>
+    <div><label>Set</label><input id="set" placeholder="Donruss"></div>
+    <div><label>Card #</label><input id="cardNum" placeholder="119"></div>
+    <div><label>Grader</label>
+      <select id="grader">
+        <option>Raw</option><option>PSA</option><option>SGC</option><option>BGS</option><option>CGC</option>
+      </select>
+    </div>
+    <div><label>Grade</label><input id="grade" placeholder="6, 9, 9.5…"></div>
+  </div>
+  <div class="actions">
+    <button class="primary" id="testBtn" type="button">TEST SECONDARY SOURCES</button>
+    <a class="btn ghost" href="./index.html">BACK TO HOF CARD SCOUT</a>
+  </div>
+  <p class="note" style="margin-bottom:0"><strong>Free-plan guardrail:</strong> this test uses at most 25 returned rows and does not persist The Card API transaction results. The free API’s historical window is only the most recent 3 days.</p>
+</div>
+
+<div class="card" id="resultsCard" hidden>
+  <h2>Phase 2B result</h2>
+  <div id="summary"></div>
+  <div class="stats" id="stats"></div>
+  <div id="comps" style="margin-top:12px"></div>
+  <div id="notes"></div>
+  <details>
+    <summary class="note">Technical response</summary>
+    <pre id="raw"></pre>
+  </details>
+</div>
+
+<footer>Experimental Phase 2B page · no Card API key is stored in this webpage</footer>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const DEFAULT_ENDPOINT="https://hof-card-scout-pricing.jz9j2778jh.workers.dev";
+const PLATFORMS=["goldin","rea","lelands","scp","hakes"];
+
+function config(){
+  return {
+    endpoint:($("endpoint").value||DEFAULT_ENDPOINT).trim().replace(/\/$/,""),
+    accessKey:$("accessKey").value.trim()
+  };
+}
+function saveConfig(){
+  const c=config();
+  localStorage.setItem("hofScoutPricingEndpoint",c.endpoint);
+  if(c.accessKey)localStorage.setItem("hofScoutAccessKey",c.accessKey);
+}
+function init(){
+  $("endpoint").value=localStorage.getItem("hofScoutPricingEndpoint")||DEFAULT_ENDPOINT;
+  $("accessKey").value=localStorage.getItem("hofScoutAccessKey")||"";
+  loadSample();
+}
+function setStatus(ok,text){
+  $("statusDot").className="dot "+(ok?"ok":"bad");
+  $("statusText").textContent=text;
+}
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
+function money(n){return Number.isFinite(Number(n))?"$"+Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):"—"}
+
+async function testConnection(){
+  const b=$("connectBtn"); b.disabled=true; b.textContent="CHECKING…";
+  try{
+    saveConfig(); const c=config();
+    if(!c.accessKey)throw new Error("Scout access key is blank.");
+    const r=await fetch(c.endpoint+"/health",{headers:{"X-Scout-Key":c.accessKey}});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||!j.ok)throw new Error(j.message||j.error||("HTTP "+r.status));
+    const ready=!!j.providers?.cardapi;
+    setStatus(ready,ready?`Connected · Card API ready · Worker ${j.version||""}`:"Connected · Card API secret missing");
+  }catch(e){setStatus(false,e.message)}
+  finally{b.disabled=false;b.textContent="TEST CONNECTION"}
+}
+
+function loadSample(){
+  $("player").value="Rickey Henderson";
+  $("year").value="1981";
+  $("set").value="Donruss";
+  $("cardNum").value="119";
+  $("grader").value="Raw";
+  $("grade").value="";
+}
+
+async function runTest(){
+  const b=$("testBtn"); b.disabled=true; b.textContent="SEARCHING 5 AUCTION SOURCES…";
+  $("resultsCard").hidden=false;
+  $("summary").innerHTML='<div class="note">Checking independent auction-house sales…</div>';
+  $("stats").innerHTML="";$("comps").innerHTML="";$("notes").innerHTML="";
+  try{
+    saveConfig(); const c=config();
+    if(!c.accessKey)throw new Error("Scout access key is blank.");
+    const card={
+      player:$("player").value.trim(),
+      year:Number($("year").value),
+      set:$("set").value.trim(),
+      cardNum:$("cardNum").value.trim(),
+      grader:$("grader").value,
+      grade:$("grade").value.trim()
+    };
+    const t0=performance.now();
+    const r=await fetch(c.endpoint+"/cardapi/test",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
+      body:JSON.stringify(card)
+    });
+    const j=await r.json().catch(()=>({}));
+    const secs=((performance.now()-t0)/1000).toFixed(1);
+    $("raw").textContent=JSON.stringify(j,null,2);
+    if(!r.ok||!j.ok)throw new Error(j.message||j.error||("HTTP "+r.status));
+
+    $("summary").innerHTML=`
+      <div class="${j.matched>0?"good":"note"}">
+        <div class="big">${Number(j.matched)||0}</div>
+        <strong>matching independent sale${Number(j.matched)===1?"":"s"} found</strong>
+        <div style="margin-top:5px">Search took ${esc(secs)} sec · query: ${esc(j.query||"")}</div>
+      </div>`;
+
+    $("stats").innerHTML=PLATFORMS.map(p=>{
+      const s=j.platformStats?.[p]||{};
+      return `<div class="source">
+        <div class="name">${esc(p)}</div>
+        <div class="n">${Number(s.matched)||0}</div>
+        <div class="small">${Number(s.returned)||0} returned${s.error?" · error":""}</div>
+      </div>`;
+    }).join("");
+
+    const comps=Array.isArray(j.comps)?j.comps:[];
+    $("comps").innerHTML=comps.length?`
+      <h2 style="margin-top:18px">Matched sales</h2>`+
+      comps.map(x=>`<div class="comp">
+        <div class="banner">
+          <div style="min-width:0;flex:1">
+            <div class="comp-title">${esc(x.title)}</div>
+            <div class="comp-meta">${esc(String(x.platform||"").toUpperCase())} · ${esc(x.soldDate||"date unavailable")}
+              ${x.grader?` · ${esc(x.grader)} ${esc(x.grade||"")}`:""}</div>
+          </div>
+          <div class="price">${money(x.price)}</div>
+        </div>
+        ${x.link?`<div style="margin-top:7px"><a href="${esc(x.link)}" target="_blank" rel="noopener" style="color:var(--blue)">View sale ↗</a></div>`:""}
+      </div>`).join("")
+      :`<div class="note" style="margin-top:15px"><strong>Zero matches is still useful information.</strong> With only a 3-day free lookback, older cards may simply have no qualifying independent auction-house sale during the window.</div>`;
+
+    const notes=Array.isArray(j.notes)?j.notes:[];
+    $("notes").innerHTML=notes.length?`<div class="note" style="margin-top:14px">${notes.map(n=>"• "+esc(n)).join("<br>")}</div>`:"";
+  }catch(e){
+    $("summary").innerHTML=`<div class="error"><strong>Test failed:</strong> ${esc(e.message)}</div>`;
+  }finally{b.disabled=false;b.textContent="TEST SECONDARY SOURCES"}
+}
+
+$("connectBtn").addEventListener("click",testConnection);
+$("sampleBtn").addEventListener("click",loadSample);
+$("testBtn").addEventListener("click",runTest);
+init();
+</script>
+</body>
+</html>
