@@ -186,6 +186,34 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .handoff-done .big{font-size:17px;font-weight:950;margin:4px 0}
 .handoff-done .text{font-size:11px;color:var(--muted);line-height:1.5}
 
+.deal-finder{margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
+.deal-finder[hidden]{display:none}
+.deal-status{border:1px solid var(--line);border-radius:13px;padding:11px;background:rgba(255,255,255,.03);margin:10px 0}
+.deal-status.good{border-color:rgba(86,197,138,.5)}
+.deal-status.bad{border-color:rgba(239,109,109,.5)}
+.deal-status .big{font-size:16px;font-weight:950;margin-top:4px}
+.deal-summarybar{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}
+.deal-pill{border:1px solid var(--line);border-radius:999px;padding:5px 8px;font-size:9px;font-weight:900}
+.deal-pill.good{color:#8be2b0;border-color:rgba(86,197,138,.45)}
+.deal-pill.warn{color:#f1d38a;border-color:rgba(230,189,99,.45)}
+.deal-pill.bad{color:#ff9a9a;border-color:rgba(239,109,109,.45)}
+.deal-card{border:1px solid var(--line);border-radius:14px;padding:11px;margin:9px 0;background:rgba(255,255,255,.025)}
+.deal-card.best{border-color:rgba(86,197,138,.5);background:rgba(86,197,138,.055)}
+.deal-title{font-size:13px;font-weight:950;line-height:1.35}
+.deal-meta{font-size:10px;color:var(--muted);line-height:1.45;margin-top:3px}
+.deal-prices{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}
+.deal-price{border:1px solid var(--line);border-radius:10px;padding:7px}
+.deal-price .k{font-size:8px;color:var(--muted);font-weight:900}.deal-price .v{font-size:16px;font-weight:950;margin-top:2px}
+.deal-verdict{display:inline-block;margin-top:8px;border-radius:999px;padding:5px 8px;font-size:9px;font-weight:1000}
+.deal-verdict.great{background:rgba(86,197,138,.14);color:#8be2b0}
+.deal-verdict.buy{background:rgba(125,183,255,.14);color:#a7ccff}
+.deal-verdict.fair{background:rgba(230,189,99,.14);color:#f1d38a}
+.deal-verdict.pass{background:rgba(239,109,109,.14);color:#ff9a9a}
+.deal-verdict.watch{background:rgba(230,189,99,.14);color:#f1d38a}
+.deal-reject{border:1px solid rgba(239,109,109,.28);border-radius:12px;padding:9px;margin:7px 0;background:rgba(239,109,109,.035)}
+.deal-reject .why{font-size:9px;color:#ff9a9a;font-weight:900;margin-top:4px}
+
+
 
 .verdict{margin:12px 0;padding:13px;border-radius:14px;border:1px solid var(--line);background:linear-gradient(145deg,rgba(230,189,99,.12),rgba(255,255,255,.03))}
 .verdict .tag{font-size:10px;color:var(--gold);font-weight:950;letter-spacing:.12em}.verdict .big{font-size:23px;font-weight:950;margin:3px 0}.verdict .why{font-size:13px;color:var(--muted);line-height:1.45}
@@ -209,7 +237,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .fast-note{display:none;color:var(--gold);font-size:11px;font-weight:850;margin:-4px 0 10px}
 .fast-mode .fast-note{display:block}
 .grade-other[hidden]{display:none}
-@media(max-width:620px){.connect-grid,.market-grid{grid-template-columns:1fr}.market-grid{grid-template-columns:1fr 1fr}.market-grid .market-stat:last-child{grid-column:1/-1}.buy-target-grid{grid-template-columns:1fr}.buy-target .v{font-size:21px}.handoff-grid{grid-template-columns:1fr}.handoff-field.full{grid-column:auto}}
+@media(max-width:620px){.connect-grid,.market-grid{grid-template-columns:1fr}.market-grid{grid-template-columns:1fr 1fr}.market-grid .market-stat:last-child{grid-column:1/-1}.buy-target-grid{grid-template-columns:1fr}.buy-target .v{font-size:21px}.handoff-grid{grid-template-columns:1fr}.handoff-field.full{grid-column:auto}.deal-prices{grid-template-columns:1fr 1fr}.deal-prices .deal-price:last-child{grid-column:1/-1}}
 .result-box{margin-top:14px;border-radius:17px;border:1px solid var(--line);padding:14px;background:rgba(0,0,0,.12)}
 .result-box h3{margin:0 0 7px;font-size:17px}
 .result-box p{margin:4px 0;color:var(--muted);font-size:13px;line-height:1.4}
@@ -519,7 +547,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.2.2</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.3.0</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -811,7 +839,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"4.2.2",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"4.3.0",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -1524,6 +1552,122 @@ function phase3aOpenTarget(card,p,targets){
   box.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
 
+
+function dealSellerText(s){
+  if(!s)return "Seller details unavailable";
+  const bits=[];
+  if(s.username)bits.push("Seller "+s.username);
+  if(Number.isFinite(Number(s.positivePct)))bits.push(Number(s.positivePct).toFixed(1).replace(/\.0$/,"")+"% positive");
+  if(Number.isFinite(Number(s.reviews)))bits.push(Number(s.reviews).toLocaleString()+" feedback");
+  return bits.length?bits.join(" · "):"Seller details unavailable";
+}
+function dealClass(tier){
+  return tier==="great"?"great":tier==="buy"?"buy":tier==="fair"?"fair":"pass";
+}
+function dealFinderTargetsPayload(targets){
+  return {greatBuy:Number(targets.great),buyCeiling:Number(targets.ceiling),walkAway:Number(targets.walk)};
+}
+function dealFinderPurchasedCard(card,listing){
+  return {...card,shopPrice:Number(listing.price)+Number(listing.shipping||0)};
+}
+function dealFinderOpenPurchase(card,data,p,listing){
+  const purchaseCard=dealFinderPurchasedCard(card,listing);
+  phase3aOpenPurchase(purchaseCard,data,p);
+  setTimeout(()=>{
+    if($("phase3aPaid"))$("phase3aPaid").value=(Number(listing.price)+Number(listing.shipping||0)).toFixed(2);
+    if($("phase3aSource")){
+      $("phase3aSource").value="eBay";
+      phase3aUpdateSourceDetail();
+    }
+    if($("phase3aPlaceDetail"))$("phase3aPlaceDetail").value=listing.seller?.username||"";
+    if($("phase3aIncoming"))$("phase3aIncoming").checked=true;
+  },0);
+}
+async function loadDealFinder(card,data,ctx,targets){
+  const host=$("dealFinderResults");
+  const status=$("dealFinderStatus");
+  if(!host||!status)return;
+  const cfg=pricingConfig();
+  if(!cfg.accessKey){
+    status.className="deal-status bad";
+    status.innerHTML='<div class="tag">DEAL FINDER</div><div class="big">SCOUT ACCESS KEY IS MISSING</div><div class="small">Open Live Pricing Connection and save/test the key on this device, then try again.</div>';
+    return;
+  }
+  const payloadTargets=dealFinderTargetsPayload(targets);
+  status.className="deal-status";
+  status.innerHTML='<div class="tag">DEAL FINDER</div><div class="big">SEARCHING ACTIVE EBAY…</div><div class="small">Matching the exact card, adding shipping, checking seller feedback, and comparing each listing to your Buy Ceiling.</div>';
+  host.innerHTML="";
+  try{
+    const res=await fetch(cfg.endpoint+"/deals",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Scout-Key":cfg.accessKey},
+      body:JSON.stringify({card,targets:payloadTargets})
+    });
+    const dealData=await res.json().catch(()=>({}));
+    if(!res.ok||!dealData.ok)throw new Error(dealData.message||dealData.error||("HTTP "+res.status));
+
+    const bins=Array.isArray(dealData.buyItNow)?dealData.buyItNow:[];
+    const auctions=Array.isArray(dealData.auctions)?dealData.auctions:[];
+    const rejected=Array.isArray(dealData.rejected)?dealData.rejected:[];
+    const buyWorthy=bins.filter(x=>["great","buy"].includes(x.dealTier));
+    const best=bins[0]||null;
+
+    let decisionTitle="",decisionText="";
+    if(buyWorthy.length){
+      decisionTitle=`${buyWorthy.length} BUY-WORTHY DEAL${buyWorthy.length===1?"":"S"} FOUND`;
+      decisionText=best?`Best delivered price: ${formatMoney(best.delivered)}. Scout's Buy Ceiling is ${formatMoney(payloadTargets.buyCeiling)}.`:"";
+    }else if(best){
+      const overWalk=best.delivered-payloadTargets.walkAway;
+      decisionTitle="NO BUY-WORTHY DEALS RIGHT NOW";
+      decisionText=overWalk>0
+        ?`Closest trustworthy Buy It Now listing is ${formatMoney(best.delivered)}, which is ${formatMoney(overWalk)} above your ${formatMoney(payloadTargets.walkAway)} Walk-Away. Scout says wait.`
+        :`Closest trustworthy listing is ${formatMoney(best.delivered)} — below Walk-Away but above the Buy Ceiling. Scout says negotiate or wait.`;
+    }else{
+      decisionTitle="NO TRUSTWORTHY BUY-IT-NOW MATCHES";
+      decisionText="Scout did not find a clean active Buy It Now match in this search.";
+    }
+
+    status.className="deal-status good";
+    status.innerHTML=`<div class="tag">SCOUT'S DEAL DECISION</div><div class="big">${escapeHtml(decisionTitle)}</div><div class="small">${escapeHtml(decisionText)}</div>
+      <div class="deal-summarybar"><span class="deal-pill good">${buyWorthy.length} buy-worthy BIN</span><span class="deal-pill warn">${auctions.filter(x=>x.watch).length} auctions to watch</span><span class="deal-pill bad">${Number(dealData.rejectedCount||rejected.length)} rejected</span><span class="deal-pill">${Number(dealData.searched||0)} searched</span></div>`;
+
+    const binHtml=bins.length?bins.map((x,i)=>{
+      const cls=dealClass(x.dealTier);
+      return `<div class="deal-card ${cls==="great"?"best":""}">
+        <div class="deal-title">${i+1}. ${escapeHtml(x.title)}</div>
+        <div class="deal-meta">eBay ${x.acceptsOffers?"Buy It Now / Best Offer":"Buy It Now"} · ${escapeHtml(dealSellerText(x.seller))}${x.condition?" · "+escapeHtml(x.condition):""}</div>
+        <div class="deal-prices"><div class="deal-price"><div class="k">LIST</div><div class="v">${formatMoney(x.price)}</div></div><div class="deal-price"><div class="k">SHIPPING</div><div class="v">${Number(x.shipping)===0?"FREE":formatMoney(x.shipping)}</div></div><div class="deal-price"><div class="k">DELIVERED*</div><div class="v">${formatMoney(x.delivered)}</div></div></div>
+        <span class="deal-verdict ${cls}">${x.dealTier==="great"?"🔥 ":""}${escapeHtml(x.dealLabel||"")}</span>
+        <div class="action-row" style="margin-top:8px"><button type="button" class="primary dealViewBtn" data-link="${escapeHtml(x.link)}">VIEW LISTING →</button><button type="button" class="ghost dealBoughtBtn" data-idx="${i}">💳 I BOUGHT THIS</button></div>
+      </div>`;
+    }).join(""):'<div class="small">No trustworthy Buy It Now matches were found.</div>';
+
+    const auctionHtml=auctions.length?auctions.map((x,i)=>`<div class="deal-card ${x.watch?"best":""}">
+      <div class="deal-title">${i+1}. ${escapeHtml(x.title)}</div>
+      <div class="deal-meta">eBay Auction · ${escapeHtml(dealSellerText(x.seller))}${x.timeLeft?" · "+escapeHtml(x.timeLeft)+" left":""}</div>
+      <div class="deal-prices"><div class="deal-price"><div class="k">CURRENT BID</div><div class="v">${formatMoney(x.price)}</div></div><div class="deal-price"><div class="k">SHIPPING</div><div class="v">${Number(x.shipping)===0?"FREE":formatMoney(x.shipping)}</div></div><div class="deal-price"><div class="k">MAX BID</div><div class="v">${formatMoney(x.maxBid)}</div></div></div>
+      <span class="deal-verdict watch">${x.watch?"⏱ WATCH AUCTION":"PASS"}</span>
+      <div class="small" style="margin-top:6px">${x.watch?`Do not bid above ${formatMoney(x.maxBid)} before tax.`:"Current bid is already above Scout's maximum after shipping."}</div>
+      <div class="action-row" style="margin-top:8px"><button type="button" class="primary dealViewBtn" data-link="${escapeHtml(x.link)}">VIEW LISTING →</button></div>
+    </div>`).join(""):'<div class="small">No trustworthy matching auctions were found.</div>';
+
+    const rejectHtml=rejected.length?rejected.map(x=>`<div class="deal-reject"><div class="deal-title">${escapeHtml(x.title)}</div><div class="deal-meta">${formatMoney(x.price)}${Number.isFinite(Number(x.shipping))?" + "+formatMoney(x.shipping)+" shipping":""}</div><div class="why">REJECTED: ${escapeHtml(x.reason||"Did not match target.")}</div></div>`).join(""):"";
+
+    host.innerHTML=`<div class="tag" style="margin-top:12px">🔥 BEST BUY-IT-NOW DEALS</div>${binHtml}
+      <div class="tag" style="margin-top:16px;padding-top:12px;border-top:1px solid var(--line)">⏱ AUCTIONS TO WATCH</div>${auctionHtml}
+      ${rejectHtml?`<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:900">SCOUT REJECTED THESE (${rejected.length})</summary><div style="margin-top:8px">${rejectHtml}</div></details>`:""}`;
+
+    document.querySelectorAll(".dealViewBtn").forEach(b=>b.onclick=()=>{if(b.dataset.link)window.open(b.dataset.link,"_blank","noopener")});
+    document.querySelectorAll(".dealBoughtBtn").forEach(b=>b.onclick=()=>{
+      const listing=bins[Number(b.dataset.idx)];
+      if(listing)dealFinderOpenPurchase(card,data,ctx.p,listing);
+    });
+  }catch(err){
+    status.className="deal-status bad";
+    status.innerHTML=`<div class="tag">DEAL FINDER</div><div class="big">SEARCH FAILED</div><div class="small">${escapeHtml(err.message||String(err))}</div>`;
+  }
+}
+
 function renderLiveResult(card,data,ctx){
   const targets=smartBuyTargets(data);
   const phase2dTier=phase2dVerdictTier(card,targets);
@@ -1554,7 +1698,7 @@ function renderLiveResult(card,data,ctx){
     ${labHtml}
     ${smartBuyTargetsHtml(targets)}
     <div class="verdict"><div class="tag">SCOUT SAYS</div><div class="big">${escapeHtml(v.title)}</div><div class="why"><strong>${escapeHtml(v.line)}</strong><br>${escapeHtml(v.why)}</div></div>
-    ${ctx.p?`<div class="shop-flow-actions"><button type="button" class="shop-flow-choice" id="shopBoughtBtn" aria-pressed="false">💳 I BOUGHT IT</button><button type="button" class="shop-flow-choice" id="shopTargetBtn" aria-pressed="false">🎯 SAVE AS TARGET INSTEAD</button></div><div class="shop-handoff" id="shopHandoff" hidden></div>`:""}
+    ${ctx.p?`<div class="shop-flow-actions"><button type="button" class="shop-flow-choice" id="shopBoughtBtn" aria-pressed="false">💳 I BOUGHT IT</button><button type="button" class="shop-flow-choice" id="shopTargetBtn" aria-pressed="false">🎯 SAVE AS TARGET INSTEAD</button>${card.cardNum?`<button type="button" class="shop-flow-choice" id="findDealsBtn">🔎 FIND DEALS</button>`:""}</div><div class="shop-handoff" id="shopHandoff" hidden></div><div class="deal-finder" id="dealFinder" hidden><div class="deal-status" id="dealFinderStatus"></div><div id="dealFinderResults"></div></div>`:""}
     ${notes?'<div>'+notes+'</div>':''}
     <div class="source-row"><button type="button" class="ghost" id="manualEbayBtn">eBay sold</button><button type="button" class="ghost" id="psaBtn">PSA APR</button><button type="button" class="ghost" id="fanaticsBtn">Fanatics</button><button type="button" class="ghost" id="heritageBtn">Heritage</button></div>
     ${compHtml?'<div class="comp-list"><div class="purchase-title" style="margin-top:12px">SOLD COMPS SCOUT USED</div>'+compHtml+'</div>':''}
@@ -1565,6 +1709,11 @@ function renderLiveResult(card,data,ctx){
   $("heritageBtn").onclick=()=>window.open(urls.heritage,"_blank","noopener");
   if(ctx.p&&$("shopBoughtBtn"))$("shopBoughtBtn").onclick=()=>phase3aOpenPurchase(card,data,ctx.p);
   if(ctx.p&&$("shopTargetBtn"))$("shopTargetBtn").onclick=()=>phase3aOpenTarget(card,ctx.p,targets);
+  if(ctx.p&&$("findDealsBtn"))$("findDealsBtn").onclick=()=>{
+    $("dealFinder").hidden=false;
+    loadDealFinder(card,data,ctx,targets);
+    $("dealFinder").scrollIntoView({behavior:"smooth",block:"nearest"});
+  };
 }
 function renderPricingError(card,ctx,message){
   const r=$("shopResult"),urls=validationUrls(card);
