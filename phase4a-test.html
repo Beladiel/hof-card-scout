@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HOF Card Scout — Phase 4A Deal Finder Lab</title>
+<style>
+:root{
+  --bg:#0f1a16;--panel:#172720;--panel2:#1d3027;--text:#f7f1df;--muted:#aab9b0;
+  --line:#355247;--green:#56c58a;--gold:#e6bd63;--red:#ef6d6d;--blue:#7db7ff;--ink:#17251f
+}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at top,#1e3329 0,#0f1a16 48%);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+button,input,select{font:inherit}
+.wrap{max-width:760px;margin:0 auto;padding:16px 14px 50px}
+header{display:flex;align-items:center;gap:12px;margin:4px 0 16px}
+.ball{width:54px;height:54px;border-radius:50%;background:#fffdf5;border:2px solid #c9c0ad;display:grid;place-items:center;font-size:28px}
+h1{font-size:23px;margin:0}.tagline{font-size:12px;color:var(--muted);margin-top:2px}
+.badge{margin-left:auto;font-size:10px;font-weight:950;letter-spacing:.08em;color:var(--gold)}
+.panel{background:rgba(23,39,32,.96);border:1px solid var(--line);border-radius:18px;padding:14px;margin:12px 0;box-shadow:0 12px 30px rgba(0,0,0,.18)}
+.eyebrow{font-size:10px;font-weight:950;letter-spacing:.11em;color:var(--gold)}
+h2{font-size:19px;margin:4px 0 10px}.small{font-size:11px;line-height:1.5;color:var(--muted)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.field.full{grid-column:1/-1}
+label{display:block;font-size:10px;font-weight:900;color:var(--muted);margin-bottom:4px}
+input,select{width:100%;min-height:44px;border:1px solid #49665a;border-radius:11px;background:#fbf6e9;color:var(--ink);padding:8px 10px}
+.primary,.ghost,.gold{border:0;border-radius:12px;min-height:44px;padding:9px 12px;font-weight:950;cursor:pointer}
+.primary{background:var(--green);color:#072116}.gold{background:var(--gold);color:#211a0b}.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.targets{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:11px}
+.target{border:1px solid var(--line);border-radius:12px;padding:9px;background:rgba(255,255,255,.025)}
+.target .k{font-size:9px;color:var(--muted);font-weight:900}.target .v{font-size:18px;font-weight:950;margin-top:3px}
+.target.great{border-color:rgba(86,197,138,.45)}.target.ceiling{border-color:rgba(230,189,99,.45)}
+.searching{display:none;margin-top:12px;padding:12px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:12px}
+.summarybar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.pill{border:1px solid var(--line);border-radius:999px;padding:6px 9px;font-size:10px;font-weight:900}
+.pill.good{border-color:rgba(86,197,138,.45);color:#8be2b0}.pill.warn{border-color:rgba(230,189,99,.45);color:#f4d98f}.pill.bad{border-color:rgba(239,109,109,.45);color:#ff9a9a}
+.deal{border:1px solid var(--line);border-radius:16px;padding:13px;margin:10px 0;background:rgba(255,255,255,.025)}
+.deal.best{border-color:rgba(86,197,138,.55);background:rgba(86,197,138,.055)}
+.dealhead{display:flex;gap:10px;align-items:flex-start}.dealbody{flex:1}
+.rank{width:34px;height:34px;border-radius:10px;background:rgba(230,189,99,.12);display:grid;place-items:center;font-weight:1000;color:var(--gold)}
+.title{font-size:14px;font-weight:950;line-height:1.35}.meta{font-size:10px;color:var(--muted);line-height:1.45;margin-top:4px}
+.pricegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
+.pricebox{border:1px solid var(--line);border-radius:11px;padding:8px}.pricebox .k{font-size:8px;font-weight:900;color:var(--muted)}.pricebox .v{font-size:17px;font-weight:950;margin-top:2px}
+.verdict{display:inline-block;margin-top:9px;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:1000}
+.verdict.great{background:rgba(86,197,138,.14);color:#8be2b0}.verdict.buy{background:rgba(125,183,255,.14);color:#a7ccff}.verdict.fair{background:rgba(230,189,99,.14);color:#f1d38a}.verdict.pass{background:rgba(239,109,109,.14);color:#ff9a9a}.verdict.auction{background:rgba(230,189,99,.14);color:#f1d38a}
+.reason{font-size:11px;color:var(--muted);line-height:1.5;margin-top:7px}
+.reject{border:1px solid rgba(239,109,109,.25);border-radius:13px;padding:10px;margin:8px 0;background:rgba(239,109,109,.035)}
+.reject .why{font-size:10px;color:#ff9a9a;font-weight:900;margin-top:4px}
+.hidden{display:none!important}
+.note{margin-top:18px;font-size:10px;color:#809289;text-align:center;line-height:1.4}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#f7f1df;color:#142019;border-radius:999px;padding:9px 13px;font-size:11px;font-weight:900;display:none;z-index:20}
+@media(max-width:620px){.grid,.targets,.pricegrid{grid-template-columns:1fr 1fr}.field.full{grid-column:1/-1}.targets .target:last-child{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="ball">⚾</div>
+  <div><h1>HOF Card Scout</h1><div class="tagline">Phase 4A — Deal Finder lab</div></div>
+  <div class="badge">PHASE 4A v0.1</div>
+</header>
+
+<section class="panel">
+  <div class="eyebrow">FIND ME THIS CARD</div>
+  <h2>Turn market value into actual buying opportunities</h2>
+  <div class="small">Lab mode uses realistic sample listings so we can perfect the decision logic and screen flow before connecting live active listings.</div>
+
+  <div class="grid" style="margin-top:12px">
+    <div class="field full"><label>PLAYER</label><input id="player" value="Dave Bancroft"></div>
+    <div class="field"><label>YEAR</label><input id="year" value="1960"></div>
+    <div class="field"><label>SET</label><input id="set" value="Fleer"></div>
+    <div class="field"><label>CARD #</label><input id="num" value="17"></div>
+    <div class="field"><label>RAW / GRADING</label><select id="grader"><option>Raw</option><option>PSA</option><option>SGC</option><option>CGC</option></select></div>
+    <div class="field"><label>GRADE</label><input id="grade" disabled placeholder="Disabled for Raw"></div>
+  </div>
+
+  <div class="targets">
+    <div class="target"><div class="k">MARKET MEDIAN</div><div class="v"><input id="median" inputmode="decimal" value="46.00" style="min-height:34px;padding:4px 7px"></div></div>
+    <div class="target great"><div class="k">GREAT BUY</div><div class="v"><input id="great" inputmode="decimal" value="35.00" style="min-height:34px;padding:4px 7px"></div></div>
+    <div class="target ceiling"><div class="k">BUY CEILING</div><div class="v"><input id="ceiling" inputmode="decimal" value="42.00" style="min-height:34px;padding:4px 7px"></div></div>
+    <div class="target"><div class="k">WALK-AWAY</div><div class="v"><input id="walk" inputmode="decimal" value="48.00" style="min-height:34px;padding:4px 7px"></div></div>
+  </div>
+
+  <div class="actions"><button class="primary" id="findBtn">🔎 FIND DEALS</button><button class="ghost" id="resetBtn">RESET LAB</button></div>
+  <div class="searching" id="searching">Scout is checking active listings, matching identity, adding shipping, and comparing each listing to your Buy Ceiling…</div>
+</section>
+
+<section class="panel hidden" id="resultsPanel">
+  <div class="eyebrow">SCOUT'S SHORTLIST</div>
+  <h2 id="resultTitle">Best buying opportunities</h2>
+  <div class="summarybar" id="summarybar"></div>
+  <div class="small">Ranked by card match first, then buying value. Shipping is included in the displayed total. Tax is not included in this lab.</div>
+  <div id="deals"></div>
+</section>
+
+<section class="panel hidden" id="rejectedPanel">
+  <div class="eyebrow">SCOUT REJECTED THESE</div>
+  <h2>Listings that look cheap for a reason</h2>
+  <div class="small">Scout should show you why a listing was excluded instead of letting a misleading price sneak into the shortlist.</div>
+  <div id="rejected"></div>
+</section>
+
+<div class="note">Phase 4A v0.1 · Workflow/decision lab only · Sample active listings · No purchases and no collection data changes.</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const sampleListings=[
+  {id:"A1",type:"BIN",title:"1960 Fleer Baseball #17 Dave Bancroft HOF EX-NM",price:31.00,shipping:3.99,seller:"heritage_cardboard",feedback:"99.8% · 18,420",match:true},
+  {id:"A2",type:"BIN",title:"1960 Fleer #17 Dave Bancroft New York Giants",price:39.99,shipping:0,seller:"vintage_diamond",feedback:"100% · 4,116",match:true},
+  {id:"A3",type:"AUCTION",title:"1960 Fleer Dave Bancroft #17 HOF",price:27.00,shipping:5.00,seller:"oldschoolwax",feedback:"99.5% · 2,807",match:true,ends:"3h 22m"},
+  {id:"A4",type:"BIN",title:"1960 Fleer #17 Dave Bancroft VG-EX",price:44.00,shipping:4.50,seller:"cardboard_corner",feedback:"99.9% · 31,202",match:true},
+  {id:"R1",type:"BIN",title:"1960 Fleer Dave Bancroft LOT OF 4 CARDS",price:24.99,shipping:4.99,seller:"biglotsports",feedback:"99.4% · 8,812",match:false,reject:"Multi-card lot — not a one-card comparable purchase."},
+  {id:"R2",type:"BIN",title:"1961 Fleer Dave Bancroft #18",price:19.99,shipping:1.25,seller:"cheap_vintage",feedback:"98.7% · 1,104",match:false,reject:"Wrong year and card number."},
+  {id:"R3",type:"BIN",title:"1960 Fleer Dave Bancroft #17 PSA 7",price:84.00,shipping:6.00,seller:"slab_city",feedback:"100% · 5,580",match:false,reject:"Graded PSA listing does not match a Raw target."}
+];
+function money(n){return "$"+Number(n).toFixed(2)}
+function num(id){return Number($(id).value)||0}
+function toast(msg){const t=$("toast");t.textContent=msg;t.style.display="block";clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.display="none",1900)}
+function verdict(total,great,ceiling,walk){
+  if(total<=great)return {label:"🔥 GREAT BUY",cls:"great",why:`${money(great-total)} under Great Buy.`};
+  if(total<=ceiling)return {label:"✅ BUY",cls:"buy",why:`${money(ceiling-total)} under your Buy Ceiling.`};
+  if(total<=walk)return {label:"FAIR / NEGOTIATE",cls:"fair",why:`Above Buy Ceiling, but still below Walk-Away.`};
+  return {label:"PASS",cls:"pass",why:`${money(total-walk)} above Walk-Away.`};
+}
+function cardLabel(){return [$("year").value,$("set").value,"#"+$("num").value,$("grader").value,$("grader").value!=="Raw"?$("grade").value:""].filter(Boolean).join(" · ")}
+function render(){
+  const great=num("great"),ceiling=num("ceiling"),walk=num("walk");
+  const accepted=sampleListings.filter(x=>x.match).map(x=>{
+    const total=x.price+x.shipping;
+    if(x.type==="AUCTION"){
+      const maxBid=Math.max(0,ceiling-x.shipping);
+      const remaining=maxBid-x.price;
+      return {...x,total,maxBid,remaining,score:remaining>=0?1000-total:-1000-total};
+    }
+    const v=verdict(total,great,ceiling,walk);
+    const score=(v.cls==="great"?400:v.cls==="buy"?300:v.cls==="fair"?200:100)-total;
+    return {...x,total,v,score};
+  }).sort((a,b)=>b.score-a.score);
+
+  $("resultTitle").textContent=cardLabel();
+  $("summarybar").innerHTML=
+    `<span class="pill good">${accepted.filter(x=>x.type==="BIN"&&["great","buy"].includes(x.v.cls)).length} buy-worthy BIN</span>`+
+    `<span class="pill warn">${accepted.filter(x=>x.type==="AUCTION").length} auction to watch</span>`+
+    `<span class="pill bad">${sampleListings.filter(x=>!x.match).length} rejected mismatch</span>`;
+
+  $("deals").innerHTML=accepted.map((x,i)=>{
+    if(x.type==="AUCTION"){
+      const currentTotal=x.total;
+      const canBid=x.remaining>=0;
+      return `<div class="deal ${canBid?"best":""}">
+        <div class="dealhead"><div class="rank">${i+1}</div><div class="dealbody"><div class="title">${x.title}</div><div class="meta">eBay Auction · Seller ${x.seller} · ${x.feedback} positive · Ends in ${x.ends}</div></div></div>
+        <div class="pricegrid">
+          <div class="pricebox"><div class="k">CURRENT BID</div><div class="v">${money(x.price)}</div></div>
+          <div class="pricebox"><div class="k">SHIPPING</div><div class="v">${money(x.shipping)}</div></div>
+          <div class="pricebox"><div class="k">MAX BID</div><div class="v">${money(x.maxBid)}</div></div>
+        </div>
+        <span class="verdict auction">${canBid?"⏱ WATCH AUCTION":"PASS"}</span>
+        <div class="reason">${canBid?`Your Buy Ceiling is ${money(ceiling)} delivered before tax. With ${money(x.shipping)} shipping, Scout says do not bid above ${money(x.maxBid)}. You currently have ${money(x.remaining)} of bidding room.`:`Current bid + shipping is already above your Buy Ceiling.`}</div>
+        <div class="actions"><button class="gold view" data-id="${x.id}">VIEW LISTING →</button></div>
+      </div>`;
+    }
+    return `<div class="deal ${x.v.cls==="great"?"best":""}">
+      <div class="dealhead"><div class="rank">${i+1}</div><div class="dealbody"><div class="title">${x.title}</div><div class="meta">eBay Buy It Now · Seller ${x.seller} · ${x.feedback} positive</div></div></div>
+      <div class="pricegrid">
+        <div class="pricebox"><div class="k">LIST PRICE</div><div class="v">${money(x.price)}</div></div>
+        <div class="pricebox"><div class="k">SHIPPING</div><div class="v">${x.shipping?money(x.shipping):"FREE"}</div></div>
+        <div class="pricebox"><div class="k">DELIVERED*</div><div class="v">${money(x.total)}</div></div>
+      </div>
+      <span class="verdict ${x.v.cls}">${x.v.label}</span>
+      <div class="reason">${x.v.why} Exact target identity matched before ranking.</div>
+      <div class="actions"><button class="gold view" data-id="${x.id}">VIEW LISTING →</button><button class="ghost bought" data-id="${x.id}">💳 I BOUGHT THIS</button></div>
+    </div>`;
+  }).join("");
+
+  $("rejected").innerHTML=sampleListings.filter(x=>!x.match).map(x=>`
+    <div class="reject"><div class="title">${x.title}</div><div class="meta">${money(x.price)} + ${money(x.shipping)} shipping · Seller ${x.seller}</div><div class="why">REJECTED: ${x.reject}</div></div>
+  `).join("");
+
+  document.querySelectorAll(".view").forEach(b=>b.onclick=()=>toast("Lab: this would open the live eBay listing."));
+  document.querySelectorAll(".bought").forEach(b=>b.onclick=()=>toast("Lab: this would feed the listing into I BOUGHT IT."));
+  $("resultsPanel").classList.remove("hidden");
+  $("rejectedPanel").classList.remove("hidden");
+  $("resultsPanel").scrollIntoView({behavior:"smooth",block:"start"});
+}
+$("grader").onchange=()=>{const raw=$("grader").value==="Raw";$("grade").disabled=raw;if(raw)$("grade").value=""};
+$("findBtn").onclick=()=>{
+  if(!$("player").value.trim()||!$("year").value.trim()||!$("set").value.trim()||!$("num").value.trim()){alert("Player, year, set, and card # are required for Deal Finder.");return}
+  $("searching").style.display="block";
+  $("resultsPanel").classList.add("hidden");$("rejectedPanel").classList.add("hidden");
+  setTimeout(()=>{$("searching").style.display="none";render()},650);
+};
+$("resetBtn").onclick=()=>{
+  $("median").value="46.00";$("great").value="35.00";$("ceiling").value="42.00";$("walk").value="48.00";
+  $("grader").value="Raw";$("grade").value="";$("grade").disabled=true;
+  $("resultsPanel").classList.add("hidden");$("rejectedPanel").classList.add("hidden");
+  window.scrollTo({top:0,behavior:"smooth"});
+};
+</script>
+</body>
+</html>
