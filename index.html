@@ -368,6 +368,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
         <button class="ghost" id="undoRemoveBtn" hidden>↩ UNDO REMOVE</button>
       </div>
 
+      <div class="action-row" id="targetScoutRow" hidden>
+        <button class="primary" id="scoutTargetBtn" style="grid-column:1/-1">🎯 SCOUT THIS TARGET →</button>
+      </div>
       <div class="action-row">
         <button class="primary" id="refreshValueBtn">↻ REFRESH VALUE</button>
         <button class="ghost" id="detailShopBtn">CHECK A SHOP CARD →</button>
@@ -516,7 +519,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.1.0</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.2.0</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -679,6 +682,7 @@ function openPlayer(p){
   $("medianValue").textContent=p.median?"$"+Number(p.median).toFixed(2):"Not priced yet";
   $("lastChecked").textContent=p.lastChecked||"—";
   $("upgradeTarget").textContent=p.target||(!p.owned?"First card":"Scout research");
+  $("targetScoutRow").hidden=!p.target;
   const purchase=purchaseSummary(p);
   $("purchaseBox").hidden=!(p.owned&&(purchase||p.incoming));
   $("purchaseLine").innerHTML=p.owned?((purchase?"<strong>"+escapeHtml(purchase)+"</strong>":"Purchase details not entered.")+(p.incoming?" · 📦 Still in transit":"")):"";
@@ -807,7 +811,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"4.1.0",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"4.2.0",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -1023,6 +1027,31 @@ function applyFastMode(on){
   $("shopScreen").classList.toggle("fast-mode",!!on);
   localStorage.setItem(FAST_MODE_KEY,on?"1":"0");
 }
+
+function phase3bParseTarget(label){
+  const raw=String(label||"").trim();
+  const m=raw.match(/^((?:18|19|20)\d{2})\s+(.+?)(?:\s+#([A-Za-z0-9.-]+))?$/);
+  if(!m)return null;
+  return {year:Number(m[1]),set:m[2].trim(),cardNum:(m[3]||"").trim()};
+}
+function phase3bScoutTarget(p){
+  if(!p||!p.target){toast("No target card is saved for this player.");return}
+  const t=phase3bParseTarget(p.target);
+  if(!t){toast("Scout couldn't read that target. Edit the target and include year + set.");return}
+  openShop(null);
+  $("shopPlayer").value=p.name||"";
+  $("shopYear").value=t.year||"";
+  setShopSetValue(t.set||"");
+  $("shopNum").value=t.cardNum||"";
+  $("shopPrice").value="";
+  $("shopGrade").value="Raw";
+  $("shopGradeNum").value="";
+  $("shopNotes").value=p.targetNotes||"";
+  syncShopGrader();
+  resetPsaVerification(true);
+  toast("🎯 Target loaded. Run Scout when you're ready.");
+}
+
 function openShop(prefill){
   returnScreen=document.querySelector(".screen.active")?.id||"homeScreen";
   if(prefill){
@@ -1309,14 +1338,44 @@ function phase3aSelectRepresentative(which){
   if(keep)keep.setAttribute("aria-pressed",which==="keep"?"true":"false");
   if(save){save.disabled=false;save.textContent=which==="keep"?"CONFIRM — KEEP CURRENT CARD":"✓ SAVE PURCHASE & REPLACE CARD";}
 }
+
+function phase3aUpdateSourceDetail(){
+  const source=$("phase3aSource")?.value||"";
+  const host=$("phase3aSourceDetail");
+  const incoming=$("phase3aIncoming");
+  if(!host)return;
+  if(source==="Card shop"){
+    host.innerHTML='<label>SHOP NAME</label><input id="phase3aPlaceDetail" placeholder="Example: Duke City Sports Cards">';
+    if(incoming)incoming.checked=false;
+  }else if(source==="Card show"){
+    host.innerHTML='<label>SHOW / LOCATION</label><input id="phase3aPlaceDetail" placeholder="Example: Albuquerque Sports Card Show">';
+    if(incoming)incoming.checked=false;
+  }else if(source==="eBay"){
+    host.innerHTML='<label>EBAY SELLER</label><input id="phase3aPlaceDetail" placeholder="Example: seller_username">';
+    if(incoming)incoming.checked=true;
+  }else{
+    host.innerHTML="";
+  }
+}
+
 function phase3aPurchaseFields(){
   const raw=$("phase3aPaid")?.value.trim()||"";
   const paid=raw===""?null:Number(raw);
   if(raw!==""&&(!Number.isFinite(paid)||paid<0))throw new Error("Price paid needs to be a valid amount.");
+  const source=$("phase3aSource")?.value||"Card shop";
+  const sourceDetail=$("phase3aPlaceDetail")?.value.trim()||"";
+  if((source==="Card shop"||source==="Card show"||source==="eBay")&&!sourceDetail){
+    throw new Error(source==="Card shop"
+      ?"Enter the shop name so Scout can remember where you found it."
+      :source==="Card show"
+        ?"Enter the show or location so Scout can remember where you found it."
+        :"Enter the eBay seller so Scout can remember who you bought it from.");
+  }
   return {
     paid,
     date:$("phase3aDate")?.value||"",
-    source:$("phase3aSource")?.value||"Card shop",
+    source,
+    sourceDetail,
     incoming:!!$("phase3aIncoming")?.checked
   };
 }
@@ -1358,7 +1417,7 @@ function phase3aSavePurchasedCard(card,data,p,mode){
   p.incoming=!!fields.incoming;
   p.pricePaid=fields.paid;
   p.purchaseDate=fields.date;
-  p.purchaseSource=fields.source;
+  p.purchaseSource=fields.sourceDetail?`${fields.source}: ${fields.sourceDetail}`:fields.source;
   p.userNotes=card.notes||"";
   p.description=phase3aCollectionDescription(card);
 
@@ -1376,7 +1435,8 @@ function phase3aSavePurchasedCard(card,data,p,mode){
   currentPlayer=p;
   const incomingText=fields.incoming?" It is marked 📦 Incoming until you mark it received.":"";
   const title=wasOwned?"Representative card updated":"Need filled — player is now Owned";
-  const text=phase3aShopCardLabel(card)+(fields.paid!==null?" · paid "+formatMoney(fields.paid):"")+(fields.source?" via "+fields.source:"")+"."+incomingText;
+  const purchasePlace=fields.sourceDetail?`${fields.source}: ${fields.sourceDetail}`:fields.source;
+  const text=phase3aShopCardLabel(card)+(fields.paid!==null?" · paid "+formatMoney(fields.paid):"")+(purchasePlace?" · "+purchasePlace:"")+"."+incomingText;
   phase3aShowDone(title,text,p);
   toast(wasOwned?"New representative card saved.":"Green check acquired. "+p.name+" is now represented.");
 }
@@ -1395,6 +1455,7 @@ function phase3aOpenPurchase(card,data,p){
       <div class="handoff-field"><label>PRICE PAID</label><input id="phase3aPaid" inputmode="decimal" value="${price!==null?escapeHtml(price.toFixed(2)):""}" placeholder="Optional"></div>
       <div class="handoff-field"><label>PURCHASE DATE</label><input id="phase3aDate" type="date" value="${escapeHtml(phase3aLocalDate())}"></div>
       <div class="handoff-field full"><label>WHERE BOUGHT</label><select id="phase3aSource"><option>Card shop</option><option>Card show</option><option>eBay</option><option>Trade</option><option>Other</option></select></div>
+      <div class="handoff-field full" id="phase3aSourceDetail"></div>
       <div class="handoff-field full"><label style="display:flex;align-items:center;gap:7px;color:var(--text)"><input id="phase3aIncoming" type="checkbox" style="width:18px;min-height:18px"> 📦 Card is still in transit</label></div>
     </div>
     ${owned?`<div class="rep-choice"><div class="prompt">You already have ${escapeHtml(p.name)} represented. Which card gets the roster spot?</div>
@@ -1408,11 +1469,8 @@ function phase3aOpenPurchase(card,data,p){
     phase3aSavePurchasedCard(card,data,p,choice);
   };
   $("phase3aCancelPurchase").onclick=()=>{box.hidden=true;phase3aSelectFlow("")};
-  $("phase3aSource").onchange=()=>{
-    const source=$("phase3aSource").value;
-    if(source==="eBay")$("phase3aIncoming").checked=true;
-    if(source==="Card shop"||source==="Card show")$("phase3aIncoming").checked=false;
-  };
+  $("phase3aSource").onchange=phase3aUpdateSourceDetail;
+  phase3aUpdateSourceDetail();
   box.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
 function phase3aOpenTarget(card,p,targets){
@@ -1569,6 +1627,7 @@ $("exportBtn").addEventListener("click",exportUpdates);
 $("importBtn").addEventListener("click",()=>$("importFile").click());
 $("importFile").addEventListener("change",e=>importUpdatesFile(e.target.files&&e.target.files[0]));
 $("refreshValueBtn").addEventListener("click",valueRefresh);
+$("scoutTargetBtn").addEventListener("click",()=>phase3bScoutTarget(currentPlayer));
 $("targetsBtn").addEventListener("click",showTargets);
 $("addTargetBtn").addEventListener("click",openTargetManage);
 $("targetManageBack").addEventListener("click",()=>{showScreen("homeScreen");showTargets();});
