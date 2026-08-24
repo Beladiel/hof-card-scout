@@ -519,7 +519,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.2.1</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.2.2</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -811,7 +811,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"4.2.1",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"4.2.2",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -1012,6 +1012,8 @@ function clearRecentSearches(){
   toast("Recent card searches cleared.");
 }
 function nextCard(){
+  phase3bActiveTargetPlayer=null;
+  $("shopNum").placeholder="482";
   $("shopForm").reset();
   setShopSetValue("");
   $("shopGrade").value="Raw";
@@ -1028,6 +1030,7 @@ function applyFastMode(on){
   localStorage.setItem(FAST_MODE_KEY,on?"1":"0");
 }
 
+let phase3bActiveTargetPlayer=null;
 function phase3bParseTarget(label){
   const raw=String(label||"").trim();
   const yearMatch=raw.match(/^((?:18|19|20)\d{2})\s+(.+)$/);
@@ -1048,22 +1051,31 @@ function phase3bScoutTarget(p){
   const t=phase3bParseTarget(p.target);
   if(!t){toast("Scout couldn't read that target. Edit the target and include year + set.");return}
   openShop(null);
+  phase3bActiveTargetPlayer=p;
   $("shopPlayer").value=p.name||"";
   $("shopYear").value=t.year||"";
   setShopSetValue(t.set||"");
   $("shopNum").disabled=false;
   $("shopNum").classList.remove("grade-disabled");
   $("shopNum").value=t.cardNum||"";
+  $("shopNum").placeholder=t.cardNum?"482":"Enter once — Scout will remember it";
   $("shopPrice").value="";
   $("shopGrade").value="Raw";
   $("shopGradeNum").value="";
   $("shopNotes").value=p.targetNotes||"";
   syncShopGrader();
   resetPsaVerification(true);
-  toast("🎯 Target loaded. Run Scout when you're ready.");
+  if(t.cardNum){
+    toast("🎯 Target loaded. Run Scout when you're ready.");
+  }else{
+    toast("🎯 Target loaded. Card # was never saved — enter it once and Scout will remember it.");
+    setTimeout(()=>$("shopNum")?.focus(),250);
+  }
 }
 
 function openShop(prefill){
+  phase3bActiveTargetPlayer=null;
+  $("shopNum").placeholder="482";
   returnScreen=document.querySelector(".screen.active")?.id||"homeScreen";
   if(prefill){
     $("shopPlayer").value=prefill.name||"";
@@ -1559,10 +1571,27 @@ function renderPricingError(card,ctx,message){
   r.innerHTML=`<h3>${escapeHtml(ctx.call)}</h3><p>${escapeHtml(ctx.detail)}</p><p class="result-call">Live pricing couldn't finish: ${escapeHtml(message)}</p><div class="source-row"><button type="button" class="primary" id="fallbackEbay">OPEN EBAY SOLD</button></div>`;
   $("fallbackEbay").onclick=()=>window.open(urls.ebay,"_blank","noopener");
 }
+
+function phase3bRememberTargetDetails(card){
+  const p=phase3bActiveTargetPlayer;
+  if(!p||!card)return;
+  if(comparableText(p.name)!==comparableText(card.player))return;
+  if(!Number.isInteger(card.year)||!card.set||!card.cardNum)return;
+  const label=[card.year,card.set,"#"+card.cardNum].join(" ");
+  if(p.target===label)return;
+  p.target=label;
+  savePlayerEdit(p);
+  stats();
+  rotateMission();
+  renderList();
+  toast("🎯 Target updated — Scout will remember card #"+card.cardNum+" next time.");
+}
+
 async function shopAnalysis(e){
   e.preventDefault();
   const card=shopCardPayload(),ctx=shopCollectionContext(card),r=$("shopResult"); r.hidden=false;
   if(!card.player||!Number.isInteger(card.year)||!card.set){renderPricingError(card,ctx,"Player, 4-digit year, and set are required for a trustworthy search.");return}
+  phase3bRememberTargetDetails(card);
   saveRecentSearch(card);
   const c=pricingConfig();
   if(!c.endpoint||!c.accessKey){
