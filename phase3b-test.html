@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HOF Card Scout — Phase 3B Lab</title>
+<style>
+:root{
+  --bg:#0f1a16;--panel:#172720;--panel2:#1d3027;--text:#f7f1df;--muted:#aab9b0;
+  --line:#355247;--green:#56c58a;--gold:#e6bd63;--red:#ef6d6d;--ink:#17251f
+}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at top,#1e3329 0,#0f1a16 46%);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+button,input,select{font:inherit}
+.wrap{max-width:720px;margin:0 auto;padding:16px 14px 50px}
+header{display:flex;align-items:center;gap:12px;margin:4px 0 16px}
+.ball{width:54px;height:54px;border-radius:50%;background:#fffdf5;border:2px solid #c9c0ad;display:grid;place-items:center;font-size:28px}
+h1{font-size:23px;margin:0} .tagline{font-size:12px;color:var(--muted);margin-top:2px}
+.badge{margin-left:auto;font-size:10px;font-weight:950;letter-spacing:.08em;color:var(--gold)}
+.panel{background:rgba(23,39,32,.96);border:1px solid var(--line);border-radius:18px;padding:14px;margin:12px 0;box-shadow:0 12px 30px rgba(0,0,0,.18)}
+.eyebrow{font-size:10px;font-weight:950;letter-spacing:.11em;color:var(--gold)}
+h2{font-size:19px;margin:4px 0 10px}
+.small{font-size:11px;line-height:1.5;color:var(--muted)}
+.target-card{border:1px solid rgba(230,189,99,.45);background:rgba(230,189,99,.06);border-radius:15px;padding:13px;margin-top:10px}
+.row{display:flex;align-items:center;gap:10px}
+.grow{flex:1}.name{font-size:18px;font-weight:950}.sub{font-size:12px;color:var(--muted);margin-top:3px}
+.status{font-size:11px;font-weight:950;border-radius:999px;padding:6px 9px;background:rgba(239,109,109,.12);color:#ff9797}
+.status.owned{background:rgba(86,197,138,.12);color:#8be2b0}
+.primary,.ghost,.flow-choice{border:0;border-radius:12px;min-height:44px;padding:9px 12px;font-weight:950;cursor:pointer}
+.primary{background:var(--green);color:#072116}
+.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+.gold{background:var(--gold);color:#211a0b}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.screen[hidden]{display:none}
+.summary{border:1px solid rgba(86,197,138,.35);background:rgba(86,197,138,.06);border-radius:14px;padding:11px;margin:10px 0}
+.summary .main{font-size:16px;font-weight:950}.summary .details{font-size:11px;color:var(--muted);line-height:1.5;margin-top:4px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.field.full{grid-column:1/-1}
+label{display:block;font-size:10px;font-weight:900;color:var(--muted);margin-bottom:4px}
+input,select{width:100%;min-height:44px;border:1px solid #49665a;border-radius:11px;background:#fbf6e9;color:var(--ink);padding:8px 10px}
+.result{border-top:1px solid var(--line);margin-top:13px;padding-top:13px}
+.market{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.metric{border:1px solid var(--line);border-radius:12px;padding:9px;background:rgba(255,255,255,.025)}
+.metric .k{font-size:9px;color:var(--muted);font-weight:900}.metric .v{font-size:19px;font-weight:950;margin-top:3px}
+.verdict{border:1px solid rgba(86,197,138,.5);background:rgba(86,197,138,.08);border-radius:13px;padding:11px;margin:10px 0}
+.verdict .big{font-size:22px;font-weight:1000}
+.flow-choice{background:rgba(255,255,255,.055);border:1px solid var(--line);color:var(--text)}
+.flow-choice.selected-buy{background:var(--green);border-color:var(--green);color:#072116;box-shadow:0 0 0 2px rgba(86,197,138,.18)}
+.dynamic{margin-top:9px;padding:10px;border:1px dashed rgba(230,189,99,.5);border-radius:12px}
+.done{border:1px solid rgba(86,197,138,.45);background:rgba(86,197,138,.08);border-radius:14px;padding:13px}
+.done .ok{font-size:10px;font-weight:950;color:#8be2b0;letter-spacing:.08em}.done .big{font-size:18px;font-weight:950;margin:4px 0}
+.note{margin-top:18px;font-size:10px;color:#809289;text-align:center;line-height:1.4}
+@media(max-width:600px){.grid,.market{grid-template-columns:1fr}.field.full{grid-column:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="ball">⚾</div>
+  <div><h1>HOF Card Scout</h1><div class="tagline">Phase 3B workflow lab</div></div>
+  <div class="badge">PHASE 3B v0.1</div>
+</header>
+
+<section class="panel screen" id="targetsScreen">
+  <div class="eyebrow">TARGET CARDS</div><h2>Your shopping radar</h2>
+  <div class="small">Lab only — nothing here writes to your real HOF Card Scout collection.</div>
+  <div class="target-card" id="targetCard">
+    <div class="row">
+      <div class="grow"><div class="name">Dave Bancroft</div><div class="sub">🎯 1960 Fleer #17 · Raw · Find a clean copy under Scout’s ceiling</div></div>
+      <div class="status" id="targetStatus">✕ NEED</div>
+    </div>
+    <div class="actions"><button class="gold" id="openTargetBtn">VIEW TARGET →</button></div>
+  </div>
+</section>
+
+<section class="panel screen" id="targetDetail" hidden>
+  <div class="eyebrow">TARGET DETAIL</div><h2>Dave Bancroft</h2>
+  <div class="summary"><div class="main">1960 Fleer #17 · Raw</div><div class="details">Target note: Find a clean copy under Scout’s ceiling.</div></div>
+  <div class="actions">
+    <button class="primary" id="scoutTargetBtn">🔎 SCOUT THIS TARGET</button>
+    <button class="ghost" data-back="targetsScreen">← TARGET CARDS</button>
+  </div>
+</section>
+
+<section class="panel screen" id="shopScreen" hidden>
+  <div class="eyebrow">CARD SHOP MODE</div><h2>Target loaded automatically</h2>
+  <div class="small">The target’s player, year, set, and card number are prefilled. You can still adjust grading or shop price before running Scout.</div>
+  <div class="grid" style="margin-top:11px">
+    <div class="field full"><label>PLAYER</label><input id="player" value="Dave Bancroft" readonly></div>
+    <div class="field"><label>YEAR</label><input id="year" value="1960"></div>
+    <div class="field"><label>SET</label><input id="set" value="Fleer"></div>
+    <div class="field"><label>CARD #</label><input id="num" value="17"></div>
+    <div class="field"><label>RAW / GRADING</label><select id="grader"><option>Raw</option><option>PSA</option><option>SGC</option><option>CGC</option></select></div>
+    <div class="field"><label>GRADE</label><input id="grade" placeholder="Disabled for Raw" disabled></div>
+    <div class="field full"><label>SHOP PRICE (OPTIONAL)</label><input id="shopPrice" inputmode="decimal" value="8.00"></div>
+  </div>
+  <div class="actions">
+    <button class="primary" id="runScoutBtn">⚾ RUN SCOUT</button>
+    <button class="ghost" data-back="targetDetail">← TARGET</button>
+  </div>
+  <div class="result" id="scoutResult" hidden>
+    <div class="eyebrow">LIVE-SHAPED LAB RESULT</div>
+    <div class="market">
+      <div class="metric"><div class="k">MEDIAN SOLD</div><div class="v">$9.25</div></div>
+      <div class="metric"><div class="k">BUY CEILING</div><div class="v">$8.50</div></div>
+      <div class="metric"><div class="k">WALK-AWAY</div><div class="v">$9.50</div></div>
+    </div>
+    <div class="verdict"><div class="eyebrow">SCOUT SAYS</div><div class="big">BUY</div><div class="small">At $8.00, this target is below Scout’s buy ceiling.</div></div>
+    <div class="actions"><button class="flow-choice" id="boughtBtn" aria-pressed="false">💳 I BOUGHT IT</button></div>
+    <div id="purchasePanel" hidden></div>
+  </div>
+</section>
+
+<section class="panel screen" id="finalScreen" hidden>
+  <div class="done">
+    <div class="ok">✓ PHASE 3B DRY-RUN COMPLETE</div>
+    <div class="big">Need → Target → Scouted → Bought → Owned</div>
+    <div class="small" id="finalText"></div>
+  </div>
+  <div class="actions"><button class="primary" id="resetBtn">RESET LAB</button></div>
+</section>
+
+<div class="note">Phase 3B v0.1 · Workflow lab only · No real collection data is changed.</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const state={owned:false,target:true};
+
+function show(id){
+  document.querySelectorAll(".screen").forEach(x=>x.hidden=x.id!==id);
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function money(v){return "$"+Number(v).toFixed(2)}
+function cardLabel(){return `${$("year").value.trim()} ${$("set").value.trim()} #${$("num").value.trim()} · ${$("grader").value}${$("grader").value!=="Raw"&&$("grade").value.trim()?" "+$("grade").value.trim():""}`}
+function updateSourceDetail(){
+  const source=$("source").value, host=$("sourceDetail");
+  if(source==="Card shop"){
+    host.innerHTML='<label>SHOP NAME</label><input id="placeDetail" placeholder="Example: Duke City Sports Cards">';
+    $("incoming").checked=false;
+  }else if(source==="Card show"){
+    host.innerHTML='<label>SHOW / LOCATION</label><input id="placeDetail" placeholder="Example: Albuquerque Sports Card Show">';
+    $("incoming").checked=false;
+  }else{
+    host.innerHTML="";
+    if(source==="eBay")$("incoming").checked=true;
+  }
+}
+function openPurchase(){
+  $("boughtBtn").classList.add("selected-buy");
+  $("boughtBtn").setAttribute("aria-pressed","true");
+  const paid=$("shopPrice").value.trim();
+  $("purchasePanel").hidden=false;
+  $("purchasePanel").innerHTML=`
+    <div class="summary"><div class="main">${cardLabel()}</div><div class="details">Scout carried the target card forward. Because Dave Bancroft is currently a NEED, confirming this purchase will mark him Owned and clear this exact target.</div></div>
+    <div class="grid">
+      <div class="field"><label>PRICE PAID</label><input id="paid" inputmode="decimal" value="${paid}"></div>
+      <div class="field"><label>PURCHASE DATE</label><input id="date" type="date" value="2026-08-24"></div>
+      <div class="field full"><label>WHERE BOUGHT</label><select id="source"><option>Card shop</option><option>Card show</option><option>eBay</option><option>Trade</option><option>Other</option></select></div>
+      <div class="field full dynamic" id="sourceDetail"></div>
+      <div class="field full"><label style="display:flex;align-items:center;gap:7px;color:var(--text)"><input id="incoming" type="checkbox" style="width:18px;min-height:18px"> 📦 Card is still in transit</label></div>
+    </div>
+    <div class="actions"><button class="primary" id="confirmPurchaseBtn">✓ ADD TO COLLECTION</button><button class="ghost" id="cancelPurchaseBtn">CANCEL</button></div>`;
+  $("source").onchange=updateSourceDetail;
+  updateSourceDetail();
+  $("cancelPurchaseBtn").onclick=()=>{$("purchasePanel").hidden=true;$("boughtBtn").classList.remove("selected-buy");$("boughtBtn").setAttribute("aria-pressed","false")};
+  $("confirmPurchaseBtn").onclick=confirmPurchase;
+  $("purchasePanel").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+function confirmPurchase(){
+  const source=$("source").value;
+  const detail=$("placeDetail")?.value.trim()||"";
+  if((source==="Card shop"||source==="Card show")&&!detail){
+    alert(source==="Card shop"?"Enter the shop name so Scout can remember where you found it.":"Enter the show or location so Scout can remember where you found it.");
+    return;
+  }
+  state.owned=true;
+  state.target=false;
+  $("targetStatus").textContent="✓ OWNED";
+  $("targetStatus").className="status owned";
+  const paid=$("paid").value.trim();
+  const date=$("date").value;
+  const incoming=$("incoming").checked;
+  const place=detail?`${source}: ${detail}`:source;
+  $("finalText").textContent=
+    `Dave Bancroft would now be represented by ${cardLabel()}. `+
+    (paid?`Price paid: ${money(paid)}. `:"")+
+    `Purchased via ${place}${date?" on "+date:""}. `+
+    (incoming?"The card would be marked Incoming. ":"")+
+    `The matching 1960 Fleer #17 target would be removed automatically.`;
+  show("finalScreen");
+}
+$("openTargetBtn").onclick=()=>show("targetDetail");
+$("scoutTargetBtn").onclick=()=>show("shopScreen");
+$("grader").onchange=()=>{const raw=$("grader").value==="Raw";$("grade").disabled=raw;if(raw)$("grade").value=""};
+$("runScoutBtn").onclick=()=>{$("scoutResult").hidden=false;$("scoutResult").scrollIntoView({behavior:"smooth",block:"nearest"})};
+$("boughtBtn").onclick=openPurchase;
+document.querySelectorAll("[data-back]").forEach(b=>b.onclick=()=>show(b.dataset.back));
+$("resetBtn").onclick=()=>{
+  state.owned=false;state.target=true;
+  $("targetStatus").textContent="✕ NEED";$("targetStatus").className="status";
+  $("scoutResult").hidden=true;$("purchasePanel").hidden=true;
+  $("boughtBtn").classList.remove("selected-buy");$("boughtBtn").setAttribute("aria-pressed","false");
+  $("grader").value="Raw";$("grade").value="";$("grade").disabled=true;$("shopPrice").value="8.00";
+  show("targetsScreen");
+};
+</script>
+</body>
+</html>
