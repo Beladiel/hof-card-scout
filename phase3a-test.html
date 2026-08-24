@@ -44,6 +44,9 @@ button{min-height:46px;border-radius:13px;border:0;font-weight:950;padding:10px 
 .summary .details{font-size:12px;color:var(--muted);line-height:1.55;margin-top:5px}
 .choice{display:none;margin-top:12px;border:1px solid rgba(230,189,99,.4);background:rgba(230,189,99,.07);padding:13px;border-radius:15px}
 .choice strong{display:block;margin-bottom:5px}
+.choice-pick{background:rgba(255,255,255,.055);border:1px solid var(--line);color:var(--text)}
+.choice-pick.selected{background:var(--gold);border-color:var(--gold);color:#211a0b;box-shadow:0 0 0 2px rgba(230,189,99,.18)}
+
 .preview{display:none;margin-top:12px;border-radius:15px;border:1px solid var(--line);background:#0b211a;padding:13px}
 .preview .ok{color:#8be2b0;font-size:11px;font-weight:950;letter-spacing:.08em}
 .preview .big{font-size:19px;font-weight:950;margin:4px 0}
@@ -120,8 +123,8 @@ button{min-height:46px;border-radius:13px;border:0;font-weight:950;padding:10px 
       <strong>You already have this Hall of Famer represented.</strong>
       <div class="note">Scout only keeps one representative card per player, so decide whether this purchase should replace the current card.</div>
       <div class="actions">
-        <button class="primary" type="button" id="replaceBtn">↑ MAKE THIS MY REPRESENTATIVE CARD</button>
-        <button class="ghost" type="button" id="keepBtn">KEEP CURRENT REPRESENTATIVE</button>
+        <button class="choice-pick" type="button" id="replaceBtn">↑ MAKE THIS MY REPRESENTATIVE CARD</button>
+        <button class="choice-pick" type="button" id="keepBtn">KEEP CURRENT REPRESENTATIVE</button>
       </div>
     </div>
 
@@ -137,7 +140,7 @@ button{min-height:46px;border-radius:13px;border:0;font-weight:950;padding:10px 
     </div>
   </section>
 
-  <p class="note">Phase 3A v0.1. This page only tests the workflow and wording. It never writes to HOF Card Scout’s real collection storage.</p>
+  <p class="note">Phase 3A v0.2. This page only tests the workflow and wording. It never writes to HOF Card Scout’s real collection storage.</p>
 </div>
 
 <script>
@@ -188,6 +191,10 @@ function beginPurchase(){
   $("date").value=new Date().toISOString().slice(0,10);
   $("ownedChoice").style.display=status==="owned"?"block":"none";
   $("needActions").style.display=status==="need"?"flex":"none";
+  $("replaceBtn").classList.remove("selected");
+  $("keepBtn").classList.remove("selected");
+  $("replaceBtn").setAttribute("aria-pressed","false");
+  $("keepBtn").setAttribute("aria-pressed","false");
   $("preview").style.display="none";
   $("purchasePanel").scrollIntoView({behavior:"smooth",block:"start"});
 }
@@ -199,6 +206,15 @@ function details(){
   const incoming=$("incoming").checked;
   return {c,paid,source,date,incoming};
 }
+
+function selectOwnedChoice(which){
+  const replace=which==="replace";
+  $("replaceBtn").classList.toggle("selected",replace);
+  $("keepBtn").classList.toggle("selected",!replace);
+  $("replaceBtn").setAttribute("aria-pressed",replace?"true":"false");
+  $("keepBtn").setAttribute("aria-pressed",replace?"false":"true");
+}
+
 function showPreview(mode){
   const x=details(), c=x.c;
   $("preview").style.display="block";
@@ -228,8 +244,8 @@ $("verdict").onchange=syncScenario;
 $("grader").onchange=syncGrader;
 $("boughtBtn").onclick=beginPurchase;
 $("savePurchaseBtn").onclick=()=>showPreview("need");
-$("replaceBtn").onclick=()=>showPreview("replace");
-$("keepBtn").onclick=()=>showPreview("keep");
+$("replaceBtn").onclick=()=>{selectOwnedChoice("replace");showPreview("replace")};
+$("keepBtn").onclick=()=>{selectOwnedChoice("keep");showPreview("keep")};
 $("targetBtn").onclick=()=>{ $("purchasePanel").style.display="block"; showPreview("target"); $("purchasePanel").scrollIntoView({behavior:"smooth",block:"start"}) };
 $("cancelBtn").onclick=()=>{$("purchasePanel").style.display="none"};
 $("source").onchange=()=>{
