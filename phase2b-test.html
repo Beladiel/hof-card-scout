@@ -115,9 +115,10 @@ footer{text-align:center;color:#7f94a6;font-size:11px;margin-top:24px}
   </div>
   <div class="actions">
     <button class="primary" id="testBtn" type="button">TEST SECONDARY SOURCES</button>
+    <button class="secondary" id="bestOfferBtn" type="button">TEST EBAY BEST OFFERS</button>
     <a class="btn ghost" href="./index.html">BACK TO HOF CARD SCOUT</a>
   </div>
-  <p class="note" style="margin-bottom:0"><strong>Free-plan guardrail:</strong> this test uses at most 25 returned rows and does not persist The Card API transaction results. The free API’s historical window is only the most recent 3 days.</p>
+  <p class="note" style="margin-bottom:0"><strong>Free-plan guardrail:</strong> secondary-source testing uses at most 25 returned rows. Best Offer testing uses at most 15 returned rows. Neither test persists The Card API transaction results. The free API’s historical window is only the most recent 3 days.</p>
 </div>
 
 <div class="card" id="resultsCard" hidden>
@@ -252,9 +253,89 @@ async function runTest(){
   }finally{b.disabled=false;b.textContent="TEST SECONDARY SOURCES"}
 }
 
+
+async function runBestOfferTest(){
+  const b=$("bestOfferBtn"); b.disabled=true; b.textContent="CHECKING EBAY BEST OFFERS…";
+  $("resultsCard").hidden=false;
+  $("summary").innerHTML='<div class="note">Checking recent eBay Best Offer sales for actual accepted prices…</div>';
+  $("stats").innerHTML=""; $("comps").innerHTML=""; $("notes").innerHTML="";
+  try{
+    saveConfig(); const c=config();
+    if(!c.accessKey)throw new Error("Scout access key is blank.");
+    const card={
+      player:$("player").value.trim(),
+      year:Number($("year").value),
+      set:$("set").value.trim(),
+      cardNum:$("cardNum").value.trim(),
+      grader:$("grader").value,
+      grade:$("grade").value.trim()
+    };
+    const t0=performance.now();
+    const r=await fetch(c.endpoint+"/cardapi/bestoffer",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
+      body:JSON.stringify(card)
+    });
+    const j=await r.json().catch(()=>({}));
+    const secs=((performance.now()-t0)/1000).toFixed(1);
+    $("raw").textContent=JSON.stringify(j,null,2);
+    if(!r.ok||!j.ok)throw new Error(j.message||j.error||("HTTP "+r.status));
+
+    const offers=Array.isArray(j.offers)?j.offers:[];
+    $("summary").innerHTML=`
+      <div class="${j.matched>0?"good":"note"}">
+        <div class="big">${Number(j.matched)||0}</div>
+        <strong>matching eBay Best Offer sale${Number(j.matched)===1?"":"s"} found</strong>
+        <div style="margin-top:5px">Search took ${esc(secs)} sec · ${esc(j.lookbackNote||"")}</div>
+      </div>`;
+
+    const covFrom=j.coverage?.from||"—";
+    const covTo=j.coverage?.to||"—";
+    $("stats").innerHTML=`
+      <div class="source"><div class="name">Returned</div><div class="n">${Number(j.returned)||0}</div><div class="small">raw API rows</div></div>
+      <div class="source"><div class="name">Matched</div><div class="n">${Number(j.matched)||0}</div><div class="small">exact-card offers</div></div>
+      <div class="source"><div class="name">Row cap</div><div class="n">${Number(j.rowBudgetMax)||15}</div><div class="small">free-plan guardrail</div></div>
+      <div class="source"><div class="name">Coverage from</div><div class="n" style="font-size:13px">${esc(covFrom)}</div><div class="small">API metadata</div></div>
+      <div class="source"><div class="name">Coverage to</div><div class="n" style="font-size:13px">${esc(covTo)}</div><div class="small">API metadata</div></div>`;
+
+    $("comps").innerHTML=offers.length?`
+      <h2 style="margin-top:18px">Recovered Best Offer sales</h2>`+
+      offers.map(x=>{
+        const accepted=Number(x.acceptedPrice);
+        const original=Number(x.originalPrice);
+        const hasOriginal=Number.isFinite(original)&&original>0;
+        const discount=x.discountPct==null?"":` · ${esc(x.discountPct)}% below ask`;
+        return `<div class="comp">
+          <div class="banner">
+            <div style="min-width:0;flex:1">
+              <div class="comp-title">${esc(x.title)}</div>
+              <div class="comp-meta">EBAY BEST OFFER · ${esc(x.soldDate||"date unavailable")}
+                ${x.grader?` · ${esc(x.grader)} ${esc(x.grade||"")}`:""}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="price">${money(accepted)}</div>
+              ${hasOriginal?`<div class="comp-meta">asked ${money(original)}${discount}</div>`:""}
+            </div>
+          </div>
+          ${x.link?`<div style="margin-top:7px"><a href="${esc(x.link)}" target="_blank" rel="noopener" style="color:var(--blue)">View sale ↗</a></div>`:""}
+        </div>`;
+      }).join("")
+      :`<div class="note" style="margin-top:15px"><strong>No matching Best Offer sales were found in the free 3-day window.</strong> That does not mean the card has never sold via Best Offer; it only means this API did not return a qualifying recent match.</div>`;
+
+    const notes=Array.isArray(j.notes)?j.notes:[];
+    $("notes").innerHTML=notes.length?`<div class="note" style="margin-top:14px">${notes.map(n=>"• "+esc(n)).join("<br>")}</div>`:"";
+  }catch(e){
+    $("summary").innerHTML=`<div class="error"><strong>Best Offer test failed:</strong> ${esc(e.message)}</div>`;
+  }finally{
+    b.disabled=false;
+    b.textContent="TEST EBAY BEST OFFERS";
+  }
+}
+
 $("connectBtn").addEventListener("click",testConnection);
 $("sampleBtn").addEventListener("click",loadSample);
 $("testBtn").addEventListener("click",runTest);
+$("bestOfferBtn").addEventListener("click",runBestOfferTest);
 init();
 </script>
 </body>
