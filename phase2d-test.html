@@ -30,6 +30,7 @@ label{font-size:11px;color:var(--muted);display:block;margin-bottom:5px;font-wei
 input,select{width:100%;background:#0d1420;color:var(--ink);border:1px solid #3a4860;border-radius:10px;
   padding:11px;font-size:15px;outline:none}
 input:focus,select:focus{border-color:var(--gold)}
+input:disabled{opacity:.5;cursor:not-allowed;background:#111722}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 button{border:0;border-radius:11px;padding:11px 13px;font-weight:900;cursor:pointer;font-size:13px}
 .primary{background:var(--gold);color:#17130a;flex:1;min-width:175px}
@@ -111,7 +112,7 @@ summary{cursor:pointer;font-weight:900;color:var(--gold);font-size:12px}
         <div class="hint" id="greatHint">Grab-it price.</div>
       </div>
       <div class="target fair">
-        <div class="name">🟡 FAIR BUY</div><div class="price" id="fair">—</div>
+        <div class="name">🟡 BUY CEILING</div><div class="price" id="fair">—</div>
         <div class="hint" id="fairHint">Comfortable ceiling.</div>
       </div>
       <div class="target walk">
@@ -145,7 +146,7 @@ summary{cursor:pointer;font-weight:900;color:var(--gold);font-size:12px}
     <div class="conn" id="connState"></div>
   </details>
 
-  <p class="small">Phase 2D v0.5. This lab does not modify your collection, the v3.9.0 app, the Worker confidence model, or existing BUY / NEGOTIATE / PASS rules. TEST SHOP PRICE ONLY reuses the last successful valuation so boundary tests do not change comps mid-test.</p>
+  <p class="small">Phase 2D v0.6. This lab does not modify your collection, the v3.9.0 app, the Worker confidence model, or existing BUY / NEGOTIATE / PASS rules. TEST SHOP PRICE ONLY reuses the last successful valuation so boundary tests do not change comps mid-test. Raw cards automatically ignore Grade.</p>
 </div>
 <script>
 const $=id=>document.getElementById(id);
@@ -181,7 +182,7 @@ function pctFromMedian(value,median){
 }
 
 /*
- Phase 2D v0.5
+ Phase 2D v0.6
  - Confidence controls how tightly Scout can trust the median.
  - IQR/median spread expands the safety margin when prices are messy.
  - Q1 can pull Great Buy lower; Q3 can cap the Walk-Away ceiling.
@@ -237,7 +238,7 @@ function smartTargets(data){
 function shopVerdict(price,t){
   if(!Number.isFinite(price)||price<=0)return null;
   if(price<=t.great)return {title:"BUY IT",why:"The asking price is in Scout’s Great Buy zone."};
-  if(price<=t.fair)return {title:"BUY",why:"The asking price is under Scout’s Fair Buy ceiling."};
+  if(price<=t.fair)return {title:"BUY",why:"The asking price is at or under Scout’s Buy Ceiling."};
   if(price<=t.median)return {title:"FAIR PRICE",why:"It is above Scout’s preferred buy ceiling, but still at or below the current sold median."};
   if(price<=t.walk)return {title:"NEGOTIATE",why:"You are paying a premium to the median, but you have not crossed Scout’s Walk-Away line."};
   return {title:"PASS",why:"The asking price is above Scout’s Walk-Away line."};
@@ -260,6 +261,14 @@ function saveConfig(){
   localStorage.setItem("hofScoutAccessKey",key);
   loadConfig();
 }
+
+function syncGradeField(){
+  const raw=$("grader").value==="Raw";
+  $("grade").disabled=raw;
+  if(raw)$("grade").value="";
+  $("grade").placeholder=raw?"Not used for Raw":"10";
+}
+
 function cardPayload(){
   const price=parseFloat($("shopPrice").value);
   return {
@@ -269,7 +278,7 @@ function cardPayload(){
     cardNum:$("cardNum").value.trim(),
     shopPrice:Number.isFinite(price)?price:"",
     grader:$("grader").value,
-    grade:$("grade").value.trim(),
+    grade:$("grader").value==="Raw"?"":$("grade").value.trim(),
     psaCert:"",
     serial:"",
     notes:"",
@@ -291,6 +300,7 @@ function loadRecent(){
   const opts=[...$("grader").options].map(o=>o.value);
   $("grader").value=opts.includes(c.grader)?c.grader:"Raw";
   $("grade").value=c.grade||"";
+  syncGradeField();
   $("status").textContent="Loaded your most recent normal Scout search. Ready for a Deep Mode Phase 2D test.";
 }
 
@@ -312,7 +322,7 @@ function renderInsufficient(data,card){
   $("fair").textContent="—";
   $("walk").textContent="—";
   $("greatHint").textContent="Not enough reliable sales to set a grab-it price.";
-  $("fairHint").textContent="Scout is withholding a Fair Buy target.";
+  $("fairHint").textContent="Scout is withholding a Buy Ceiling target.";
   $("walkHint").textContent="Scout will not invent a Walk-Away price.";
 
   $("shopCall").hidden=false;
@@ -327,7 +337,7 @@ function renderInsufficient(data,card){
     (reasons.length?`<b>What Scout saw:</b> ${reasons.map(x=>String(x)).join(" ")}<br>`:"")+
     `<b>Why this matters:</b> On a thin market, a made-up target would create false precision. Phase 2D would rather show no number than a bad number.`;
 
-  $("modelPill").textContent=`Phase 2D v0.5 · insufficient market evidence · ${data.provider||"sold comps"}`;
+  $("modelPill").textContent=`Phase 2D v0.6 · insufficient market evidence · ${data.provider||"sold comps"}`;
   $("status").textContent="Scout found too little reliable market evidence to set Smart Buy Targets. Nothing is broken.";
   $("results").scrollIntoView({behavior:"smooth",block:"start"});
 }
@@ -346,7 +356,7 @@ function render(data,card){
   $("fair").textContent=money(t.fair);
   $("walk").textContent=money(t.walk);
   $("greatHint").textContent=pctFromMedian(t.great,t.median)+" · grab-it territory";
-  $("fairHint").textContent=pctFromMedian(t.fair,t.median)+" · Scout’s comfortable ceiling";
+  $("fairHint").textContent=pctFromMedian(t.fair,t.median)+" · Scout’s buy ceiling";
   $("walkHint").textContent=pctFromMedian(t.walk,t.median)+" · above this, keep walking";
 
   const price=Number(card.shopPrice);
@@ -368,13 +378,13 @@ function render(data,card){
     `<b>Evidence:</b> ${Number(data.used)||0} good comps · confidence ${t.score}/100 ${t.level}.<br>`+
     `<b>Price spread:</b> IQR is about ${spreadPct}% of the median. ${qBits}<br>`+
     `<b>Safety buffer:</b> Phase 2D asks for bigger discounts when confidence is lower or sales are more scattered. `+
-    `That produced a base Great Buy buffer of ${Math.round(t.greatDiscount*100)}% and a Fair Buy buffer of ${Math.round(t.fairDiscount*100)}%. `+
+    `That produced a base Great Buy buffer of ${Math.round(t.greatDiscount*100)}% and a Buy Ceiling buffer of ${Math.round(t.fairDiscount*100)}%. `+
     `Very cheap sales can gently pull Great Buy lower, but cannot drag it below 68% of the sold median.<br>`+
     `<b>Walk-Away:</b> Scout allows at most ${Math.round(t.walkPremium*100)}% relative to the median before the typical-range cap is applied.<br>`+
     ((countScore!=null)?`<b>Confidence ingredients:</b> comp count ${countScore}/35 · consistency ${consistencyScore}/35 · source agreement ${sourceScore}/20 · Best Offer ${boScore}/10.<br>`:"")+
     `<b>Important:</b> This is Phase 2D lab math only. It has not changed the live app’s existing verdict rules.`;
 
-  $("modelPill").textContent=`Phase 2D v0.5 · spread ${spreadPct}% · ${data.provider||"eBay sold comps"}`;
+  $("modelPill").textContent=`Phase 2D v0.6 · spread ${spreadPct}% · ${data.provider||"eBay sold comps"}`;
   $("results").scrollIntoView({behavior:"smooth",block:"start"});
 }
 
@@ -424,7 +434,9 @@ $("runBtn").addEventListener("click",run);
 $("priceOnlyBtn").addEventListener("click",testShopPriceOnly);
 $("recentBtn").addEventListener("click",loadRecent);
 $("saveConn").addEventListener("click",saveConfig);
+$("grader").addEventListener("change",syncGradeField);
 loadConfig();
+syncGradeField();
 </script>
 </body>
 </html>
