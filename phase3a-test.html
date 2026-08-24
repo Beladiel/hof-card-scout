@@ -30,6 +30,10 @@ input,select{width:100%;min-height:45px;border-radius:12px;border:1px solid #3a5
 button{min-height:46px;border-radius:13px;border:0;font-weight:950;padding:10px 14px;cursor:pointer}
 .primary{background:var(--gold);color:#211a0b}
 .secondary{background:var(--green);color:#072116}
+.flow-choice{background:rgba(255,255,255,.055);border:1px solid var(--line);color:var(--text)}
+.flow-choice.selected-buy{background:var(--green);border-color:var(--green);color:#072116;box-shadow:0 0 0 2px rgba(86,197,138,.18)}
+.flow-choice.selected-target{background:var(--gold);border-color:var(--gold);color:#211a0b;box-shadow:0 0 0 2px rgba(230,189,99,.18)}
+
 .ghost{background:rgba(255,255,255,.055);border:1px solid var(--line);color:var(--text)}
 .segment{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .segment button.active{background:var(--cream);color:#102019;border-color:var(--cream)}
@@ -91,8 +95,8 @@ button{min-height:46px;border-radius:13px;border:0;font-weight:950;padding:10px 
     </div>
 
     <div class="actions">
-      <button class="secondary" id="boughtBtn" type="button">💳 I BOUGHT IT</button>
-      <button class="ghost" id="targetBtn" type="button">🎯 SAVE AS TARGET INSTEAD</button>
+      <button class="flow-choice" id="boughtBtn" type="button" aria-pressed="false">💳 I BOUGHT IT</button>
+      <button class="flow-choice" id="targetBtn" type="button" aria-pressed="false">🎯 SAVE AS TARGET INSTEAD</button>
     </div>
   </section>
 
@@ -168,7 +172,7 @@ button{min-height:46px;border-radius:13px;border:0;font-weight:950;padding:10px 
     </div>
   </section>
 
-  <p class="note">Phase 3A v0.3. This page only tests the workflow and wording. It never writes to HOF Card Scout’s real collection storage.</p>
+  <p class="note">Phase 3A v0.4. This page only tests the workflow and wording. It never writes to HOF Card Scout’s real collection storage.</p>
 </div>
 
 <script>
@@ -209,6 +213,15 @@ function syncScenario(){
     ?"This player is currently a Need. A purchase can fill the open roster spot without retyping the card."
     :"This player is already Owned. Scout will ask whether the purchase should become the new representative card.";
 }
+
+function selectFlowChoice(which){
+  const bought=which==="bought";
+  $("boughtBtn").classList.toggle("selected-buy",bought);
+  $("targetBtn").classList.toggle("selected-target",!bought);
+  $("boughtBtn").setAttribute("aria-pressed",bought?"true":"false");
+  $("targetBtn").setAttribute("aria-pressed",bought?"false":"true");
+}
+
 function beginPurchase(){
   const c=card();
   if(!c.player||!c.year||!c.set||!Number.isFinite(c.price)){alert("Enter player, year, set, and shop price first.");return}
@@ -271,11 +284,12 @@ $("needBtn").onclick=()=>{status="need";syncScenario()};
 $("ownedBtn").onclick=()=>{status="owned";syncScenario()};
 $("verdict").onchange=syncScenario;
 $("grader").onchange=syncGrader;
-$("boughtBtn").onclick=beginPurchase;
+$("boughtBtn").onclick=()=>{selectFlowChoice("bought");beginPurchase()};
 $("savePurchaseBtn").onclick=()=>showPreview("need");
 $("replaceBtn").onclick=()=>{selectOwnedChoice("replace");showPreview("replace")};
 $("keepBtn").onclick=()=>{selectOwnedChoice("keep");showPreview("keep")};
 $("targetBtn").onclick=()=>{
+  selectFlowChoice("target");
   const c=card();
   if(!c.player||!c.year||!c.set){
     alert("Enter player, year, and set first.");
