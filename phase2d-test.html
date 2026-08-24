@@ -144,7 +144,7 @@ summary{cursor:pointer;font-weight:900;color:var(--gold);font-size:12px}
     <div class="conn" id="connState"></div>
   </details>
 
-  <p class="small">Phase 2D v0.2. This lab does not modify your collection, the v3.9.0 app, the Worker confidence model, or existing BUY / NEGOTIATE / PASS rules.</p>
+  <p class="small">Phase 2D v0.3. This lab does not modify your collection, the v3.9.0 app, the Worker confidence model, or existing BUY / NEGOTIATE / PASS rules.</p>
 </div>
 <script>
 const $=id=>document.getElementById(id);
@@ -178,7 +178,7 @@ function pctFromMedian(value,median){
 }
 
 /*
- Phase 2D v0.2
+ Phase 2D v0.3
  - Confidence controls how tightly Scout can trust the median.
  - IQR/median spread expands the safety margin when prices are messy.
  - Q1 can pull Great Buy lower; Q3 can cap the Walk-Away ceiling.
@@ -290,6 +290,42 @@ function loadRecent(){
   $("grade").value=c.grade||"";
   $("status").textContent="Loaded your most recent normal Scout search. Ready for a Deep Mode Phase 2D test.";
 }
+
+function renderInsufficient(data,card){
+  const lab=data.confidenceLab?.market||{};
+  const score=Number.isFinite(Number(lab.score))?Number(lab.score):Number(data.confidenceScore||0);
+  const level=String(data.confidence||lab.proposedLevel||"insufficient").toUpperCase();
+  const used=Number(data.used)||0;
+
+  $("results").style.display="block";
+  $("resultTitle").textContent=[card.year,card.set,card.player,card.cardNum?"#"+card.cardNum:"",card.grader!=="Raw"?card.grader:"",card.grade].filter(Boolean).join(" · ");
+  $("median").textContent="—";
+  $("comps").textContent=String(used);
+  $("confidence").textContent=score>0?(score+"/100 "+level):level;
+
+  $("great").textContent="—";
+  $("fair").textContent="—";
+  $("walk").textContent="—";
+  $("greatHint").textContent="Not enough reliable sales to set a grab-it price.";
+  $("fairHint").textContent="Scout is withholding a Fair Buy target.";
+  $("walkHint").textContent="Scout will not invent a Walk-Away price.";
+
+  $("shopCall").hidden=false;
+  $("shopVerdict").textContent="NOT ENOUGH MARKET EVIDENCE";
+  $("shopWhy").textContent="Scout could not establish a reliable sold median for this exact card. No buy targets were generated.";
+
+  const reasons=Array.isArray(lab.reasons)?lab.reasons:[];
+  $("explanation").innerHTML=
+    `<b>Scout deliberately stopped.</b> There was not enough reliable sold-price evidence to establish a usable median.<br>`+
+    `<b>Usable comps:</b> ${used}.<br>`+
+    (reasons.length?`<b>What Scout saw:</b> ${reasons.map(x=>String(x)).join(" ")}<br>`:"")+
+    `<b>Why this matters:</b> On a thin market, a made-up target would create false precision. Phase 2D would rather show no number than a bad number.`;
+
+  $("modelPill").textContent=`Phase 2D v0.3 · insufficient market evidence · ${data.provider||"sold comps"}`;
+  $("status").textContent="Scout found too little reliable market evidence to set Smart Buy Targets. Nothing is broken.";
+  $("results").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
 function render(data,card){
   const t=smartTargets(data);
   $("results").style.display="block";
@@ -329,7 +365,7 @@ function render(data,card){
     ((countScore!=null)?`<b>Confidence ingredients:</b> comp count ${countScore}/35 · consistency ${consistencyScore}/35 · source agreement ${sourceScore}/20 · Best Offer ${boScore}/10.<br>`:"")+
     `<b>Important:</b> This is Phase 2D lab math only. It has not changed the live app’s existing verdict rules.`;
 
-  $("modelPill").textContent=`Phase 2D v0.2 · spread ${spreadPct}% · ${data.provider||"eBay sold comps"}`;
+  $("modelPill").textContent=`Phase 2D v0.3 · spread ${spreadPct}% · ${data.provider||"eBay sold comps"}`;
   $("results").scrollIntoView({behavior:"smooth",block:"start"});
 }
 async function run(){
@@ -347,8 +383,12 @@ async function run(){
     });
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.message||data.error||("HTTP "+res.status));
-    render(data,card);
-    $("status").textContent=(data.cacheHit?"Used Scout’s cached valuation. ":"Fresh valuation complete. ")+"Phase 2D targets calculated.";
+    if(!Number.isFinite(Number(data.median))||Number(data.median)<=0){
+      renderInsufficient(data,card);
+    }else{
+      render(data,card);
+      $("status").textContent=(data.cacheHit?"Used Scout’s cached valuation. ":"Fresh valuation complete. ")+"Phase 2D targets calculated.";
+    }
   }catch(err){
     $("status").textContent="Phase 2D test failed: "+(err.message||err);
   }finally{
