@@ -116,6 +116,7 @@ footer{text-align:center;color:#7f94a6;font-size:11px;margin-top:24px}
   <div class="actions">
     <button class="primary" id="testBtn" type="button">TEST SECONDARY SOURCES</button>
     <button class="secondary" id="bestOfferBtn" type="button">TEST EBAY BEST OFFERS</button>
+    <button class="secondary" id="bridgeBtn" type="button">RECOVER APIFY BEST OFFERS</button>
     <a class="btn ghost" href="./index.html">BACK TO HOF CARD SCOUT</a>
   </div>
   <p class="note" style="margin-bottom:0"><strong>Free-plan guardrail:</strong> secondary-source testing uses at most 25 returned rows. Best Offer testing uses at most 15 returned rows. Neither test persists The Card API transaction results. The free API’s historical window is only the most recent 3 days.</p>
@@ -332,10 +333,91 @@ async function runBestOfferTest(){
   }
 }
 
+
+async function runBridgeTest(){
+  const b=$("bridgeBtn"); b.disabled=true; b.textContent="RECOVERING EXACT BEST OFFERS…";
+  $("resultsCard").hidden=false;
+  $("summary").innerHTML='<div class="note">Apify is finding Best Offer Accepted listings; The Card API is checking those exact eBay item IDs…</div>';
+  $("stats").innerHTML=""; $("comps").innerHTML=""; $("notes").innerHTML="";
+  try{
+    saveConfig(); const c=config();
+    if(!c.accessKey)throw new Error("Scout access key is blank.");
+    const card={
+      player:$("player").value.trim(),
+      year:Number($("year").value),
+      set:$("set").value.trim(),
+      cardNum:$("cardNum").value.trim(),
+      grader:$("grader").value,
+      grade:$("grade").value.trim()
+    };
+    const t0=performance.now();
+    const r=await fetch(c.endpoint+"/cardapi/recover-bestoffers",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
+      body:JSON.stringify(card)
+    });
+    const j=await r.json().catch(()=>({}));
+    const secs=((performance.now()-t0)/1000).toFixed(1);
+    $("raw").textContent=JSON.stringify(j,null,2);
+    if(!r.ok||!j.ok)throw new Error(j.message||j.error||("HTTP "+r.status));
+
+    $("summary").innerHTML=`
+      <div class="${j.recovered>0?"good":"note"}">
+        <div class="big">${Number(j.recovered)||0}</div>
+        <strong>Best Offer accepted price${Number(j.recovered)===1?"":"s"} recovered</strong>
+        <div style="margin-top:5px">Bridge took ${esc(secs)} sec · query: ${esc(j.query||"")}</div>
+      </div>`;
+
+    $("stats").innerHTML=`
+      <div class="source"><div class="name">Apify searched</div><div class="n">${Number(j.apifySearched)||0}</div><div class="small">recent eBay rows</div></div>
+      <div class="source"><div class="name">BO candidates</div><div class="n">${Number(j.bestOfferCandidates)||0}</div><div class="small">exact IDs checked</div></div>
+      <div class="source"><div class="name">Recovered</div><div class="n">${Number(j.recovered)||0}</div><div class="small">true accepted prices</div></div>
+      <div class="source"><div class="name">Apify cap</div><div class="n">$${Number(j.limits?.apifyMaxChargeUsd||0).toFixed(2)}</div><div class="small">per bridge test</div></div>
+      <div class="source"><div class="name">Exact checks</div><div class="n">${Number(j.limits?.exactCandidatesChecked)||0}</div><div class="small">Card API max</div></div>`;
+
+    const recs=Array.isArray(j.recoveries)?j.recoveries:[];
+    $("comps").innerHTML=recs.length?`
+      <h2 style="margin-top:18px">Recovered negotiated prices</h2>`+
+      recs.map(x=>`<div class="comp">
+        <div class="banner">
+          <div style="min-width:0;flex:1">
+            <div class="comp-title">${esc(x.title)}</div>
+            <div class="comp-meta">eBay item ${esc(x.itemId||"")} · ${esc(x.soldDate||"date unavailable")}
+              ${x.grader?` · ${esc(x.grader)} ${esc(x.grade||"")}`:""}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="price">${money(x.acceptedPrice)}</div>
+            ${x.originalAsk?`<div class="comp-meta">ask ${money(x.originalAsk)}${x.discountPct!=null?` · ${esc(x.discountPct)}% lower`:""}</div>`:""}
+          </div>
+        </div>
+        ${x.link?`<div style="margin-top:7px"><a href="${esc(x.link)}" target="_blank" rel="noopener" style="color:var(--blue)">View sale ↗</a></div>`:""}
+      </div>`).join("")
+      :`<div class="note" style="margin-top:15px"><strong>No accepted prices recovered this run.</strong> Check the technical response: if Apify found zero Best Offer candidates, there was nothing to recover; if it found candidates but recovered zero, The Card API did not have those exact sales in its free lookback window.</div>`;
+
+    const misses=Array.isArray(j.misses)?j.misses:[];
+    const notes=Array.isArray(j.notes)?j.notes:[];
+    let extra="";
+    if(misses.length){
+      extra+=`<div class="note" style="margin-top:14px"><strong>Unrecovered candidates:</strong><br>`+
+        misses.map(m=>`• ${esc(m.itemId||"")} — ${esc(m.reason||"not recovered")}`).join("<br>")+`</div>`;
+    }
+    if(notes.length){
+      extra+=`<div class="note" style="margin-top:14px">${notes.map(n=>"• "+esc(n)).join("<br>")}</div>`;
+    }
+    $("notes").innerHTML=extra;
+  }catch(e){
+    $("summary").innerHTML=`<div class="error"><strong>Bridge test failed:</strong> ${esc(e.message)}</div>`;
+  }finally{
+    b.disabled=false;
+    b.textContent="RECOVER APIFY BEST OFFERS";
+  }
+}
+
 $("connectBtn").addEventListener("click",testConnection);
 $("sampleBtn").addEventListener("click",loadSample);
 $("testBtn").addEventListener("click",runTest);
 $("bestOfferBtn").addEventListener("click",runBestOfferTest);
+$("bridgeBtn").addEventListener("click",runBridgeTest);
 init();
 </script>
 </body>
