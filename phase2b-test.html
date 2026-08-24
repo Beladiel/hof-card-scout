@@ -117,6 +117,7 @@ footer{text-align:center;color:#7f94a6;font-size:11px;margin-top:24px}
     <button class="primary" id="testBtn" type="button">TEST SECONDARY SOURCES</button>
     <button class="secondary" id="bestOfferBtn" type="button">TEST EBAY BEST OFFERS</button>
     <button class="secondary" id="bridgeBtn" type="button">RECOVER APIFY BEST OFFERS</button>
+    <button class="secondary" id="confidenceBtn" type="button">EXPLAIN CONFIDENCE</button>
     <a class="btn ghost" href="./index.html">BACK TO HOF CARD SCOUT</a>
   </div>
   <p class="note" style="margin-bottom:0"><strong>Free-plan guardrail:</strong> secondary-source testing uses at most 25 returned rows. Best Offer testing uses at most 15 returned rows. Neither test persists The Card API transaction results. The free API’s historical window is only the most recent 3 days.</p>
@@ -413,11 +414,74 @@ async function runBridgeTest(){
   }
 }
 
+
+async function runConfidenceTest(){
+  const b=$("confidenceBtn"); b.disabled=true; b.textContent="SCORING CONFIDENCE…";
+  $("resultsCard").hidden=false;
+  $("summary").innerHTML='<div class="note">Running the Phase 2C read-only confidence model…</div>';
+  $("stats").innerHTML=""; $("comps").innerHTML=""; $("notes").innerHTML="";
+  try{
+    saveConfig(); const c=config();
+    if(!c.accessKey)throw new Error("Scout access key is blank.");
+    const card={
+      player:$("player").value.trim(),
+      year:Number($("year").value),
+      set:$("set").value.trim(),
+      cardNum:$("cardNum").value.trim(),
+      grader:$("grader").value,
+      grade:$("grade").value.trim(),
+      fastMode:false
+    };
+    const t0=performance.now();
+    const r=await fetch(c.endpoint+"/confidence/explain",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
+      body:JSON.stringify(card)
+    });
+    const j=await r.json().catch(()=>({}));
+    const secs=((performance.now()-t0)/1000).toFixed(1);
+    $("raw").textContent=JSON.stringify(j,null,2);
+    if(!r.ok||!j.ok)throw new Error(j.message||j.error||("HTTP "+r.status));
+
+    const m=j.experimental?.market||{};
+    const i=j.experimental?.identity||{};
+    const components=m.components||{};
+    $("summary").innerHTML=`
+      <div class="good">
+        <div class="big">${Number(m.score)||0}/100</div>
+        <strong>Proposed market confidence: ${esc(String(m.proposedLevel||"").toUpperCase())}</strong>
+        <div style="margin-top:5px">Current Scout label: ${esc(String(m.currentLevel||"").toUpperCase())} · ${esc(secs)} sec</div>
+      </div>`;
+
+    $("stats").innerHTML=`
+      <div class="source"><div class="name">Comp count</div><div class="n">${Number(components.compCount?.score)||0}/35</div><div class="small">${Number(components.compCount?.count)||0} comps</div></div>
+      <div class="source"><div class="name">Consistency</div><div class="n">${Number(components.priceConsistency?.score)||0}/35</div><div class="small">spread ${components.priceConsistency?.iqrToMedian==null?"—":Math.round(Number(components.priceConsistency.iqrToMedian)*100)+"%"}</div></div>
+      <div class="source"><div class="name">Source agreement</div><div class="n">${Number(components.retrievalSourceAgreement?.score)||0}/20</div><div class="small">${components.retrievalSourceAgreement?.medianGapPct==null?"single/unknown":esc(components.retrievalSourceAgreement.medianGapPct)+"% gap"}</div></div>
+      <div class="source"><div class="name">Best Offer</div><div class="n">${Number(components.confirmedBestOfferPricing?.score)||0}/10</div><div class="small">${Number(components.confirmedBestOfferPricing?.recovered)||0} recovered</div></div>
+      <div class="source"><div class="name">Identity</div><div class="n">${Number(i.score)||0}/100</div><div class="small">${esc(String(i.level||"").toUpperCase())}</div></div>`;
+
+    const reasons=Array.isArray(m.reasons)?m.reasons:[];
+    $("comps").innerHTML=`
+      <h2 style="margin-top:18px">Why Scout scored it this way</h2>
+      <div class="note">${reasons.map(x=>"• "+esc(x)).join("<br>")}</div>
+      <div class="note" style="margin-top:12px"><strong>Identity confidence:</strong> ${esc(String(i.level||"").toUpperCase())} (${Number(i.score)||0}/100)<br>
+      ${(Array.isArray(i.reasons)?i.reasons:[]).map(x=>"• "+esc(x)).join("<br>")}</div>`;
+
+    $("notes").innerHTML=`<div class="note" style="margin-top:14px"><strong>Important:</strong> ${esc(j.experimental?.verdictImpact||"none")}.</div>`;
+  }catch(e){
+    $("summary").innerHTML=`<div class="error"><strong>Confidence test failed:</strong> ${esc(e.message)}</div>`;
+  }finally{
+    b.disabled=false;
+    b.textContent="EXPLAIN CONFIDENCE";
+  }
+}
+
 $("connectBtn").addEventListener("click",testConnection);
 $("sampleBtn").addEventListener("click",loadSample);
 $("testBtn").addEventListener("click",runTest);
 $("bestOfferBtn").addEventListener("click",runBestOfferTest);
 $("bridgeBtn").addEventListener("click",runBridgeTest);
+$("confidenceBtn").addEventListener("click",runConfidenceTest);
 init();
 </script>
 </body>
