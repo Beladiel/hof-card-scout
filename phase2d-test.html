@@ -120,7 +120,7 @@ summary{cursor:pointer;font-weight:900;color:var(--gold);font-size:12px}
     </div>
 
     <div class="call" id="shopCall" hidden>
-      <div class="tag">AT THE SHOP PRICE</div>
+      <div class="tag" id="shopCallTag">AT THE SHOP PRICE</div>
       <div class="big" id="shopVerdict">—</div>
       <div class="why" id="shopWhy"></div>
     </div>
@@ -144,7 +144,7 @@ summary{cursor:pointer;font-weight:900;color:var(--gold);font-size:12px}
     <div class="conn" id="connState"></div>
   </details>
 
-  <p class="small">Phase 2D v0.3. This lab does not modify your collection, the v3.9.0 app, the Worker confidence model, or existing BUY / NEGOTIATE / PASS rules.</p>
+  <p class="small">Phase 2D v0.4. This lab does not modify your collection, the v3.9.0 app, the Worker confidence model, or existing BUY / NEGOTIATE / PASS rules.</p>
 </div>
 <script>
 const $=id=>document.getElementById(id);
@@ -178,7 +178,7 @@ function pctFromMedian(value,median){
 }
 
 /*
- Phase 2D v0.3
+ Phase 2D v0.4
  - Confidence controls how tightly Scout can trust the median.
  - IQR/median spread expands the safety margin when prices are messy.
  - Q1 can pull Great Buy lower; Q3 can cap the Walk-Away ceiling.
@@ -311,6 +311,7 @@ function renderInsufficient(data,card){
   $("walkHint").textContent="Scout will not invent a Walk-Away price.";
 
   $("shopCall").hidden=false;
+  $("shopCallTag").textContent="SCOUT DECISION";
   $("shopVerdict").textContent="NOT ENOUGH MARKET EVIDENCE";
   $("shopWhy").textContent="Scout could not establish a reliable sold median for this exact card. No buy targets were generated.";
 
@@ -321,7 +322,7 @@ function renderInsufficient(data,card){
     (reasons.length?`<b>What Scout saw:</b> ${reasons.map(x=>String(x)).join(" ")}<br>`:"")+
     `<b>Why this matters:</b> On a thin market, a made-up target would create false precision. Phase 2D would rather show no number than a bad number.`;
 
-  $("modelPill").textContent=`Phase 2D v0.3 · insufficient market evidence · ${data.provider||"sold comps"}`;
+  $("modelPill").textContent=`Phase 2D v0.4 · insufficient market evidence · ${data.provider||"sold comps"}`;
   $("status").textContent="Scout found too little reliable market evidence to set Smart Buy Targets. Nothing is broken.";
   $("results").scrollIntoView({behavior:"smooth",block:"start"});
 }
@@ -345,6 +346,7 @@ function render(data,card){
   const verdict=shopVerdict(price,t);
   $("shopCall").hidden=!verdict;
   if(verdict){
+    $("shopCallTag").textContent="AT THE SHOP PRICE";
     $("shopVerdict").textContent=verdict.title;
     $("shopWhy").textContent="Shop price "+money(price)+". "+verdict.why+" "+pctFromMedian(price,t.median)+".";
   }
@@ -365,7 +367,7 @@ function render(data,card){
     ((countScore!=null)?`<b>Confidence ingredients:</b> comp count ${countScore}/35 · consistency ${consistencyScore}/35 · source agreement ${sourceScore}/20 · Best Offer ${boScore}/10.<br>`:"")+
     `<b>Important:</b> This is Phase 2D lab math only. It has not changed the live app’s existing verdict rules.`;
 
-  $("modelPill").textContent=`Phase 2D v0.3 · spread ${spreadPct}% · ${data.provider||"eBay sold comps"}`;
+  $("modelPill").textContent=`Phase 2D v0.4 · spread ${spreadPct}% · ${data.provider||"eBay sold comps"}`;
   $("results").scrollIntoView({behavior:"smooth",block:"start"});
 }
 async function run(){
