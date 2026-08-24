@@ -58,7 +58,7 @@ input,select{width:100%;min-height:44px;border:1px solid #49665a;border-radius:1
 <header>
   <div class="ball">⚾</div>
   <div><h1>HOF Card Scout</h1><div class="tagline">Phase 4A — Deal Finder lab</div></div>
-  <div class="badge">PHASE 4A v0.3 LIVE</div>
+  <div class="badge">PHASE 4A v0.4 DIAGNOSTIC</div>
 </header>
 
 <section class="panel">
@@ -84,6 +84,11 @@ input,select{width:100%;min-height:44px;border:1px solid #49665a;border-radius:1
 
   <div class="actions"><button class="primary" id="findBtn">🔎 FIND DEALS</button><button class="ghost" id="resetBtn">RESET LAB</button></div>
   <div class="searching" id="searching">Scout is checking active listings, matching identity, adding shipping, and comparing each listing to your Buy Ceiling…</div>
+  <div id="diagnostic" style="display:none;margin-top:12px;border:1px solid var(--line);border-radius:13px;padding:11px;background:rgba(255,255,255,.03)">
+    <div class="eyebrow">LIVE CONNECTION STATUS</div>
+    <div id="diagMain" style="font-size:13px;font-weight:900;margin-top:5px"></div>
+    <div id="diagDetail" class="small" style="margin-top:5px;white-space:pre-wrap"></div>
+  </div>
 </section>
 
 <section class="panel hidden" id="resultsPanel">
@@ -111,7 +116,7 @@ input,select{width:100%;min-height:44px;border:1px solid #49665a;border-radius:1
   <div id="rejected"></div>
 </section>
 
-<div class="note">Phase 4A v0.3 LIVE · Real active eBay listings · No purchases and no collection data changes.</div>
+<div class="note">Phase 4A v0.4 DIAGNOSTIC · Real active eBay listings · Permanent on-screen diagnostics · No collection data changes.</div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -248,40 +253,114 @@ function escapeHtml(s){
   return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 }
 function escapeAttr(s){return escapeHtml(s)}
+
+function showDiag(main,detail="",kind="normal"){
+  const box=$("diagnostic");
+  box.style.display="block";
+  box.style.borderColor=kind==="bad"?"rgba(239,109,109,.55)":kind==="good"?"rgba(86,197,138,.55)":"var(--line)";
+  $("diagMain").textContent=main;
+  $("diagDetail").textContent=detail;
+}
+async function fetchJsonWithTimeout(url,options={},ms=15000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),ms);
+  try{
+    const res=await fetch(url,{...options,signal:controller.signal});
+    const text=await res.text();
+    let data={};
+    try{data=text?JSON.parse(text):{}}catch{data={raw:text.slice(0,500)}}
+    return {res,data,text};
+  }finally{
+    clearTimeout(timer);
+  }
+}
+async function checkWorker(config){
+  try{
+    const {res,data}=await fetchJsonWithTimeout(config.endpoint+"/health",{
+      headers:{"X-Scout-Key":config.accessKey}
+    },8000);
+    if(!res.ok||!data.ok){
+      return {ok:false,status:res.status,message:data.message||data.error||("HTTP "+res.status)};
+    }
+    return {ok:true,status:res.status,version:data.version||"unknown",providers:data.providers||{}};
+  }catch(err){
+    return {ok:false,status:0,message:err.name==="AbortError"?"Worker health check timed out.":err.message};
+  }
+}
+
 async function findDeals(){
   const card=cardPayload(),targets=targetPayload(),config=pricingConfig();
 
   if(!card.player||!Number.isInteger(card.year)||!card.set||!card.cardNum){
-    alert("Player, year, set, and card # are required for Deal Finder.");return;
+    showDiag("INPUT PROBLEM","Player, year, set, and card # are required for Deal Finder.","bad");return;
   }
   if(!(targets.greatBuy>0&&targets.buyCeiling>targets.greatBuy&&targets.walkAway>=targets.buyCeiling)){
-    alert("Enter valid Smart Buy Targets: Great Buy < Buy Ceiling ≤ Walk-Away.");return;
+    showDiag("TARGET PRICE PROBLEM","Enter valid Smart Buy Targets: Great Buy < Buy Ceiling ≤ Walk-Away.","bad");return;
   }
   if(!config.accessKey){
-    alert("Scout's access key is not saved on this device. Open the real HOF Card Scout app, save/test Live Pricing Connection once, then return to this lab.");
-    return;
+    showDiag("NO SAVED ACCESS KEY","Open the real HOF Card Scout app, save/test Live Pricing Connection once, then return to this lab.","bad");return;
   }
 
   $("searching").style.display="block";
-  $("searching").textContent="Scout is checking REAL active eBay listings, matching identity, adding shipping, and comparing each listing to your Buy Ceiling…";
+  $("searching").textContent="Scout is checking the Worker, then REAL active eBay listings…";
   $("resultsPanel").classList.add("hidden");$("rejectedPanel").classList.add("hidden");
+  showDiag("STEP 1 OF 2 — CHECKING WORKER","Endpoint: "+config.endpoint);
 
   try{
-    const res=await fetch(config.endpoint+"/deals",{
+    const health=await checkWorker(config);
+    if(!health.ok){
+      showDiag("WORKER CHECK FAILED",
+        "HTTP "+health.status+"\n"+health.message+"\n\nExpected Worker version: 3.10.0 or newer.",
+        "bad");
+      return;
+    }
+
+    const serpConfigured=health.providers?.serpapi===true;
+    showDiag("WORKER CONNECTED",
+      "Worker version: "+health.version+"\nSerpApi configured: "+(serpConfigured?"YES":"NO")+"\n\nSTEP 2 OF 2 — searching active eBay listings…",
+      serpConfigured?"good":"bad");
+
+    if(!serpConfigured){
+      showDiag("SERPAPI IS NOT CONFIGURED ON THIS WORKER",
+        "Worker version: "+health.version+"\nDeal Finder needs the existing SERPAPI_KEY secret on the deployed Worker.",
+        "bad");
+      return;
+    }
+
+    const {res,data,text}=await fetchJsonWithTimeout(config.endpoint+"/deals",{
       method:"POST",
       headers:{"Content-Type":"application/json","X-Scout-Key":config.accessKey},
       body:JSON.stringify({card,targets})
-    });
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok||!data.ok)throw new Error(data.message||data.error||("HTTP "+res.status));
+    },18000);
+
+    if(!res.ok||!data.ok){
+      showDiag("DEAL FINDER REQUEST FAILED",
+        "HTTP "+res.status+
+        "\nWorker version: "+(data.version||health.version)+
+        "\nError: "+(data.error||"unknown")+
+        "\nMessage: "+(data.message||data.raw||text.slice(0,300)||"No response body"),
+        "bad");
+      return;
+    }
+
+    showDiag("LIVE EBAY SEARCH COMPLETE",
+      "Worker version: "+(data.version||health.version)+
+      "\nProvider: "+(data.provider||"Active eBay")+
+      "\nSearched: "+Number(data.searched||0)+
+      "\nMatched: "+Number(data.matched||0)+
+      "\nRejected: "+Number(data.rejectedCount||0),
+      "good");
     renderLive(data);
     toast("Live eBay search complete.");
   }catch(err){
-    alert("Deal Finder could not finish: "+err.message);
+    showDiag("UNEXPECTED DEAL FINDER ERROR",
+      err.name==="AbortError"?"The request timed out.":String(err.message||err),
+      "bad");
   }finally{
     $("searching").style.display="none";
   }
 }
+
 $("grader").onchange=()=>{
   const raw=$("grader").value==="Raw";
   $("grade").disabled=raw;
@@ -293,6 +372,7 @@ $("resetBtn").onclick=()=>{
   $("median").value="3.97";$("great").value="2.75";$("ceiling").value="3.50";$("walk").value="4.00";
   $("grader").value="Raw";$("grade").value="";$("grade").disabled=true;
   $("resultsPanel").classList.add("hidden");$("rejectedPanel").classList.add("hidden");
+  $("diagnostic").style.display="none";
   window.scrollTo({top:0,behavior:"smooth"});
 };
 </script>
