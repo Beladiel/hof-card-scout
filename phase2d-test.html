@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>HOF Card Scout · Phase 2D Lab</title>
+<style>
+:root{
+  --bg:#0c111b;--panel:#151d2b;--panel2:#1b2535;--ink:#f5f2e9;--muted:#aeb8c8;
+  --gold:#f0c55b;--green:#55d68b;--red:#ff7474;--border:#344158;--blue:#79b8ff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at top,#1c2b42 0,#0c111b 48%);color:var(--ink);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;min-height:100vh}
+.wrap{max-width:820px;margin:auto;padding:18px 14px 42px}
+.hero{background:linear-gradient(135deg,#182438,#111827);border:1px solid var(--border);border-radius:20px;
+  padding:18px;box-shadow:0 16px 40px rgba(0,0,0,.28);position:relative;overflow:hidden}
+.hero:after{content:"⚾";position:absolute;right:14px;top:-10px;font-size:78px;opacity:.08;transform:rotate(18deg)}
+.eyebrow{font-size:11px;letter-spacing:.14em;font-weight:900;color:var(--gold)}
+h1{margin:5px 0 5px;font-size:27px;line-height:1.05}
+.sub{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+.labtag{display:inline-block;margin-top:10px;border:1px solid #6a5a24;background:#332c13;color:#ffe18b;
+  padding:5px 8px;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:.06em}
+.card{margin-top:14px;background:rgba(21,29,43,.95);border:1px solid var(--border);border-radius:16px;padding:14px}
+h2{font-size:15px;margin:0 0 11px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.full{grid-column:1/-1}
+label{font-size:11px;color:var(--muted);display:block;margin-bottom:5px;font-weight:800}
+input,select{width:100%;background:#0d1420;color:var(--ink);border:1px solid #3a4860;border-radius:10px;
+  padding:11px;font-size:15px;outline:none}
+input:focus,select:focus{border-color:var(--gold)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+button{border:0;border-radius:11px;padding:11px 13px;font-weight:900;cursor:pointer;font-size:13px}
+.primary{background:var(--gold);color:#17130a;flex:1;min-width:175px}
+.ghost{background:#202c3e;color:var(--ink);border:1px solid #43516a}
+.status{font-size:11px;color:var(--muted);margin-top:9px}
+.results{display:none}
+.market{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.metric{background:#0e1623;border:1px solid var(--border);border-radius:12px;padding:10px;text-align:center}
+.metric .k{font-size:9px;letter-spacing:.08em;color:var(--muted);font-weight:900}
+.metric .v{font-size:20px;font-weight:950;margin-top:3px}
+.targets{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}
+.target{border-radius:14px;padding:13px;border:1px solid var(--border);background:#111a28}
+.target.great{border-color:#347851}
+.target.fair{border-color:#7c6c37}
+.target.walk{border-color:#804848}
+.target .name{font-size:10px;font-weight:950;letter-spacing:.07em}
+.target .price{font-size:26px;font-weight:950;margin:3px 0}
+.target .hint{font-size:10px;color:var(--muted);line-height:1.35}
+.call{margin-top:12px;padding:13px;border-radius:13px;background:#0f1825;border:1px solid var(--border)}
+.call .tag{font-size:10px;color:var(--gold);font-weight:950;letter-spacing:.08em}
+.call .big{font-size:25px;font-weight:950;margin:2px 0}
+.call .why{font-size:12px;color:var(--muted);line-height:1.45}
+details{margin-top:12px;border:1px solid var(--border);border-radius:12px;background:#101824;padding:10px}
+summary{cursor:pointer;font-weight:900;color:var(--gold);font-size:12px}
+.detail{font-size:11px;color:var(--muted);line-height:1.6;margin-top:8px}
+.pill{display:inline-block;border:1px solid var(--border);background:#0d1521;border-radius:999px;padding:5px 8px;font-size:10px;font-weight:900;margin-top:8px}
+.good{color:var(--green)} .bad{color:var(--red)}
+.conn{margin-top:8px;font-size:10px;color:var(--muted)}
+.small{font-size:10px;color:var(--muted);line-height:1.5}
+@media(max-width:610px){
+  .grid{grid-template-columns:1fr 1fr}
+  .market,.targets{grid-template-columns:1fr}
+  .metric,.target{text-align:left}
+  .target .price{font-size:23px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <div class="eyebrow">HOF CARD SCOUT</div>
+    <h1>Phase 2D · Smart Buy Targets</h1>
+    <p class="sub">Turn sold comps into three card-shop numbers: <b>Great Buy</b>, <b>Fair Buy</b>, and <b>Walk-Away</b>.</p>
+    <span class="labtag">LAB ONLY · v3.9.0 APP UNCHANGED</span>
+  </section>
+
+  <section class="card">
+    <h2>Card to test</h2>
+    <div class="grid">
+      <div class="full"><label>PLAYER</label><input id="player" placeholder="Mike Trout"></div>
+      <div><label>YEAR</label><input id="year" inputmode="numeric" placeholder="2011"></div>
+      <div><label>CARD #</label><input id="cardNum" placeholder="US175"></div>
+      <div class="full"><label>SET</label><input id="set" placeholder="Topps Update"></div>
+      <div><label>GRADER</label>
+        <select id="grader"><option>Raw</option><option>PSA</option><option>SGC</option><option>CGC</option><option>BGS / Beckett</option><option>CSG</option><option>TAG</option></select>
+      </div>
+      <div><label>GRADE</label><input id="grade" placeholder="10"></div>
+      <div class="full"><label>SHOP PRICE (OPTIONAL)</label><input id="shopPrice" inputmode="decimal" placeholder="Leave blank to see targets only"></div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="runBtn">SCOUT SMART BUY TARGETS</button>
+      <button class="ghost" id="recentBtn">LOAD RECENT SCOUT CARD</button>
+    </div>
+    <div class="status" id="status">Deep Mode is used for lab tests so Scout has the best evidence available.</div>
+  </section>
+
+  <section class="card results" id="results">
+    <h2 id="resultTitle">Smart Buy Targets</h2>
+    <div class="market">
+      <div class="metric"><div class="k">SOLD MEDIAN</div><div class="v" id="median">—</div></div>
+      <div class="metric"><div class="k">GOOD COMPS</div><div class="v" id="comps">—</div></div>
+      <div class="metric"><div class="k">CONFIDENCE</div><div class="v" id="confidence">—</div></div>
+    </div>
+
+    <div class="targets">
+      <div class="target great">
+        <div class="name">🟢 GREAT BUY</div><div class="price" id="great">—</div>
+        <div class="hint" id="greatHint">Grab-it price.</div>
+      </div>
+      <div class="target fair">
+        <div class="name">🟡 FAIR BUY</div><div class="price" id="fair">—</div>
+        <div class="hint" id="fairHint">Comfortable ceiling.</div>
+      </div>
+      <div class="target walk">
+        <div class="name">🔴 WALK-AWAY</div><div class="price" id="walk">—</div>
+        <div class="hint" id="walkHint">Above this, Scout says keep walking.</div>
+      </div>
+    </div>
+
+    <div class="call" id="shopCall" hidden>
+      <div class="tag">AT THE SHOP PRICE</div>
+      <div class="big" id="shopVerdict">—</div>
+      <div class="why" id="shopWhy"></div>
+    </div>
+
+    <details>
+      <summary>Why Scout chose these numbers</summary>
+      <div class="detail" id="explanation"></div>
+    </details>
+
+    <div class="pill" id="modelPill">Phase 2D lab model</div>
+  </section>
+
+  <details class="card">
+    <summary>Lab connection</summary>
+    <div class="detail">This page uses the same Worker URL and access key stored by your normal HOF Card Scout app. If the fields below are blank, save the connection here once.</div>
+    <div class="grid" style="margin-top:9px">
+      <div class="full"><label>WORKER URL</label><input id="endpoint"></div>
+      <div class="full"><label>SCOUT ACCESS KEY</label><input id="accessKey" type="password" autocomplete="off"></div>
+    </div>
+    <div class="actions"><button class="ghost" id="saveConn">SAVE CONNECTION</button></div>
+    <div class="conn" id="connState"></div>
+  </details>
+
+  <p class="small">Phase 2D v0.1. This lab does not modify your collection, the v3.9.0 app, the Worker confidence model, or existing BUY / NEGOTIATE / PASS rules.</p>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const DEFAULT_ENDPOINT="https://hof-card-scout-pricing.jz9j2778jh.workers.dev";
+const RECENT_KEY="hofScoutRecentSearchesV1";
+
+function money(n){
+  const v=Number(n);
+  if(!Number.isFinite(v))return "—";
+  return v.toLocaleString(undefined,{style:"currency",currency:"USD",minimumFractionDigits:v<20?2:0,maximumFractionDigits:v<20?2:0});
+}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function practicalStep(v){
+  if(v<10)return .25;
+  if(v<25)return .5;
+  if(v<100)return 1;
+  if(v<250)return 2;
+  if(v<1000)return 5;
+  return 10;
+}
+function practicalRound(v){
+  if(!Number.isFinite(v))return null;
+  const step=practicalStep(v);
+  return Math.round(v/step)*step;
+}
+function pctFromMedian(value,median){
+  if(!Number.isFinite(value)||!Number.isFinite(median)||median<=0)return "";
+  const p=(value/median-1)*100;
+  if(Math.abs(p)<.5)return "about the sold median";
+  return Math.abs(Math.round(p))+"% "+(p<0?"below":"above")+" median";
+}
+
+/*
+ Phase 2D v0.1
+ - Confidence controls how tightly Scout can trust the median.
+ - IQR/median spread expands the safety margin when prices are messy.
+ - Q1 can pull Great Buy lower; Q3 can cap the Walk-Away ceiling.
+*/
+function smartTargets(data){
+  const median=Number(data.median);
+  if(!Number.isFinite(median)||median<=0)throw new Error("Scout did not return a usable sold median.");
+
+  const lab=data.confidenceLab?.market||{};
+  const score=Number.isFinite(Number(lab.score))?Number(lab.score):Number(data.confidenceScore||50);
+  const conf=clamp(score/100,0,1);
+  const spreadRaw=Number(lab.components?.priceConsistency?.iqrToMedian);
+  const low=Number(data.low), high=Number(data.high);
+  const fallbackSpread=Number.isFinite(low)&&Number.isFinite(high)&&median>0?(high-low)/median:.60;
+  const spread=clamp(Number.isFinite(spreadRaw)?spreadRaw:fallbackSpread,0,1.5);
+  const spreadForBuffer=Math.min(spread,1);
+
+  // More uncertainty = demand a larger discount before calling something a buy.
+  const greatDiscount=clamp(.12 + .12*(1-conf) + .08*spreadForBuffer,.14,.32);
+  const fairDiscount=clamp(.02 + .08*(1-conf) + .05*spreadForBuffer,.04,.18);
+  const walkPremium=clamp(.08*conf - .05*spreadForBuffer,-.03,.06);
+
+  let greatRaw=median*(1-greatDiscount);
+  if(Number.isFinite(low)&&low>0)greatRaw=Math.min(greatRaw,low*1.02);
+
+  const fairRaw=median*(1-fairDiscount);
+
+  let walkRaw=median*(1+walkPremium);
+  if(Number.isFinite(high)&&high>0)walkRaw=Math.min(walkRaw,high*1.02);
+
+  let great=practicalRound(greatRaw);
+  let fair=practicalRound(fairRaw);
+  let walk=practicalRound(walkRaw);
+
+  // Preserve logical ordering after practical shop-price rounding.
+  if(fair<=great)fair=great+practicalStep(great);
+  if(walk<=fair)walk=fair+practicalStep(fair);
+
+  return {
+    median,score,level:String(data.confidence||lab.proposedLevel||"low").toUpperCase(),
+    spread,low:Number.isFinite(low)?low:null,high:Number.isFinite(high)?high:null,
+    great,fair,walk,greatDiscount,fairDiscount,walkPremium
+  };
+}
+function shopVerdict(price,t){
+  if(!Number.isFinite(price)||price<=0)return null;
+  if(price<=t.great)return {title:"BUY IT",why:"The asking price is in Scout’s Great Buy zone."};
+  if(price<=t.fair)return {title:"BUY",why:"The asking price is under Scout’s Fair Buy ceiling."};
+  if(price<=t.median)return {title:"FAIR PRICE",why:"It is above Scout’s preferred buy ceiling, but still at or below the current sold median."};
+  if(price<=t.walk)return {title:"NEGOTIATE",why:"You are paying a premium to the median, but you have not crossed Scout’s Walk-Away line."};
+  return {title:"PASS",why:"The asking price is above Scout’s Walk-Away line."};
+}
+function config(){
+  return {
+    endpoint:(localStorage.getItem("hofScoutPricingEndpoint")||DEFAULT_ENDPOINT).trim().replace(/\/$/,""),
+    accessKey:localStorage.getItem("hofScoutAccessKey")||""
+  };
+}
+function loadConfig(){
+  const c=config(); $("endpoint").value=c.endpoint; $("accessKey").value=c.accessKey;
+  $("connState").textContent=c.accessKey?"Using Scout’s saved connection on this device.":"Worker URL found; access key is not saved on this origin yet.";
+}
+function saveConfig(){
+  const ep=$("endpoint").value.trim().replace(/\/$/,""), key=$("accessKey").value.trim();
+  if(!/^https:\/\//i.test(ep)){alert("Worker URL must start with https://");return}
+  if(!key){alert("Enter the Scout access key.");return}
+  localStorage.setItem("hofScoutPricingEndpoint",ep);
+  localStorage.setItem("hofScoutAccessKey",key);
+  loadConfig();
+}
+function cardPayload(){
+  const price=parseFloat($("shopPrice").value);
+  return {
+    player:$("player").value.trim(),
+    year:parseInt($("year").value,10),
+    set:$("set").value.trim(),
+    cardNum:$("cardNum").value.trim(),
+    shopPrice:Number.isFinite(price)?price:"",
+    grader:$("grader").value,
+    grade:$("grade").value.trim(),
+    psaCert:"",
+    serial:"",
+    notes:"",
+    autograph:false,
+    relic:false,
+    fastMode:false
+  };
+}
+function loadRecent(){
+  let items=[];
+  try{items=JSON.parse(localStorage.getItem(RECENT_KEY)||"[]")}catch{}
+  if(!Array.isArray(items)||!items.length){alert("No recent HOF Card Scout searches are saved on this device.");return}
+  const c=items[0];
+  $("player").value=c.player||"";
+  $("year").value=c.year||"";
+  $("set").value=c.set||"";
+  $("cardNum").value=c.cardNum||"";
+  $("shopPrice").value=c.shopPrice!==""&&c.shopPrice!=null?c.shopPrice:"";
+  const opts=[...$("grader").options].map(o=>o.value);
+  $("grader").value=opts.includes(c.grader)?c.grader:"Raw";
+  $("grade").value=c.grade||"";
+  $("status").textContent="Loaded your most recent normal Scout search. Ready for a Deep Mode Phase 2D test.";
+}
+function render(data,card){
+  const t=smartTargets(data);
+  $("results").style.display="block";
+  $("resultTitle").textContent=[card.year,card.set,card.player,card.cardNum?"#"+card.cardNum:"",card.grader!=="Raw"?card.grader:"",card.grade].filter(Boolean).join(" · ");
+  $("median").textContent=money(t.median);
+  $("comps").textContent=String(Number(data.used)||0);
+  $("confidence").textContent=t.score+"/100 "+t.level;
+
+  $("great").textContent=money(t.great);
+  $("fair").textContent=money(t.fair);
+  $("walk").textContent=money(t.walk);
+  $("greatHint").textContent=pctFromMedian(t.great,t.median)+" · grab-it territory";
+  $("fairHint").textContent=pctFromMedian(t.fair,t.median)+" · Scout’s comfortable ceiling";
+  $("walkHint").textContent=pctFromMedian(t.walk,t.median)+" · above this, keep walking";
+
+  const price=Number(card.shopPrice);
+  const verdict=shopVerdict(price,t);
+  $("shopCall").hidden=!verdict;
+  if(verdict){
+    $("shopVerdict").textContent=verdict.title;
+    $("shopWhy").textContent="Shop price "+money(price)+". "+verdict.why+" "+pctFromMedian(price,t.median)+".";
+  }
+
+  const spreadPct=Math.round(t.spread*100);
+  const countScore=data.confidenceLab?.market?.components?.compCount?.score;
+  const consistencyScore=data.confidenceLab?.market?.components?.priceConsistency?.score;
+  const sourceScore=data.confidenceLab?.market?.components?.retrievalSourceAgreement?.score;
+  const boScore=data.confidenceLab?.market?.components?.confirmedBestOfferPricing?.score;
+  const qBits=(t.low&&t.high)?`The middle 50% of usable sales ran from ${money(t.low)} to ${money(t.high)}.`:"Scout did not return a complete middle-50% range.";
+  $("explanation").innerHTML=
+    `<b>Evidence:</b> ${Number(data.used)||0} good comps · confidence ${t.score}/100 ${t.level}.<br>`+
+    `<b>Price spread:</b> IQR is about ${spreadPct}% of the median. ${qBits}<br>`+
+    `<b>Safety buffer:</b> Phase 2D asks for bigger discounts when confidence is lower or sales are more scattered. `+
+    `That produced a Great Buy buffer of ${Math.round(t.greatDiscount*100)}% and a Fair Buy buffer of ${Math.round(t.fairDiscount*100)}%.<br>`+
+    `<b>Walk-Away:</b> Scout allows at most ${Math.round(t.walkPremium*100)}% relative to the median before the typical-range cap is applied.<br>`+
+    ((countScore!=null)?`<b>Confidence ingredients:</b> comp count ${countScore}/35 · consistency ${consistencyScore}/35 · source agreement ${sourceScore}/20 · Best Offer ${boScore}/10.<br>`:"")+
+    `<b>Important:</b> This is Phase 2D lab math only. It has not changed the live app’s existing verdict rules.`;
+
+  $("modelPill").textContent=`Phase 2D v0.1 · spread ${spreadPct}% · ${data.provider||"eBay sold comps"}`;
+  $("results").scrollIntoView({behavior:"smooth",block:"start"});
+}
+async function run(){
+  const card=cardPayload();
+  if(!card.player||!Number.isInteger(card.year)||!card.set){alert("Player, year, and set are required.");return}
+  const c=config();
+  if(!c.accessKey){$("status").textContent="Scout access key is missing. Open Lab connection below and save it first.";return}
+  const btn=$("runBtn"); btn.disabled=true; btn.textContent="SCOUTING…";
+  $("status").textContent="Deep Mode: finding sold comps and building Phase 2D targets…";
+  try{
+    const res=await fetch(c.endpoint+"/value",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
+      body:JSON.stringify(card)
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.message||data.error||("HTTP "+res.status));
+    render(data,card);
+    $("status").textContent=(data.cacheHit?"Used Scout’s cached valuation. ":"Fresh valuation complete. ")+"Phase 2D targets calculated.";
+  }catch(err){
+    $("status").textContent="Phase 2D test failed: "+(err.message||err);
+  }finally{
+    btn.disabled=false; btn.textContent="SCOUT SMART BUY TARGETS";
+  }
+}
+$("runBtn").addEventListener("click",run);
+$("recentBtn").addEventListener("click",loadRecent);
+$("saveConn").addEventListener("click",saveConfig);
+loadConfig();
+</script>
+</body>
+</html>
