@@ -519,7 +519,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.2.0</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.2.1</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -811,7 +811,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"4.2.0",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"4.2.1",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -1030,9 +1030,18 @@ function applyFastMode(on){
 
 function phase3bParseTarget(label){
   const raw=String(label||"").trim();
-  const m=raw.match(/^((?:18|19|20)\d{2})\s+(.+?)(?:\s+#([A-Za-z0-9.-]+))?$/);
-  if(!m)return null;
-  return {year:Number(m[1]),set:m[2].trim(),cardNum:(m[3]||"").trim()};
+  const yearMatch=raw.match(/^((?:18|19|20)\d{2})\s+(.+)$/);
+  if(!yearMatch)return null;
+  const year=Number(yearMatch[1]);
+  let remainder=yearMatch[2].trim();
+  let set=remainder,cardNum="";
+  const hashIndex=remainder.lastIndexOf(" #");
+  if(hashIndex>=0){
+    set=remainder.slice(0,hashIndex).trim();
+    cardNum=remainder.slice(hashIndex+2).trim();
+  }
+  if(!set)return null;
+  return {year,set,cardNum};
 }
 function phase3bScoutTarget(p){
   if(!p||!p.target){toast("No target card is saved for this player.");return}
@@ -1042,6 +1051,8 @@ function phase3bScoutTarget(p){
   $("shopPlayer").value=p.name||"";
   $("shopYear").value=t.year||"";
   setShopSetValue(t.set||"");
+  $("shopNum").disabled=false;
+  $("shopNum").classList.remove("grade-disabled");
   $("shopNum").value=t.cardNum||"";
   $("shopPrice").value="";
   $("shopGrade").value="Raw";
