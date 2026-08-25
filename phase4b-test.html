@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HOF Card Scout — Phase 4B Lab</title>
+<style>
+:root{--bg:#0f1a16;--panel:#172720;--text:#f7f1df;--muted:#aab9b0;--line:#355247;--green:#56c58a;--gold:#e6bd63;--ink:#17251f}
+*{box-sizing:border-box}body{margin:0;background:#0f1a16;color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:760px;margin:auto;padding:16px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px;margin:12px 0}
+h1,h2{margin:0 0 8px}.eyebrow{font-size:10px;font-weight:950;letter-spacing:.1em;color:var(--gold)}.small{font-size:11px;color:var(--muted);line-height:1.5}
+.deal,.summary{border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0}.deal{border-color:rgba(86,197,138,.55)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.full{grid-column:1/-1}label{display:block;font-size:10px;color:var(--muted);font-weight:900;margin-bottom:4px}
+input,select{width:100%;min-height:44px;border-radius:11px;border:1px solid #49665a;background:#fbf6e9;color:var(--ink);padding:8px 10px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}button{border:0;border-radius:12px;min-height:44px;padding:9px 12px;font-weight:950}
+.primary{background:var(--green);color:#072116}.gold{background:var(--gold);color:#211a0b}.ghost,.choice{background:transparent;color:var(--text);border:1px solid var(--line)}
+.choice.selected{background:var(--gold);color:#211a0b}.flow{display:none}.flow.show{display:block}.dynamic{border:1px dashed rgba(230,189,99,.45);border-radius:12px;padding:10px}
+.pricegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.price{border:1px solid var(--line);border-radius:11px;padding:8px}.price .v{font-size:18px;font-weight:950}
+@media(max-width:620px){.grid,.pricegrid{grid-template-columns:1fr}.full{grid-column:auto}}
+</style></head><body><div class="wrap">
+<div class="panel"><div class="eyebrow">PHASE 4B v0.1</div><h1>Live Deal → Collection Lab</h1><div class="small">Dry run only. No real collection data changes.</div></div>
+
+<div class="panel">
+<div class="eyebrow">SIMULATED LIVE DEAL</div><h2>1980 Topps #482 Rickey Henderson — Raw</h2>
+<div class="deal">
+<div class="small">eBay Buy It Now · Seller vintagecardguy · 100% positive</div>
+<div class="pricegrid">
+<div class="price"><div class="small">LIST PRICE</div><div class="v">$36.00</div></div>
+<div class="price"><div class="small">SHIPPING</div><div class="v">$4.00</div></div>
+<div class="price"><div class="small">DELIVERED</div><div class="v">$40.00</div></div>
+</div>
+<div class="actions"><button class="gold" id="viewBtn">VIEW LISTING →</button><button class="primary" id="boughtBtn">💳 I BOUGHT THIS</button></div>
+</div></div>
+
+<div class="panel flow" id="purchaseFlow">
+<div class="eyebrow">PURCHASE HANDOFF</div><h2>Scout carried the listing forward</h2>
+<div class="summary"><b>Rickey Henderson · 1980 Topps #482 · Raw</b><div class="small">Delivered price, source, seller, and Incoming are prefilled.</div></div>
+<div class="grid">
+<div><label>PRICE PAID</label><input id="paid" value="40.00"></div>
+<div><label>PURCHASE DATE</label><input id="date" type="date" value="2026-08-24"></div>
+<div class="full"><label>WHERE BOUGHT</label><select id="source"><option>Card shop</option><option>Card show</option><option selected>eBay</option><option>Trade</option><option>Other</option></select></div>
+<div class="full dynamic" id="sourceDetail"></div>
+<div class="full"><label><input id="incoming" type="checkbox" checked style="width:auto;min-height:auto"> 📦 Card is still in transit</label></div>
+</div>
+<div class="summary"><b>Current status: ✓ ALREADY OWNED</b><div class="small">Choose which card gets the representative-card spot.</div></div>
+<div class="actions"><button class="choice" id="replaceBtn">↑ MAKE THIS MY REPRESENTATIVE CARD</button><button class="choice" id="keepBtn">KEEP CURRENT REPRESENTATIVE</button></div>
+<div class="actions"><button class="primary" id="confirmBtn" disabled>CONFIRM PURCHASE</button><button class="ghost" id="cancelBtn">CANCEL</button></div>
+</div>
+
+<div class="panel flow" id="resultFlow"><div class="eyebrow">DRY-RUN RESULT</div><h2 id="doneTitle"></h2><div class="small" id="doneText"></div><div class="actions"><button class="primary" id="resetBtn">RESET LAB</button></div></div>
+
+<div class="panel">
+<div class="eyebrow">MANUAL ADD / EDIT CARD TEST</div><h2>Where bought dropdown</h2>
+<div class="grid"><div class="full"><label>WHERE BOUGHT</label><select id="manualSource"><option>Card shop</option><option>Card show</option><option>eBay</option><option>Trade</option><option>Other</option></select></div><div class="full dynamic" id="manualDetail"></div></div>
+</div>
+</div>
+<script>
+const $=id=>document.getElementById(id);let repChoice="";
+function detailHtml(source,prefix){
+ const id=prefix+"DetailInput";
+ if(source==="Card shop")return `<label>SHOP NAME</label><input id="${id}" placeholder="Example: Duke City Sports Cards">`;
+ if(source==="Card show")return `<label>SHOW / LOCATION</label><input id="${id}" placeholder="Example: Albuquerque Sports Card Show">`;
+ if(source==="eBay")return `<label>EBAY SELLER</label><input id="${id}" placeholder="Example: seller_username">`;
+ return `<div class="small">No extra detail required for ${source}.</div>`;
+}
+function updatePurchaseDetail(){
+ const s=$("source").value;$("sourceDetail").innerHTML=detailHtml(s,"purchase");
+ if(s==="eBay"){$("purchaseDetailInput").value="vintagecardguy";$("incoming").checked=true;}
+ else if(s==="Card shop"||s==="Card show")$("incoming").checked=false;
+}
+function updateManualDetail(){$("manualDetail").innerHTML=detailHtml($("manualSource").value,"manual");}
+function selectRep(which){repChoice=which;$("replaceBtn").classList.toggle("selected",which==="replace");$("keepBtn").classList.toggle("selected",which==="keep");$("confirmBtn").disabled=false;}
+function confirmPurchase(){
+ const s=$("source").value,d=$("purchaseDetailInput")?.value.trim()||"";
+ if((s==="Card shop"||s==="Card show"||s==="eBay")&&!d){alert("Enter the purchase-source detail.");return;}
+ $("purchaseFlow").classList.remove("show");$("resultFlow").classList.add("show");
+ $("doneTitle").textContent=repChoice==="replace"?"Representative card would be updated":"Current representative would stay";
+ $("doneText").textContent=repChoice==="replace"
+  ?`Scout would save 1980 Topps #482 Raw, $${Number($("paid").value).toFixed(2)}, ${s}${d?": "+d:""}, purchase date ${$("date").value}, Incoming ${$("incoming").checked?"ON":"OFF"}, and clear a matching target.`
+  :"Scout would keep the current representative card. The extra purchase would not create a second inventory card.";
+}
+$("viewBtn").onclick=()=>alert("Lab: this would open the exact live eBay listing.");
+$("boughtBtn").onclick=()=>{$("purchaseFlow").classList.add("show");updatePurchaseDetail();};
+$("source").onchange=updatePurchaseDetail;$("manualSource").onchange=updateManualDetail;
+$("replaceBtn").onclick=()=>selectRep("replace");$("keepBtn").onclick=()=>selectRep("keep");$("confirmBtn").onclick=confirmPurchase;
+$("cancelBtn").onclick=()=>$("purchaseFlow").classList.remove("show");
+$("resetBtn").onclick=()=>{location.reload()};updateManualDetail();
+</script></body></html>
