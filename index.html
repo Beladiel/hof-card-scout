@@ -578,7 +578,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.5.0</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.5.1</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -587,6 +587,10 @@ const PLAYERS = [{"name":"Hank Aaron","last":"Aaron","induction":1982,"cardYear"
 const STORAGE_KEY="hofCardScoutEditsV1";
 const CLOUD_META_KEY="hofCardScoutCloudMetaV1";
 const CLOUD_SYNC_DEBOUNCE_MS=1400;
+const SCOUT_WORKER_DEFAULT="https://hof-card-scout-pricing.jz9j2778jh.workers.dev";
+const SCOUT_CONNECTION_DB="hofCardScoutConnectionV1";
+const SCOUT_CONNECTION_STORE="settings";
+const SCOUT_CONNECTION_RECORD="primary";
 let cloudSaveTimer=null;
 let cloudSyncBusy=false;
 const TOTAL = PLAYERS.length;
@@ -667,7 +671,7 @@ async function cloudSaveNow(forceTimestamp=false){
       method:"POST",
       headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
       body:JSON.stringify({
-        appVersion:"4.5.0",
+        appVersion:"4.5.1",
         clientUpdatedAt,
         playerUpdates:edits
       })
@@ -1092,7 +1096,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"4.5.0",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"4.5.1",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -1380,9 +1384,82 @@ function findPlayer(name){
   const norm=name.trim().toLowerCase();
   return PLAYERS.find(p=>p.name.toLowerCase()===norm)||PLAYERS.find(p=>p.name.toLowerCase().includes(norm)||norm.includes(p.name.toLowerCase()));
 }
+
+function openScoutConnectionDb(){
+  return new Promise((resolve,reject)=>{
+    if(!("indexedDB" in window)){resolve(null);return}
+    const req=indexedDB.open(SCOUT_CONNECTION_DB,1);
+    req.onupgradeneeded=()=>{
+      const db=req.result;
+      if(!db.objectStoreNames.contains(SCOUT_CONNECTION_STORE)){
+        db.createObjectStore(SCOUT_CONNECTION_STORE);
+      }
+    };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error||new Error("IndexedDB unavailable"));
+  });
+}
+async function durableConnectionRead(){
+  try{
+    const db=await openScoutConnectionDb();
+    if(!db)return null;
+    const value=await new Promise((resolve,reject)=>{
+      const tx=db.transaction(SCOUT_CONNECTION_STORE,"readonly");
+      const req=tx.objectStore(SCOUT_CONNECTION_STORE).get(SCOUT_CONNECTION_RECORD);
+      req.onsuccess=()=>resolve(req.result||null);
+      req.onerror=()=>reject(req.error||new Error("Could not read saved Scout connection"));
+    });
+    db.close();
+    return value;
+  }catch(err){
+    console.warn("Scout durable connection read failed",err);
+    return null;
+  }
+}
+async function durableConnectionWrite(connection){
+  try{
+    const db=await openScoutConnectionDb();
+    if(!db)return false;
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction(SCOUT_CONNECTION_STORE,"readwrite");
+      tx.objectStore(SCOUT_CONNECTION_STORE).put(connection,SCOUT_CONNECTION_RECORD);
+      tx.oncomplete=()=>resolve();
+      tx.onerror=()=>reject(tx.error||new Error("Could not save Scout connection"));
+      tx.onabort=()=>reject(tx.error||new Error("Scout connection save aborted"));
+    });
+    db.close();
+    return true;
+  }catch(err){
+    console.warn("Scout durable connection write failed",err);
+    return false;
+  }
+}
+async function restoreDurableScoutConnection(){
+  const currentKey=(localStorage.getItem("hofScoutAccessKey")||"").trim();
+  const currentEndpoint=(localStorage.getItem("hofScoutPricingEndpoint")||"").trim();
+  if(currentKey){
+    // Keep the backup store refreshed whenever the normal store is healthy.
+    await durableConnectionWrite({
+      endpoint:(currentEndpoint||SCOUT_WORKER_DEFAULT).replace(/\/$/,""),
+      accessKey:currentKey,
+      savedAt:new Date().toISOString()
+    });
+    return true;
+  }
+
+  const backup=await durableConnectionRead();
+  const backupKey=String(backup?.accessKey||"").trim();
+  if(!backupKey)return false;
+
+  localStorage.setItem("hofScoutPricingEndpoint",String(backup?.endpoint||SCOUT_WORKER_DEFAULT).replace(/\/$/,""));
+  localStorage.setItem("hofScoutAccessKey",backupKey);
+  setCloudStatus("Scout connection recovered ✓ Checking cloud backup…","ok");
+  return true;
+}
+
 function pricingConfig(){
   return {
-    endpoint:(localStorage.getItem("hofScoutPricingEndpoint")||"https://hof-card-scout-pricing.jz9j2778jh.workers.dev").trim().replace(/\/$/,""),
+    endpoint:(localStorage.getItem("hofScoutPricingEndpoint")||SCOUT_WORKER_DEFAULT).trim().replace(/\/$/,""),
     accessKey:localStorage.getItem("hofScoutAccessKey")||""
   };
 }
@@ -1404,7 +1481,8 @@ function savePricingConfig(){
   if(!accessKey){toast("Scout needs the Worker access key.");return false}
   localStorage.setItem("hofScoutPricingEndpoint",endpoint);
   localStorage.setItem("hofScoutAccessKey",accessKey);
-  updatePricingStatus("Connection saved on this device.","ok");
+  durableConnectionWrite({endpoint,accessKey,savedAt:new Date().toISOString()});
+  updatePricingStatus("Connection saved on this device + recovery copy.","ok");
   toast("Live pricing connection saved.");
   setTimeout(()=>cloudStartupSync(true),100);
   return true;
@@ -2117,7 +2195,10 @@ renderRecentSearches();
 applyFastMode(localStorage.getItem(FAST_MODE_KEY)==="1");
 syncShopGrader();
 stats();rotateMission();buildAlphabet();populateNames();renderList();
-setTimeout(()=>cloudStartupSync(false),350);
+(async()=>{
+  await restoreDurableScoutConnection();
+  setTimeout(()=>cloudStartupSync(false),150);
+})();
 </script>
 </body>
 </html>
