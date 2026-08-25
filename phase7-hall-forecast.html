@@ -60,7 +60,7 @@ button{border:0;border-radius:12px;padding:12px 15px;font-weight:950;cursor:poin
 </style>
 </head>
 <body><div class="wrap">
-<header><div><h1>🏛️ Hall of Fame Forecast</h1><div class="sub">Annual roster check + Scout's early-buy watchlist</div></div><div class="lab">LAB v0.2</div></header>
+<header><div><h1>🏛️ Hall of Fame Forecast</h1><div class="sub">Annual roster check + Scout's early-buy watchlist</div></div><div class="lab">LAB v0.3</div></header>
 
 <section class="card">
 <div class="eyebrow">ANNUAL HALL UPDATE</div><h2>Class of 2026 roster audit</h2>
@@ -80,7 +80,7 @@ button{border:0;border-radius:12px;padding:12px 15px;font-weight:950;cursor:poin
 
 <section class="card">
 <div class="eyebrow">👁 FUTURE HOF WATCHLIST</div><h2>Buy before the Hall announcement?</h2>
-<div class="explain">Watched forecast players stay separate from the official Hall roster. You can already use the live Scout engine to look for a card worth targeting before a possible future election.</div>
+<div class="explain">Watched forecast players stay separate from the official Hall roster. Scout now checks earlier prospect/pre-rookie issues as well as recognized rookie-era cards, while keeping age as the top collecting priority.</div>
 <div class="watch" id="watchText">No lab watch selections yet.</div>
 <div class="future-list" id="futureList"></div>
 </section>
@@ -233,7 +233,7 @@ async function findFutureTarget(name,isRetry=false){
      method:"POST",
      headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
      body:JSON.stringify({
-       player:name,budget,mode:"need",currentCard:null,searchHint:"",
+       player:name,budget,mode:"need",currentCard:null,searchHint:"",futureHof:true,
        excludeIds:futureExcluded[name]||[],preferredSellers:sellers
      })
    });
@@ -251,12 +251,21 @@ async function findFutureTarget(name,isRetry=false){
    const seller=s.seller||{}, st=s.sellerTrust||{};
    const warning=(s.traits?.rookieClaimed&&!s.traits?.rookieVerified)
      ? '<div class="future-warning">⚠ Seller claims “Rookie/RC” — not verified by Scout.</div>' : '';
+   const cardBadges=[];
+   if(s.eraInfo?.type==="verified_rookie")cardBadges.push("✅ VERIFIED ROOKIE");
+   else if(s.eraInfo?.type==="pre_rookie_era")cardBadges.push("⏪ EARLIER PRE-ROOKIE ERA");
+   else if(s.eraInfo?.type==="prospect_claim")cardBadges.push("PROSPECT / PRE-ROOKIE CLAIM");
+   if(s.gradeInfo?.grader&&s.gradeInfo.grader!=="Raw")cardBadges.push(s.gradeInfo.label||s.gradeInfo.grader);
+   const badgeHtml=cardBadges.length?`<div class="stats">${cardBadges.map(x=>`<span class="pill ${s.eraInfo?.type==="verified_rookie"?"first":""}">${futureEsc(x)}</span>`).join("")}</div>`:"";
+   const verification=s.traits?.rookieVerification?.source
+     ? `<div class="future-seller"><b>ROOKIE VERIFICATION</b><br>${futureEsc(s.traits.rookieVerification.label)} · ${futureEsc(s.traits.rookieVerification.source)}</div>`:"";
    const sellerBits=[];
    if(seller.username)sellerBits.push(seller.username);
    if(Number.isFinite(Number(seller.positivePct)))sellerBits.push(Number(seller.positivePct).toFixed(1).replace(/\.0$/,"")+"% positive");
    if(Number.isFinite(Number(seller.reviews)))sellerBits.push(Number(seller.reviews).toLocaleString()+" feedback");
    const safeLink=String(s.link||"").replace(/'/g,"%27");
    result.innerHTML=`<div class="future-result-title">${futureEsc(s.title||name)}</div>
+     ${badgeHtml}
      ${warning}
      <div class="future-price-grid">
        <div class="future-stat"><div class="k">YEAR</div><div class="v">${futureEsc(s.year||"—")}</div></div>
@@ -264,6 +273,7 @@ async function findFutureTarget(name,isRetry=false){
        <div class="future-stat"><div class="k">DELIVERED</div><div class="v">${futureMoney(s.delivered)}</div></div>
      </div>
      <div class="future-why">${futureEsc(s.why||"")}</div>
+     ${verification}
      <div class="future-seller"><b>SELLER CONFIDENCE · ${futureEsc(st.label||"TRUSTED")}</b><br>${futureEsc(sellerBits.join(" · ")||"Seller passed Scout’s trust gate.")}</div>
      <div class="future-actions">
        <button onclick="window.open('${safeLink}','_blank','noopener')">VIEW LISTING →</button>
@@ -292,7 +302,7 @@ function saveFutureTarget(name){
  const parts=[s.year,s.set,s.cardNum?"#"+s.cardNum:""].filter(Boolean);
  const label=parts.join(" ")||s.title||name;
  const targets=futureTargetsRead();
- targets[name]={label,year:s.year||null,set:s.set||"",cardNum:s.cardNum||"",title:s.title||"",savedAt:new Date().toISOString()};
+ targets[name]={label,year:s.year||null,set:s.set||"",cardNum:s.cardNum||"",title:s.title||"",eraInfo:s.eraInfo||null,rookieVerification:s.traits?.rookieVerification||null,savedAt:new Date().toISOString()};
  futureTargetsWrite(targets);
  renderWatch();
 }
