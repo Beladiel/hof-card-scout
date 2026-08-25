@@ -52,6 +52,21 @@ button{border:0;border-radius:12px;padding:12px 15px;font-weight:950;cursor:poin
 .future-stat .v{font-size:15px;font-weight:950;margin-top:3px}
 .future-warning{margin-top:8px;border:1px solid rgba(242,198,92,.35);background:rgba(242,198,92,.08);border-radius:11px;padding:8px;font-size:9.5px;color:#f7dc99;line-height:1.4}
 .future-seller,.future-why{font-size:9.5px;color:var(--muted);line-height:1.45;margin-top:8px}
+
+.deal-box{margin-top:10px;border:1px solid rgba(242,198,92,.38);border-radius:13px;padding:10px;background:rgba(242,198,92,.07)}
+.deal-top{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.deal-label{font-size:16px;font-weight:950}
+.deal-label.great_buy,.deal-label.buy{color:#8ce2b5}
+.deal-label.fair,.deal-label.negotiate,.deal-label.market_check{color:#f7dc99}
+.deal-label.pass{color:#ffaaa2}
+.deal-confidence{font-size:8px;font-weight:950;color:var(--muted);text-align:right}
+.deal-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:9px}
+.deal-metric{border:1px solid var(--line);border-radius:10px;padding:7px}
+.deal-metric .k{font-size:7px;font-weight:950;letter-spacing:.07em;color:var(--muted)}
+.deal-metric .v{font-size:13px;font-weight:950;margin-top:3px}
+.deal-message{font-size:9.5px;color:var(--muted);line-height:1.45;margin-top:8px}
+@media(max-width:700px){.deal-metrics{grid-template-columns:1fr 1fr}}
+
 .future-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
 .future-target{margin-top:8px;color:#8ce2b5;font-size:9.5px;font-weight:900}
 .empty-future{padding:18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}
@@ -60,7 +75,7 @@ button{border:0;border-radius:12px;padding:12px 15px;font-weight:950;cursor:poin
 </style>
 </head>
 <body><div class="wrap">
-<header><div><h1>🏛️ Hall of Fame Forecast</h1><div class="sub">Annual roster check + Scout's early-buy watchlist</div></div><div class="lab">LAB v0.3</div></header>
+<header><div><h1>🏛️ Hall of Fame Forecast</h1><div class="sub">Annual roster check + Scout's early-buy watchlist</div></div><div class="lab">LAB v0.4</div></header>
 
 <section class="card">
 <div class="eyebrow">ANNUAL HALL UPDATE</div><h2>Class of 2026 roster audit</h2>
@@ -211,6 +226,39 @@ function renderWatch(){
  }).join("");
 }
 function futureId(name){return String(name).replace(/[^a-z0-9]+/gi,"-")}
+
+function futureMarketCheckHtml(m){
+ if(!m)return "";
+ const tier=String(m.tier||"market_check");
+ const confidence=String(m.confidence||"").toUpperCase();
+ const score=Number(m.confidenceScore);
+ const used=Number(m.used||0);
+ const confidenceText=m.rated
+  ? `${confidence||"UNKNOWN"} CONFIDENCE${Number.isFinite(score)?` · ${Math.round(score)}/100`:""} · ${used} COMPS`
+  : `PRICE EVIDENCE LIMITED${used?` · ${used} COMPS`:""}`;
+
+ let metrics="";
+ if(m.rated){
+   metrics=`<div class="deal-metrics">
+    <div class="deal-metric"><div class="k">RECENT MEDIAN</div><div class="v">${futureMoney(m.median)}</div></div>
+    <div class="deal-metric"><div class="k">GREAT BUY</div><div class="v">${futureMoney(m.greatBuy)}</div></div>
+    <div class="deal-metric"><div class="k">BUY CEILING</div><div class="v">${futureMoney(m.buyCeiling)}</div></div>
+    <div class="deal-metric"><div class="k">WALK AWAY</div><div class="v">${futureMoney(m.walkAway)}</div></div>
+   </div>`;
+ }else if(Number.isFinite(Number(m.median))){
+   metrics=`<div class="deal-metrics"><div class="deal-metric"><div class="k">RECENT MEDIAN</div><div class="v">${futureMoney(m.median)}</div></div></div>`;
+ }
+
+ return `<div class="deal-box">
+  <div class="deal-top">
+   <div><div class="eyebrow">💰 LISTING PRICE CHECK</div><div class="deal-label ${futureEsc(tier)}">${futureEsc(m.label||"MARKET CHECK")}</div></div>
+   <div class="deal-confidence">${futureEsc(confidenceText)}</div>
+  </div>
+  ${metrics}
+  <div class="deal-message">${futureEsc(m.reason||"")}</div>
+ </div>`;
+}
+
 async function findFutureTarget(name,isRetry=false){
  const id=futureId(name);
  const status=document.getElementById("status-"+id);
@@ -275,6 +323,7 @@ async function findFutureTarget(name,isRetry=false){
      <div class="future-why">${futureEsc(s.why||"")}</div>
      ${verification}
      <div class="future-seller"><b>SELLER CONFIDENCE · ${futureEsc(st.label||"TRUSTED")}</b><br>${futureEsc(sellerBits.join(" · ")||"Seller passed Scout’s trust gate.")}</div>
+     ${futureMarketCheckHtml(s.marketCheck)}
      <div class="future-actions">
        <button onclick="window.open('${safeLink}','_blank','noopener')">VIEW LISTING →</button>
        <button class="secondary" onclick="saveFutureTarget('${name.replace(/'/g,"\\'")}')">🎯 MAKE THIS MY FUTURE TARGET</button>
