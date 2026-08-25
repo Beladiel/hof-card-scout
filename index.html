@@ -281,7 +281,57 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .hunt-actions button{min-height:40px;padding:8px 11px;font-size:11px}
 .hunt-empty{text-align:center;padding:28px 14px;color:var(--muted)}
 
-/* v4.7.0 — Find a Target */
+/* v4.8.0 — Find a Target */
+
+/* v4.8.0 — Scout's Monthly Pick */
+.monthly-pick-card{position:relative;overflow:hidden;border:1px solid rgba(230,189,99,.48);background:linear-gradient(145deg,rgba(230,189,99,.12),rgba(30,91,71,.13));border-radius:20px;padding:15px;margin:0 0 16px}
+.monthly-pick-card:after{content:"⚾";position:absolute;right:-8px;top:-18px;font-size:76px;opacity:.06;transform:rotate(18deg);pointer-events:none}
+.monthly-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.monthly-title{font-size:20px;font-weight:950;line-height:1.15;margin-top:3px}
+.monthly-month{font-size:9px;font-weight:950;letter-spacing:.08em;color:var(--muted);text-align:right}
+.monthly-player{font-size:27px;font-weight:950;line-height:1.05;margin:12px 0 4px}
+.monthly-mode{display:inline-flex;align-items:center;border-radius:999px;padding:5px 8px;font-size:8px;font-weight:950;letter-spacing:.08em;color:#ffd9d9;border:1px solid rgba(209,79,79,.35);background:rgba(209,79,79,.12)}
+.monthly-mode.upgrade{color:#f4d58a;border-color:rgba(230,189,99,.4);background:rgba(230,189,99,.10)}
+.monthly-copy{font-size:11px;color:var(--muted);line-height:1.45;margin-top:7px}
+.monthly-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;align-items:end;margin-top:12px}
+.monthly-controls label{display:block;font-size:8px;font-weight:950;letter-spacing:.08em;color:var(--muted);margin-bottom:5px}
+.monthly-money{position:relative}
+.monthly-money span{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-weight:950;color:var(--ink)}
+.monthly-money input{width:100%;min-height:46px;border:1px solid #3a5d52;border-radius:12px;background:#f9f4e8;color:var(--ink);padding:9px 11px 9px 28px;font-size:16px}
+.monthly-status{font-size:10px;color:var(--muted);line-height:1.45;margin-top:9px}
+.monthly-status.ok{color:var(--green)}
+.monthly-status.bad{color:var(--red)}
+.monthly-result{margin-top:13px;border:1px solid rgba(86,197,138,.4);background:rgba(0,0,0,.12);border-radius:16px;padding:13px}
+.monthly-result[hidden],.monthly-purchase[hidden],.monthly-purchased[hidden]{display:none}
+.monthly-result-title{font-size:16px;font-weight:950;line-height:1.3;margin:5px 0 8px}
+.monthly-badges{display:flex;gap:6px;flex-wrap:wrap}
+.monthly-badge{font-size:8px;font-weight:950;border:1px solid rgba(86,197,138,.28);background:rgba(86,197,138,.13);color:#9ce8bb;border-radius:999px;padding:5px 7px}
+.monthly-warning{margin-top:9px;border:1px solid rgba(230,189,99,.46);background:rgba(230,189,99,.10);border-radius:12px;padding:9px;color:#f4d58a;font-size:10px;font-weight:850;line-height:1.4}
+.monthly-warning[hidden]{display:none}
+.monthly-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.monthly-stat{border:1px solid var(--line);border-radius:12px;padding:9px;background:rgba(255,255,255,.025)}
+.monthly-stat .k{font-size:8px;font-weight:950;letter-spacing:.07em;color:var(--muted)}
+.monthly-stat .v{font-size:17px;font-weight:950;margin-top:4px}
+.monthly-why{font-size:10px;color:var(--muted);line-height:1.5;margin-top:9px}
+.monthly-seller{border:1px solid var(--line);border-radius:12px;padding:9px;margin-top:9px}
+.monthly-seller .m{font-size:11px;font-weight:950}
+.monthly-seller .s{font-size:9px;color:var(--muted);line-height:1.4;margin-top:3px}
+.monthly-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.monthly-retry{margin-top:8px}
+.monthly-purchase{margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
+.monthly-purchase h3{font-size:14px;margin:0 0 9px}
+.monthly-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.monthly-form-grid label{font-size:8px;font-weight:950;color:var(--muted);letter-spacing:.06em}
+.monthly-form-grid input{width:100%;margin-top:4px;border-radius:10px;border:1px solid #3a5d52;background:#f9f4e8;color:var(--ink);padding:9px;font-size:13px}
+.monthly-check{display:flex;align-items:center;gap:8px;font-size:10px;margin-top:9px}
+.monthly-check input{width:auto}
+.monthly-purchased{margin-top:12px;border:1px solid rgba(86,197,138,.42);background:rgba(86,197,138,.10);border-radius:14px;padding:11px}
+.monthly-purchased .big{font-size:14px;font-weight:950;color:#9ce8bb}
+.monthly-purchased .small{font-size:10px;color:var(--muted);line-height:1.45;margin-top:4px}
+@media(max-width:620px){
+  .monthly-controls,.monthly-grid,.monthly-actions,.monthly-form-grid{grid-template-columns:1fr}
+}
+
 .find-target-panel{margin-top:12px;border:1px solid rgba(230,189,99,.42);background:linear-gradient(145deg,rgba(230,189,99,.08),rgba(255,255,255,.035));border-radius:18px;padding:14px}
 .find-target-panel[hidden]{display:none}
 .find-target-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
@@ -386,6 +436,74 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
           <div class="cloud-status" id="cloudStatus">Checking cloud backup…</div>
         </div>
         <button class="ghost cloud-sync-btn" id="cloudSyncBtn">SYNC NOW</button>
+      </div>
+
+      <div class="monthly-pick-card" id="monthlyPickCard">
+        <div class="monthly-top">
+          <div>
+            <div class="section-eyebrow">🎯 SCOUT'S MONTHLY PICK</div>
+            <div class="monthly-title">One player. One recommendation. One month.</div>
+          </div>
+          <div class="monthly-month" id="monthlyMonthLabel"></div>
+        </div>
+
+        <div class="monthly-player" id="monthlyPlayerName">Choosing this month's player…</div>
+        <span class="monthly-mode" id="monthlyModeBadge">NEED</span>
+        <div class="monthly-copy" id="monthlyPlayerWhy">Scout is reading your collection.</div>
+
+        <div class="monthly-controls">
+          <div>
+            <label for="monthlyBudget">MONTHLY BUDGET · MAX DELIVERED</label>
+            <div class="monthly-money"><span>$</span><input id="monthlyBudget" inputmode="decimal" placeholder="Enter budget"></div>
+          </div>
+          <button type="button" class="primary" id="monthlyScoutBtn">🔎 SCOUT THIS MONTH'S PICK</button>
+        </div>
+        <div class="monthly-status" id="monthlyStatus"></div>
+
+        <div class="monthly-result" id="monthlyResult" hidden>
+          <div class="section-eyebrow">SCOUT'S RECOMMENDATION</div>
+          <div class="monthly-result-title" id="monthlyResultTitle"></div>
+          <div class="monthly-badges" id="monthlyBadges"></div>
+          <div class="monthly-warning" id="monthlyRookieWarning" hidden>⚠ Seller claims “Rookie/RC” — not verified by Scout.</div>
+          <div class="monthly-grid">
+            <div class="monthly-stat"><div class="k">CARD YEAR</div><div class="v" id="monthlyResultYear">—</div></div>
+            <div class="monthly-stat"><div class="k">LIST</div><div class="v" id="monthlyResultPrice">—</div></div>
+            <div class="monthly-stat"><div class="k">DELIVERED</div><div class="v" id="monthlyResultDelivered">—</div></div>
+          </div>
+          <div class="monthly-why" id="monthlyResultWhy"></div>
+          <div class="monthly-seller">
+            <div class="m" id="monthlySellerMain">SELLER CONFIDENCE</div>
+            <div class="s" id="monthlySellerSub"></div>
+          </div>
+          <div class="monthly-actions">
+            <button type="button" class="primary" id="monthlyViewBtn">VIEW LISTING →</button>
+            <button type="button" class="secondary" id="monthlyBoughtBtn">✓ I BOUGHT IT</button>
+          </div>
+          <button type="button" class="ghost monthly-retry" id="monthlyRetryBtn">LISTING GONE — TRY ANOTHER</button>
+
+          <div class="monthly-purchase" id="monthlyPurchase" hidden>
+            <h3>Confirm purchase</h3>
+            <div class="monthly-form-grid">
+              <label>YEAR<input id="monthlyBuyYear" inputmode="numeric"></label>
+              <label>SET / ISSUE<input id="monthlyBuySet"></label>
+              <label>CARD #<input id="monthlyBuyNum"></label>
+              <label>DELIVERED PRICE<input id="monthlyBuyPaid" inputmode="decimal"></label>
+              <label>PURCHASE DATE<input id="monthlyBuyDate" type="date"></label>
+              <label>EBAY SELLER<input id="monthlyBuySeller"></label>
+            </div>
+            <label class="monthly-check"><input id="monthlyBuyIncoming" type="checkbox" checked> Mark as Incoming</label>
+            <div class="monthly-status" id="monthlyPurchaseStatus">Confirm the listing details before saving.</div>
+            <div class="monthly-actions">
+              <button type="button" class="primary" id="monthlySavePurchaseBtn">SAVE PURCHASE</button>
+              <button type="button" class="ghost" id="monthlyCancelPurchaseBtn">CANCEL</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="monthly-purchased" id="monthlyPurchased" hidden>
+          <div class="big">✓ Purchased — Incoming</div>
+          <div class="small" id="monthlyPurchasedText"></div>
+        </div>
       </div>
 
       <div class="hero-card">
@@ -734,7 +852,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.7.0</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.8.0</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -827,7 +945,7 @@ async function cloudSaveNow(forceTimestamp=false){
       method:"POST",
       headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
       body:JSON.stringify({
-        appVersion:"4.7.0",
+        appVersion:"4.8.0",
         clientUpdatedAt,
         playerUpdates:edits
       })
@@ -1369,7 +1487,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"4.7.0",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"4.8.0",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -1592,11 +1710,312 @@ function applyFastMode(on){
 
 let phase3bActiveTargetPlayer=null;
 
-/* v4.7.0 — Find a Target */
+/* v4.8.0 — Find a Target */
 const FIND_TARGET_BUDGET_KEY="hofScoutFindTargetBudgetV1";
 let findTargetSuggestion=null;
 let findTargetExcludedIds=[];
 let findTargetPlayerName="";
+
+/* v4.8.0 — Monthly Pick */
+const MONTHLY_BUDGET_KEY="hofScoutMonthlyBudgetV1";
+const MONTHLY_STATE_KEY="hofScoutMonthlyPickV1";
+const MONTHLY_LAB_STATE_KEY="hofScoutMonthlyPickLabV2";
+let monthlyState=null;
+let monthlyPlayer=null;
+
+function monthlyKey(d=new Date()){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")}
+function monthlyName(d=new Date()){return d.toLocaleDateString(undefined,{month:"long",year:"numeric"})}
+function monthlyReadState(){try{return JSON.parse(localStorage.getItem(MONTHLY_STATE_KEY)||"null")}catch{return null}}
+function monthlyWriteState(){if(monthlyState)localStorage.setItem(MONTHLY_STATE_KEY,JSON.stringify(monthlyState))}
+function monthlyCryptoIndex(max){if(max<=1)return 0;const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]%max}
+function monthlyLocalDate(){
+  const d=new Date(),off=d.getTimezoneOffset()*60000;
+  return new Date(d-off).toISOString().slice(0,10);
+}
+function monthlyGuessSet(s){
+  if(s?.set)return String(s.set);
+  const raw=String(s?.title||"");
+  const makers=["Topps","Fleer","Bowman","Donruss","Upper Deck","Score","Leaf","Panini","Goudey","Play Ball","Finest","Heritage","Archives","Chrome","TCMA"];
+  return makers.find(m=>raw.toLowerCase().includes(m.toLowerCase()))||"";
+}
+function monthlyPreferredSellers(){return findTargetPreferredSellers()}
+function monthlyCurrentCardPayload(){
+  if(monthlyState?.mode!=="upgrade"||!monthlyPlayer)return null;
+  return findTargetCurrentCardPayload(monthlyPlayer);
+}
+function monthlyMigrateLabState(){
+  if(monthlyReadState())return;
+  try{
+    const lab=JSON.parse(localStorage.getItem(MONTHLY_LAB_STATE_KEY)||"null");
+    if(lab&&lab.month===monthlyKey()&&lab.player){
+      monthlyState={
+        month:lab.month,
+        player:lab.player,
+        mode:lab.mode==="upgrade"?"upgrade":"need",
+        excludedIds:Array.isArray(lab.excludedIds)?lab.excludedIds:[],
+        retryCount:Number(lab.retryCount)||0,
+        suggestion:lab.suggestion||null,
+        checkedAt:lab.checkedAt||null,
+        purchase:lab.purchase||null,
+        migratedFromLab:true
+      };
+      monthlyWriteState();
+    }
+  }catch{}
+}
+function monthlyChoosePlayer(){
+  monthlyMigrateLabState();
+  const mk=monthlyKey();
+  const existing=monthlyReadState();
+
+  monthlyPlayer=null;
+  if(existing&&existing.month===mk&&existing.player){
+    monthlyState=existing;
+    monthlyPlayer=findPlayer(existing.player)||null;
+  }
+
+  if(!monthlyPlayer){
+    const need=PLAYERS.filter(p=>!p.owned&&!p.incoming);
+    const pool=need.length?need:PLAYERS.filter(p=>p.owned);
+    if(!pool.length)return false;
+    monthlyPlayer=pool[monthlyCryptoIndex(pool.length)];
+    monthlyState={
+      month:mk,
+      player:monthlyPlayer.name,
+      mode:need.length?"need":"upgrade",
+      excludedIds:[],
+      retryCount:0,
+      suggestion:null,
+      checkedAt:null,
+      purchase:null
+    };
+    monthlyWriteState();
+  }
+  return true;
+}
+function monthlyRenderHeader(){
+  if(!monthlyPlayer||!monthlyState)return;
+  $("monthlyMonthLabel").textContent=monthlyName()+" · LOCKED";
+  $("monthlyPlayerName").textContent=monthlyPlayer.name;
+  $("monthlyModeBadge").textContent=monthlyState.mode==="upgrade"?"UPGRADE PICK":"NEED";
+  $("monthlyModeBadge").className="monthly-mode"+(monthlyState.mode==="upgrade"?" upgrade":"");
+  $("monthlyPlayerWhy").textContent=monthlyState.mode==="upgrade"
+    ?"Your Hall roster is complete, so Scout selected an owned player for an age-first upgrade hunt."
+    :"Randomly selected from Hall of Famers you still need. This player stays locked for the entire month.";
+}
+function monthlyLockButton(text="✓ MONTHLY PICK LOCKED"){
+  $("monthlyScoutBtn").disabled=true;
+  $("monthlyScoutBtn").textContent=text;
+}
+function monthlyRenderSuggestion(s){
+  if(!s)return;
+  $("monthlyResult").hidden=false;
+  $("monthlyResultTitle").textContent=s.title||monthlyPlayer?.name||"";
+  $("monthlyResultYear").textContent=s.year||"—";
+  $("monthlyResultPrice").textContent=findTargetMoney(s.price);
+  $("monthlyResultDelivered").textContent=findTargetMoney(s.delivered);
+  $("monthlyResultWhy").textContent=s.why||"";
+  $("monthlyViewBtn").dataset.link=s.link||"";
+
+  const badges=["OLDEST FIRST"];
+  if(s.gradeInfo?.grader&&s.gradeInfo.grader!=="Raw")badges.push(s.gradeInfo.label||s.gradeInfo.grader);
+  else if(s.traits?.graded)badges.push("GRADED");
+  if(s.traits?.rookieVerified)badges.push("VERIFIED ROOKIE");
+  if(s.traits?.autograph)badges.push("AUTOGRAPH");
+  if(s.traits?.shortPrint)badges.push("SHORT PRINT / #'D");
+  $("monthlyBadges").innerHTML=badges.map(x=>'<span class="monthly-badge">'+escapeHtml(x)+'</span>').join("");
+  $("monthlyRookieWarning").hidden=!(s.traits?.rookieClaimed&&!s.traits?.rookieVerified);
+
+  const st=s.sellerTrust||{}, seller=s.seller||{}, bits=[];
+  if(seller.username)bits.push(seller.username);
+  if(Number.isFinite(Number(seller.positivePct)))bits.push(Number(seller.positivePct).toFixed(1).replace(/\.0$/,"")+"% positive");
+  if(Number.isFinite(Number(seller.reviews)))bits.push(Number(seller.reviews).toLocaleString()+" feedback");
+  $("monthlySellerMain").textContent=(st.previousSeller?"★ PREVIOUS SELLER · ":"SELLER CONFIDENCE · ")+(st.label||"TRUSTED");
+  $("monthlySellerSub").textContent=bits.join(" · ")||"Seller passed Scout's trust gate.";
+
+  $("monthlyBoughtBtn").disabled=false;
+  $("monthlyRetryBtn").disabled=false;
+  monthlyLockButton();
+}
+function monthlyRenderPurchased(){
+  if(!monthlyState?.purchase)return;
+  const p=monthlyState.purchase;
+  $("monthlyResult").hidden=true;
+  $("monthlyPurchased").hidden=false;
+  $("monthlyPurchasedText").textContent=[
+    monthlyState.player,
+    [p.cardYear,p.set,p.cardNum?"#"+p.cardNum:""].filter(Boolean).join(" "),
+    p.purchaseSource||"eBay",
+    p.incoming?"Incoming":"Received"
+  ].filter(Boolean).join(" · ");
+  monthlyLockButton("✓ MONTHLY PICK PURCHASED");
+}
+function monthlyInit(){
+  $("monthlyBudget").value=localStorage.getItem(MONTHLY_BUDGET_KEY)||"";
+  if(!monthlyChoosePlayer()){
+    $("monthlyPlayerName").textContent="No eligible player";
+    $("monthlyPlayerWhy").textContent="Scout could not build a monthly player pool.";
+    $("monthlyScoutBtn").disabled=true;
+    return;
+  }
+  monthlyRenderHeader();
+  if(monthlyState.purchase){
+    monthlyRenderPurchased();
+  }else if(monthlyState.suggestion){
+    monthlyRenderSuggestion(monthlyState.suggestion);
+    $("monthlyStatus").className="monthly-status ok";
+    $("monthlyStatus").textContent="✓ Monthly recommendation is locked. Refreshing will not run another search.";
+  }else{
+    $("monthlyScoutBtn").disabled=false;
+  }
+}
+async function monthlyScout(isRetry=false){
+  if(!monthlyPlayer||!monthlyState)return;
+  const budget=Number($("monthlyBudget").value);
+  if(!Number.isFinite(budget)||budget<1){
+    $("monthlyStatus").className="monthly-status bad";
+    $("monthlyStatus").textContent="Enter a monthly budget of at least $1.";
+    return;
+  }
+  const c=pricingConfig();
+  if(!c.endpoint||!c.accessKey){
+    $("monthlyStatus").className="monthly-status bad";
+    $("monthlyStatus").textContent="Scout's live connection is not configured on this device.";
+    return;
+  }
+
+  localStorage.setItem(MONTHLY_BUDGET_KEY,String(budget));
+  $("monthlyScoutBtn").disabled=true;
+  $("monthlyRetryBtn").disabled=true;
+  $("monthlyResult").hidden=true;
+  $("monthlyStatus").className="monthly-status";
+  $("monthlyStatus").textContent=isRetry?"Scout is finding another listing for the same monthly player…":"Scout is checking the live market for this month's pick…";
+
+  try{
+    const res=await fetch(c.endpoint+"/monthly-pick",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
+      body:JSON.stringify({
+        player:monthlyPlayer.name,
+        budget,
+        mode:monthlyState.mode,
+        currentCard:monthlyCurrentCardPayload(),
+        excludeIds:monthlyState.excludedIds||[],
+        preferredSellers:monthlyPreferredSellers()
+      })
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.message||data.error||("Monthly Pick returned "+res.status));
+    monthlyState.checkedAt=data.checkedAt||new Date().toISOString();
+
+    if(!data.suggestion){
+      monthlyState.suggestion=null;
+      monthlyWriteState();
+      $("monthlyStatus").className="monthly-status";
+      $("monthlyStatus").textContent=data.message||"Scout did not find a trustworthy listing under this budget.";
+      $("monthlyScoutBtn").disabled=false;
+      $("monthlyScoutBtn").textContent="🔎 SCOUT THIS MONTH'S PICK";
+      return;
+    }
+
+    monthlyState.suggestion=data.suggestion;
+    monthlyWriteState();
+    monthlyRenderSuggestion(data.suggestion);
+    $("monthlyStatus").className="monthly-status ok";
+    $("monthlyStatus").textContent="✓ Monthly recommendation ready and locked for this month.";
+  }catch(err){
+    $("monthlyStatus").className="monthly-status bad";
+    $("monthlyStatus").textContent=err.message||"Scout could not complete the Monthly Pick search.";
+    $("monthlyScoutBtn").disabled=false;
+  }finally{
+    $("monthlyRetryBtn").disabled=false;
+  }
+}
+async function monthlyRetry(){
+  if(!monthlyState?.suggestion)return;
+  const old=String(monthlyState.suggestion.id||monthlyState.suggestion.productId||"");
+  if(old&&!monthlyState.excludedIds.includes(old))monthlyState.excludedIds.push(old);
+  monthlyState.retryCount=(monthlyState.retryCount||0)+1;
+  monthlyState.suggestion=null;
+  monthlyWriteState();
+  $("monthlyResult").hidden=true;
+  $("monthlyScoutBtn").textContent="🔎 SCOUT THIS MONTH'S PICK";
+  await monthlyScout(true);
+}
+function monthlyOpenPurchase(){
+  const s=monthlyState?.suggestion;
+  if(!s)return;
+  $("monthlyPurchase").hidden=false;
+  $("monthlyBuyYear").value=s.year||"";
+  $("monthlyBuySet").value=monthlyGuessSet(s);
+  $("monthlyBuyNum").value=s.cardNum||"";
+  $("monthlyBuyPaid").value=Number.isFinite(Number(s.delivered))?Number(s.delivered).toFixed(2):"";
+  $("monthlyBuyDate").value=monthlyLocalDate();
+  $("monthlyBuySeller").value=s.seller?.username||"";
+  $("monthlyBuyIncoming").checked=true;
+  $("monthlyPurchaseStatus").className="monthly-status";
+  $("monthlyPurchaseStatus").textContent="Confirm the listing details before saving.";
+}
+function monthlySavePurchase(){
+  if(!monthlyPlayer||!monthlyState?.suggestion)return;
+  const year=Number($("monthlyBuyYear").value);
+  const set=$("monthlyBuySet").value.trim();
+  const cardNum=$("monthlyBuyNum").value.trim();
+  const paidRaw=$("monthlyBuyPaid").value.trim();
+  const paid=paidRaw===""?null:Number(paidRaw);
+  const date=$("monthlyBuyDate").value;
+  const seller=$("monthlyBuySeller").value.trim();
+  const incoming=$("monthlyBuyIncoming").checked;
+
+  if(!Number.isFinite(year)||year<1860||year>new Date().getFullYear()+1){
+    $("monthlyPurchaseStatus").className="monthly-status bad";
+    $("monthlyPurchaseStatus").textContent="Confirm a valid card year.";return;
+  }
+  if(!set){
+    $("monthlyPurchaseStatus").className="monthly-status bad";
+    $("monthlyPurchaseStatus").textContent="Confirm the card set / issue.";return;
+  }
+  if(paidRaw!==""&&(!Number.isFinite(paid)||paid<0)){
+    $("monthlyPurchaseStatus").className="monthly-status bad";
+    $("monthlyPurchaseStatus").textContent="Confirm a valid delivered price.";return;
+  }
+  if(!seller){
+    $("monthlyPurchaseStatus").className="monthly-status bad";
+    $("monthlyPurchaseStatus").textContent="Confirm the eBay seller.";return;
+  }
+
+  const s=monthlyState.suggestion;
+  monthlyPlayer.owned=true;
+  monthlyPlayer.cardYear=year;
+  monthlyPlayer.set=set;
+  monthlyPlayer.cardNum=cardNum;
+  monthlyPlayer.description=s.title||"";
+  monthlyPlayer.grader=(s.gradeInfo?.grader&&s.gradeInfo.grader!=="Raw")?s.gradeInfo.grader:(s.traits?.graded?"Other graded":"Raw");
+  monthlyPlayer.gradeCondition=s.gradeInfo?.grade?String(s.gradeInfo.grade):"";
+  monthlyPlayer.autograph=!!s.traits?.autograph;
+  monthlyPlayer.serial="";
+  monthlyPlayer.relic=false;
+  monthlyPlayer.incoming=incoming;
+  monthlyPlayer.pricePaid=paid;
+  monthlyPlayer.purchaseDate=date;
+  monthlyPlayer.purchaseSource="eBay: "+seller;
+
+  savePlayerEdit(monthlyPlayer);
+  monthlyState.purchase={
+    cardYear:year,set,cardNum,pricePaid:paid,purchaseDate:date,
+    purchaseSource:"eBay: "+seller,incoming
+  };
+  monthlyWriteState();
+
+  $("monthlyPurchase").hidden=true;
+  $("monthlyResult").hidden=true;
+  stats();rotateMission();buildAlphabet();renderList();renderHuntList();
+  monthlyRenderPurchased();
+  $("monthlyStatus").className="monthly-status ok";
+  $("monthlyStatus").textContent="✓ Purchase saved. The player is now Owned"+(incoming?" · Incoming.":".");
+  toast("📦 "+monthlyPlayer.name+" added to your collection"+(incoming?" as Incoming.":"."));
+}
+
 function findTargetNumericGrade(v){
   const m=String(v||"").match(/(?:^|\s)(10|9\.5|9|8\.5|8|7\.5|7|6\.5|6|5\.5|5|4\.5|4|3\.5|3|2\.5|2|1\.5|1)(?:\s|$)/);
   return m?Number(m[1]):null;
@@ -2704,12 +3123,19 @@ $("shopForm").addEventListener("submit",shopAnalysis);
 $("savePricingBtn").addEventListener("click",savePricingConfig);
 $("testPricingBtn").addEventListener("click",testPricingConnection);
 $("cloudSyncBtn").addEventListener("click",()=>cloudStartupSync(true));
+$("monthlyScoutBtn").addEventListener("click",()=>monthlyScout(false));
+$("monthlyRetryBtn").addEventListener("click",monthlyRetry);
+$("monthlyViewBtn").addEventListener("click",()=>{const u=$("monthlyViewBtn").dataset.link;if(u)window.open(u,"_blank","noopener")});
+$("monthlyBoughtBtn").addEventListener("click",monthlyOpenPurchase);
+$("monthlySavePurchaseBtn").addEventListener("click",monthlySavePurchase);
+$("monthlyCancelPurchaseBtn").addEventListener("click",()=>{$("monthlyPurchase").hidden=true});
+$("monthlyBudget").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();monthlyScout(false);}});
 
 loadPricingConfig();
 renderRecentSearches();
 applyFastMode(localStorage.getItem(FAST_MODE_KEY)==="1");
 syncShopGrader();
-stats();rotateMission();buildAlphabet();populateNames();renderList();
+stats();rotateMission();buildAlphabet();populateNames();renderList();monthlyInit();
 (async()=>{
   await restoreDurableScoutConnection();
   setTimeout(()=>cloudStartupSync(false),150);
