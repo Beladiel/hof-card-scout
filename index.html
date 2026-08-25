@@ -284,9 +284,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .hunt-actions button{min-height:40px;padding:8px 11px;font-size:11px}
 .hunt-empty{text-align:center;padding:28px 14px;color:var(--muted)}
 
-/* v5.0.2 — Find a Target */
+/* v5.0.3 — Find a Target */
 
-/* v5.0.2 — Scout's Monthly Pick */
+/* v5.0.3 — Scout's Monthly Pick */
 .monthly-pick-card{position:relative;overflow:hidden;border:1px solid rgba(230,189,99,.48);background:linear-gradient(145deg,rgba(230,189,99,.12),rgba(30,91,71,.13));border-radius:20px;padding:15px;margin:0 0 16px}
 .monthly-pick-card:after{content:"⚾";position:absolute;right:-8px;top:-18px;font-size:76px;opacity:.06;transform:rotate(18deg);pointer-events:none}
 .monthly-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
@@ -323,6 +323,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .monthly-retry{margin-top:8px}
 .monthly-purchase{margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
 .monthly-purchase h3{font-size:14px;margin:0 0 9px}
+.purchase-price-note{font-size:10px;line-height:1.35;color:var(--muted);margin-top:5px}
+.purchase-price-note b{color:var(--text)}
 .monthly-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .monthly-form-grid label{font-size:8px;font-weight:950;color:var(--muted);letter-spacing:.06em}
 .monthly-form-grid input{width:100%;margin-top:4px;border-radius:10px;border:1px solid #3a5d52;background:#f9f4e8;color:var(--ink);padding:9px;font-size:13px}
@@ -409,7 +411,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .hunt-actions button{flex:1}
 }
 
-/* v5.0.2 — Hall of Fame Forecast */
+/* v5.0.3 — Hall of Fame Forecast */
 .forecast-wrap{max-width:980px;margin:0 auto}
 .forecast-hero{position:relative;overflow:hidden;border:1px solid rgba(230,189,99,.44);background:linear-gradient(145deg,rgba(230,189,99,.10),rgba(30,91,71,.11));border-radius:20px;padding:16px;margin-bottom:14px}
 .forecast-hero:after{content:"🏛️";position:absolute;right:-6px;top:-15px;font-size:82px;opacity:.06;pointer-events:none}
@@ -567,12 +569,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
           <button type="button" class="ghost monthly-retry" id="monthlyRetryBtn">LISTING GONE — TRY ANOTHER</button>
 
           <div class="monthly-purchase" id="monthlyPurchase" hidden>
-            <h3>Confirm purchase</h3>
+            <h3>Confirm purchase</h3><div class="purchase-price-note" style="margin:-4px 0 10px">Scout keeps marketplace comparisons pre-tax, but your collection saves what you actually paid at checkout.</div>
             <div class="monthly-form-grid">
               <label>YEAR<input id="monthlyBuyYear" inputmode="numeric"></label>
               <label>SET / ISSUE<input id="monthlyBuySet"></label>
               <label>CARD #<input id="monthlyBuyNum"></label>
-              <label>DELIVERED PRICE<input id="monthlyBuyPaid" inputmode="decimal"></label>
+              <label>ACTUAL ORDER TOTAL<input id="monthlyBuyPaid" inputmode="decimal"><span class="purchase-price-note" id="monthlyBuyPriceNote">Include sales tax and any checkout fees.</span></label>
               <label>PURCHASE DATE<input id="monthlyBuyDate" type="date"></label>
               <label>EBAY SELLER<input id="monthlyBuySeller"></label>
             </div>
@@ -973,7 +975,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.0.2</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.0.3</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -1076,7 +1078,7 @@ async function cloudSaveNow(forceTimestamp=false){
       method:"POST",
       headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
       body:JSON.stringify({
-        appVersion:"5.0.2",
+        appVersion:"5.0.3",
         clientUpdatedAt,
         playerUpdates:edits,
         monthlyPick:monthlyReadState(),
@@ -1743,7 +1745,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"5.0.2",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"5.0.3",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -1966,20 +1968,20 @@ function applyFastMode(on){
 
 let phase3bActiveTargetPlayer=null;
 
-/* v5.0.2 — Find a Target */
+/* v5.0.3 — Find a Target */
 const FIND_TARGET_BUDGET_KEY="hofScoutFindTargetBudgetV1";
 let findTargetSuggestion=null;
 let findTargetExcludedIds=[];
 let findTargetPlayerName="";
 
-/* v5.0.2 — Monthly Pick */
+/* v5.0.3 — Monthly Pick */
 const MONTHLY_BUDGET_KEY="hofScoutMonthlyBudgetV1";
 const MONTHLY_STATE_KEY="hofScoutMonthlyPickV1";
 const MONTHLY_LAB_STATE_KEY="hofScoutMonthlyPickLabV2";
 let monthlyState=null;
 let monthlyPlayer=null;
 
-/* v5.0.2 — Annual Hall update + Future HOF Forecast */
+/* v5.0.3 — Annual Hall update + Future HOF Forecast */
 const FUTURE_HOF_STATE_KEY="hofScoutFutureHofV1";
 const FUTURE_HOF_LEGACY_WATCH_KEY="hofScoutForecastLabWatch";
 const FUTURE_HOF_LEGACY_TARGET_KEY="hofScoutFutureHofTargetsV1";
@@ -2019,7 +2021,7 @@ let futureHofSuggestions={};
 let futureHofExcluded={};
 
 
-/* v5.0.2 — recommendation listing price check */
+/* v5.0.3 — recommendation listing price check */
 const SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION=4;
 function scoutRecommendationMarketCheckNeedsRefresh(m){
   if(!m)return true;
@@ -2666,7 +2668,7 @@ function futureHofRenderResult(name,s){
         <label>YEAR<input id="futureBuyYear-${slug}" inputmode="numeric"></label>
         <label>SET / ISSUE<input id="futureBuySet-${slug}"></label>
         <label>CARD #<input id="futureBuyNum-${slug}"></label>
-        <label>DELIVERED PRICE<input id="futureBuyPaid-${slug}" inputmode="decimal"></label>
+        <label>ACTUAL ORDER TOTAL<input id="futureBuyPaid-${slug}" inputmode="decimal"><span class="purchase-price-note" id="futureBuyPriceNote-${slug}">Include sales tax and any checkout fees.</span></label>
         <label>PURCHASE DATE<input id="futureBuyDate-${slug}" type="date"></label>
         <label>EBAY SELLER<input id="futureBuySeller-${slug}"></label>
       </div>
@@ -2731,7 +2733,12 @@ function futureHofOpenPurchase(name){
   $("futureBuyYear-"+slug).value=s.year||"";
   $("futureBuySet-"+slug).value=scoutRecommendationCanonicalSet(s)||monthlyGuessSet(s)||"";
   $("futureBuyNum-"+slug).value=s.cardNum||scoutRecommendationCardNumFromTitle(s.title||"")||"";
-  $("futureBuyPaid-"+slug).value=Number.isFinite(Number(s.delivered))?Number(s.delivered).toFixed(2):"";
+  const expectedDelivered=Number.isFinite(Number(s.delivered))?Number(s.delivered):null;
+  $("futureBuyPaid-"+slug).value=expectedDelivered!==null?expectedDelivered.toFixed(2):"";
+  const priceNote=$("futureBuyPriceNote-"+slug);
+  if(priceNote)priceNote.innerHTML=expectedDelivered!==null
+    ?"Scout shopping price: <b>"+escapeHtml(formatMoney(expectedDelivered))+"</b> item + shipping before tax. Replace it with your checkout total including tax."
+    :"Enter the final checkout total including sales tax and any checkout fees.";
   $("futureBuyDate-"+slug).value=monthlyLocalDate();
   $("futureBuySeller-"+slug).value=s.seller?.username||"";
   $("futureBuyIncoming-"+slug).checked=true;
@@ -2760,7 +2767,7 @@ function futureHofSavePurchase(name){
     status.textContent="Confirm a valid card year.";status.className="future-hof-status bad";return;
   }
   if(!set){status.textContent="Confirm the card set / issue.";status.className="future-hof-status bad";return}
-  if(paidRaw!==""&&(!Number.isFinite(paid)||paid<0)){status.textContent="Confirm a valid delivered price.";status.className="future-hof-status bad";return}
+  if(paidRaw!==""&&(!Number.isFinite(paid)||paid<0)){status.textContent="Confirm a valid actual order total.";status.className="future-hof-status bad";return}
   if(!seller){status.textContent="Confirm the seller.";status.className="future-hof-status bad";return}
 
   const state=futureHofGetState();
@@ -2775,6 +2782,7 @@ function futureHofSavePurchase(name){
     relic:false,
     incoming,
     pricePaid:paid,
+    listingDelivered:Number.isFinite(Number(s.delivered))?Number(s.delivered):null,
     purchaseDate:date,
     purchaseSource:"eBay: "+seller,
     listingUrl:s.link||"",
@@ -2911,11 +2919,16 @@ function monthlyRenderSuggestion(s){
 function monthlyRenderPurchased(){
   if(!monthlyState?.purchase)return;
   const p=monthlyState.purchase;
+  const livePlayer=findPlayer(monthlyState.player);
+  const actualPaid=livePlayer&&Number.isFinite(Number(livePlayer.pricePaid))
+    ?Number(livePlayer.pricePaid)
+    :(Number.isFinite(Number(p.pricePaid))?Number(p.pricePaid):null);
   $("monthlyResult").hidden=true;
   $("monthlyPurchased").hidden=false;
   $("monthlyPurchasedText").textContent=[
     monthlyState.player,
     [p.cardYear,p.set,p.cardNum?"#"+p.cardNum:""].filter(Boolean).join(" "),
+    actualPaid!==null?"Paid "+formatMoney(actualPaid):"",
     p.purchaseSource||"eBay",
     p.incoming?"Incoming":"Received"
   ].filter(Boolean).join(" · ");
@@ -3051,12 +3064,16 @@ function monthlyOpenPurchase(){
   $("monthlyBuyYear").value=s.year||"";
   $("monthlyBuySet").value=monthlyGuessSet(s);
   $("monthlyBuyNum").value=s.cardNum||"";
-  $("monthlyBuyPaid").value=Number.isFinite(Number(s.delivered))?Number(s.delivered).toFixed(2):"";
+  const expectedDelivered=Number.isFinite(Number(s.delivered))?Number(s.delivered):null;
+  $("monthlyBuyPaid").value=expectedDelivered!==null?expectedDelivered.toFixed(2):"";
+  $("monthlyBuyPriceNote").innerHTML=expectedDelivered!==null
+    ?"Scout shopping price: <b>"+escapeHtml(formatMoney(expectedDelivered))+"</b> item + shipping before tax. Replace it with your checkout total including tax."
+    :"Enter the final checkout total including sales tax and any checkout fees.";
   $("monthlyBuyDate").value=monthlyLocalDate();
   $("monthlyBuySeller").value=s.seller?.username||"";
   $("monthlyBuyIncoming").checked=true;
   $("monthlyPurchaseStatus").className="monthly-status";
-  $("monthlyPurchaseStatus").textContent="Confirm the listing details before saving.";
+  $("monthlyPurchaseStatus").textContent="Confirm the card details and enter the final checkout total including tax.";
 }
 function monthlySavePurchase(){
   if(!monthlyPlayer||!monthlyState?.suggestion)return;
@@ -3079,7 +3096,7 @@ function monthlySavePurchase(){
   }
   if(paidRaw!==""&&(!Number.isFinite(paid)||paid<0)){
     $("monthlyPurchaseStatus").className="monthly-status bad";
-    $("monthlyPurchaseStatus").textContent="Confirm a valid delivered price.";return;
+    $("monthlyPurchaseStatus").textContent="Confirm a valid actual order total.";return;
   }
   if(!seller){
     $("monthlyPurchaseStatus").className="monthly-status bad";
@@ -3104,8 +3121,9 @@ function monthlySavePurchase(){
 
   savePlayerEdit(monthlyPlayer);
   monthlyState.purchase={
-    cardYear:year,set,cardNum,pricePaid:paid,purchaseDate:date,
-    purchaseSource:"eBay: "+seller,incoming
+    cardYear:year,set,cardNum,pricePaid:paid,
+    listingDelivered:Number.isFinite(Number(s.delivered))?Number(s.delivered):null,
+    purchaseDate:date,purchaseSource:"eBay: "+seller,incoming
   };
   monthlyWriteState(true);
 
@@ -3790,7 +3808,7 @@ function phase3aUpdateSourceDetail(){
 function phase3aPurchaseFields(){
   const raw=$("phase3aPaid")?.value.trim()||"";
   const paid=raw===""?null:Number(raw);
-  if(raw!==""&&(!Number.isFinite(paid)||paid<0))throw new Error("Price paid needs to be a valid amount.");
+  if(raw!==""&&(!Number.isFinite(paid)||paid<0))throw new Error("Actual total paid needs to be a valid amount.");
   const source=$("phase3aSource")?.value||"Card shop";
   const sourceDetail=$("phase3aPlaceDetail")?.value.trim()||"";
   if((source==="Card shop"||source==="Card show"||source==="eBay")&&!sourceDetail){
@@ -3881,7 +3899,7 @@ function phase3aOpenPurchase(card,data,p){
     <div class="handoff-summary"><div class="main">${escapeHtml(p.name)} · ${escapeHtml(phase3aShopCardLabel(card))}</div>
       <div class="sub">Scout carried the card details forward${price!==null?" · shop price "+escapeHtml(formatMoney(price)):""}. Finish the purchase details below.</div></div>
     <div class="handoff-grid">
-      <div class="handoff-field"><label>PRICE PAID</label><div class="money-input"><span class="currency-prefix">$</span><input id="phase3aPaid" inputmode="decimal" value="${price!==null?escapeHtml(price.toFixed(2)):""}" placeholder="Optional"></div></div>
+      <div class="handoff-field"><label>ACTUAL TOTAL PAID</label><div class="money-input"><span class="currency-prefix">$</span><input id="phase3aPaid" inputmode="decimal" value="${price!==null?escapeHtml(price.toFixed(2)):""}" placeholder="Optional"></div><div class="purchase-price-note">${price!==null?"Scout card price: <b>"+escapeHtml(formatMoney(price))+"</b>. Replace with the final amount including tax/fees.":"Enter the final amount paid including tax/fees when applicable."}</div></div>
       <div class="handoff-field"><label>PURCHASE DATE</label><input id="phase3aDate" type="date" value="${escapeHtml(phase3aLocalDate())}"></div>
       <div class="handoff-field full"><label>WHERE BOUGHT</label><select id="phase3aSource"><option>Card shop</option><option>Card show</option><option>eBay</option><option>Trade</option><option>Other</option></select></div>
       <div class="handoff-field full" id="phase3aSourceDetail"></div>
