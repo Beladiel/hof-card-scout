@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HOF Card Scout — Hall Forecast Lab</title>
+<style>
+:root{--bg:#062f27;--panel:#0b3d32;--panel2:#103f35;--line:#2b6b59;--ink:#fff8e8;--muted:#bad0c8;--gold:#f2c65c;--green:#58c992;--red:#d96f65;--cream:#fff7e8}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#052b24,#07362c);color:var(--ink);font-family:Arial,Helvetica,sans-serif}
+.wrap{max-width:980px;margin:auto;padding:22px}
+header{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:18px}
+h1{margin:0;font-size:28px}.sub{color:var(--muted);font-size:12px;margin-top:4px}.lab{border:1px solid var(--line);border-radius:999px;padding:7px 11px;font-size:10px}
+.card{border:1px solid var(--line);background:rgba(10,60,49,.92);border-radius:20px;padding:16px;margin:14px 0}
+.eyebrow{color:var(--gold);font-size:10px;font-weight:900;letter-spacing:.11em}h2{margin:5px 0 4px;font-size:21px}
+.explain{color:var(--muted);font-size:12px;line-height:1.5}
+.class-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.member{border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(255,255,255,.025)}
+.member strong{display:block;font-size:16px}.meta{color:var(--muted);font-size:10px;line-height:1.45;margin-top:5px}
+.status{display:inline-block;margin-top:9px;padding:5px 7px;border-radius:999px;font-size:9px;font-weight:900}
+.ok{background:rgba(88,201,146,.13);color:#8ce2b5;border:1px solid rgba(88,201,146,.35)}.missing{background:rgba(217,111,101,.13);color:#ffaaa2;border:1px solid rgba(217,111,101,.36)}
+.audit{margin-top:12px;padding:11px;border-radius:13px;background:rgba(242,198,92,.08);border:1px solid rgba(242,198,92,.28);font-size:12px;line-height:1.5}
+.forecast{display:grid;gap:10px;margin-top:14px}
+.pick{border:1px solid var(--line);border-radius:16px;padding:13px;background:rgba(255,255,255,.025);display:grid;grid-template-columns:56px 1fr auto;gap:12px;align-items:center}
+.rank{font-size:26px;font-weight:950;color:var(--gold);text-align:center}.name{font-size:18px;font-weight:950}.reason{font-size:10.5px;color:var(--muted);line-height:1.45;margin-top:4px}
+.score{min-width:92px;text-align:center;border:1px solid var(--line);border-radius:12px;padding:9px}.score b{display:block;font-size:21px}.score span{font-size:8px;color:var(--muted);font-weight:900}
+.stats{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.pill{border:1px solid var(--line);border-radius:999px;padding:5px 7px;font-size:9px}
+.first{color:#f7dc99;border-color:rgba(242,198,92,.38);background:rgba(242,198,92,.08)}
+.note{font-size:10px;color:var(--muted);line-height:1.5;margin-top:12px}
+.buttons{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+button{border:0;border-radius:12px;padding:12px 15px;font-weight:950;cursor:pointer;background:var(--gold);color:#102b24}button.secondary{background:var(--green)}button.ghost{background:#173f36;color:var(--ink);border:1px solid var(--line)}
+.watch{margin-top:10px;font-size:11px;color:#8ce2b5}
+.formula{border:1px dashed #4e7e70;border-radius:13px;padding:12px;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.5}
+@media(max-width:700px){.class-grid{grid-template-columns:1fr}.pick{grid-template-columns:45px 1fr}.score{grid-column:2;justify-self:start}}
+</style>
+</head>
+<body><div class="wrap">
+<header><div><h1>🏛️ Hall of Fame Forecast</h1><div class="sub">Annual roster check + Scout's early-buy watchlist</div></div><div class="lab">LAB v0.1</div></header>
+
+<section class="card">
+<div class="eyebrow">ANNUAL HALL UPDATE</div><h2>Class of 2026 roster audit</h2>
+<div class="explain">Scout compares the official Hall class with the players currently built into HOF Card Scout. This is the yearly safeguard that keeps the collection from falling behind.</div>
+<div class="class-grid" id="classGrid"></div>
+<div class="audit" id="audit"></div>
+<div class="buttons"><button id="reviewMissing">⚾ REVIEW MISSING PLAYER</button></div>
+</section>
+
+<section class="card">
+<div class="eyebrow">🔮 SCOUT'S 2027 WATCHLIST</div><h2>Top 5 predicted Hall candidates</h2>
+<div class="explain">This is a collecting forecast, not an election guarantee. The point is to identify cards you may want <b>before</b> Hall-election attention potentially changes demand.</div>
+<div class="forecast" id="forecast"></div>
+<div class="formula"><b>How Scout ranks returning candidates:</b> current vote support is the strongest input, then positive year-over-year movement, then ballot runway/urgency. A simple trend projection shows where the candidate would land if the most recent vote gain repeated. First-year candidates have no BBWAA vote history, so they must be explicitly labeled and scored separately rather than pretending votes exist.</div>
+<div class="note">The Hall requires 75% for BBWAA election. Players generally may remain on the ballot for up to 10 years as long as they receive at least 5%.</div>
+</section>
+
+<section class="card">
+<div class="eyebrow">FUTURE WORKFLOW</div><h2>What happens after we approve the forecast design?</h2>
+<div class="explain">The real app will get a Hall Forecast screen, a Future HOF watchlist, and the ability to run Find a Target on forecast players before they are elected. When a watched player is later elected, Scout will move him into the Hall roster while preserving any card you bought early.</div>
+<div class="watch" id="watchText">No lab watch selections yet.</div>
+</section>
+</div>
+<script>
+const DATA={"officialClass": [{"name": "Carlos Beltran", "display": "Carlos Beltrán", "method": "BBWAA", "vote": "84.2%", "inRoster": true}, {"name": "Andruw Jones", "display": "Andruw Jones", "method": "BBWAA", "vote": "78.4%", "inRoster": false}, {"name": "Jeff Kent", "display": "Jeff Kent", "method": "Contemporary Baseball Era Committee", "vote": "Committee", "inRoster": true}], "top5": [{"name": "Buster Posey", "current": null, "prior": null, "trend": null, "projected": null, "ballotYear2027": 1, "yearsRemainingIncluding2027": 10, "score": 88.0, "firstYear": true, "note": "First-year eligible. No vote history yet; Scout gives him an elite-profile watch flag because of his MVP, Rookie of the Year, seven All-Star selections, .302 career average and three World Series titles."}, {"name": "Chase Utley", "current": 59.1, "prior": 39.8, "ballotYear2027": 4, "yearsRemainingIncluding2027": 7, "note": "Fast-rising returning candidate.", "score": 62.0, "trend": 19.3, "projected": 78.4}, {"name": "Andy Pettitte", "current": 48.5, "prior": 27.9, "ballotYear2027": 9, "yearsRemainingIncluding2027": 2, "note": "Big 2026 jump and now very late in his ballot window.", "score": 60.9, "trend": 20.6, "projected": 69.1}, {"name": "Félix Hernández", "current": 46.1, "prior": 20.6, "ballotYear2027": 3, "yearsRemainingIncluding2027": 8, "note": "Largest jump among the leading returning candidates.", "score": 51.3, "trend": 25.5, "projected": 71.6}, {"name": "Álex Rodríguez", "current": 40.0, "prior": 37.1, "ballotYear2027": 6, "yearsRemainingIncluding2027": 5, "note": "High vote base, but much slower recent movement.", "score": 43.9, "trend": 2.9, "projected": 42.9}], "allReturning": [{"name": "Chase Utley", "current": 59.1, "prior": 39.8, "ballotYear2027": 4, "yearsRemainingIncluding2027": 7, "note": "Fast-rising returning candidate.", "score": 62.0, "trend": 19.3, "projected": 78.4}, {"name": "Andy Pettitte", "current": 48.5, "prior": 27.9, "ballotYear2027": 9, "yearsRemainingIncluding2027": 2, "note": "Big 2026 jump and now very late in his ballot window.", "score": 60.9, "trend": 20.6, "projected": 69.1}, {"name": "Félix Hernández", "current": 46.1, "prior": 20.6, "ballotYear2027": 3, "yearsRemainingIncluding2027": 8, "note": "Largest jump among the leading returning candidates.", "score": 51.3, "trend": 25.5, "projected": 71.6}, {"name": "Álex Rodríguez", "current": 40.0, "prior": 37.1, "ballotYear2027": 6, "yearsRemainingIncluding2027": 5, "note": "High vote base, but much slower recent movement.", "score": 43.9, "trend": 2.9, "projected": 42.9}, {"name": "Bobby Abreu", "current": 30.8, "prior": 19.5, "ballotYear2027": 8, "yearsRemainingIncluding2027": 3, "note": "Strong positive movement with limited ballot time remaining.", "score": 41.6, "trend": 11.3, "projected": 42.1}, {"name": "Jimmy Rollins", "current": 25.4, "prior": 18.0, "ballotYear2027": 6, "yearsRemainingIncluding2027": 5, "note": "Positive but still well below election level.", "score": 32.8, "trend": 7.4, "projected": 32.8}, {"name": "Cole Hamels", "current": 23.8, "prior": null, "ballotYear2027": 2, "yearsRemainingIncluding2027": 9, "note": "Solid first-year survival; no prior trend yet.", "score": 23.2, "trend": 0, "projected": 23.8}, {"name": "Dustin Pedroia", "current": 20.7, "prior": 11.9, "ballotYear2027": 3, "yearsRemainingIncluding2027": 8, "note": "Meaningful second-year gain.", "score": 24.7, "trend": 8.8, "projected": 29.5}, {"name": "Mark Buehrle", "current": 20.0, "prior": 11.4, "ballotYear2027": 7, "yearsRemainingIncluding2027": 4, "note": "Positive movement with shrinking ballot runway.", "score": 30.1, "trend": 8.6, "projected": 28.6}, {"name": "Omar Vizquel", "current": 18.4, "prior": 17.8, "ballotYear2027": 10, "yearsRemainingIncluding2027": 1, "note": "Final BBWAA ballot year with little recent movement.", "score": 30.8, "trend": 0.6, "projected": 19.0}, {"name": "David Wright", "current": 14.8, "prior": 8.1, "ballotYear2027": 4, "yearsRemainingIncluding2027": 7, "note": "Trending upward from a lower base.", "score": 20.6, "trend": 6.7, "projected": 21.5}, {"name": "Francisco Rodríguez", "current": 11.8, "prior": 10.2, "ballotYear2027": 5, "yearsRemainingIncluding2027": 6, "note": "Modest growth.", "score": 18.0, "trend": 1.6, "projected": 13.4}, {"name": "Torii Hunter", "current": 8.7, "prior": 5.1, "ballotYear2027": 7, "yearsRemainingIncluding2027": 4, "note": "Positive trend but still distant from 75%.", "score": 19.0, "trend": 3.6, "projected": 12.3}]};
+const watched=new Set(JSON.parse(localStorage.getItem("hofScoutForecastLabWatch")||"[]"));
+
+function renderClass(){
+ const grid=document.getElementById("classGrid");
+ grid.innerHTML=DATA.officialClass.map(x=>`<div class="member"><strong>${x.display}</strong><div class="meta">${x.method} · ${x.vote}</div><span class="status ${x.inRoster?"ok":"missing"}">${x.inRoster?"✓ ALREADY IN SCOUT":"✕ MISSING FROM SCOUT"}</span></div>`).join("");
+ const miss=DATA.officialClass.filter(x=>!x.inRoster);
+ document.getElementById("audit").innerHTML=miss.length
+  ? `<b>Scout found ${miss.length} roster gap:</b> ${miss.map(x=>x.display).join(", ")}. The integrated version should add ${miss.map(x=>x.display).join(", ")} as <b>NEED</b> without disturbing your existing collection.`
+  : `<b>Roster is current.</b> Every member of the official 2026 class is already present.`;
+ document.getElementById("reviewMissing").disabled=!miss.length;
+ document.getElementById("reviewMissing").onclick=()=>alert(miss.map(x=>x.display+" — add as NEED to the official HOF roster.").join("\n"));
+}
+function pickReason(p){
+ if(p.firstYear)return "First-year eligible in 2027. No voting history yet, so Scout clearly separates this résumé-based watch flag from the vote-driven rankings.";
+ const dir=p.trend>0?`+${p.trend.toFixed(1)} points`:`${p.trend.toFixed(1)} points`;
+ return `${p.current.toFixed(1)}% in 2026 · ${dir} from 2025 · entering ballot year ${p.ballotYear2027}. ${p.note}`;
+}
+function renderForecast(){
+ const box=document.getElementById("forecast");
+ box.innerHTML=DATA.top5.map((p,i)=>{
+   const pills=p.firstYear
+    ? `<span class="pill first">FIRST-YEAR ELIGIBLE</span><span class="pill">NO VOTE HISTORY YET</span>`
+    : `<span class="pill">${p.current.toFixed(1)}% CURRENT</span><span class="pill">${p.trend>=0?"+":""}${p.trend.toFixed(1)} TREND</span><span class="pill">${p.projected.toFixed(1)}% SIMPLE PROJECTION</span>`;
+   return `<div class="pick"><div class="rank">#${i+1}</div><div><div class="name">${p.name}</div><div class="reason">${pickReason(p)}</div><div class="stats">${pills}</div><div class="buttons"><button class="secondary" onclick="toggleWatch('${p.name.replace(/'/g,"\\'")}')">${watched.has(p.name)?"✓ WATCHING":"👁 WATCH"}</button><button class="ghost" onclick="previewTarget('${p.name.replace(/'/g,"\\'")}')">🔎 FIND A TARGET — NEXT</button></div></div><div class="score"><b>${p.score.toFixed(1)}</b><span>SCOUT MOMENTUM</span></div></div>`;
+ }).join("");
+ renderWatch();
+}
+function toggleWatch(name){
+ watched.has(name)?watched.delete(name):watched.add(name);
+ localStorage.setItem("hofScoutForecastLabWatch",JSON.stringify([...watched]));
+ renderForecast();
+}
+function renderWatch(){
+ document.getElementById("watchText").textContent=watched.size
+  ? "Watching in this lab: "+[...watched].join(", ")
+  : "No lab watch selections yet.";
+}
+function previewTarget(name){
+ alert("Next integration step: "+name+" will be allowed to use the same Find a Target engine as Hall of Famers, without adding him to the official HOF roster until he is actually elected.");
+}
+renderClass();renderForecast();
+</script>
+</body></html>
