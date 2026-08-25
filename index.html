@@ -280,6 +280,41 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .hunt-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
 .hunt-actions button{min-height:40px;padding:8px 11px;font-size:11px}
 .hunt-empty{text-align:center;padding:28px 14px;color:var(--muted)}
+
+/* v4.7.0 — Find a Target */
+.find-target-panel{margin-top:12px;border:1px solid rgba(230,189,99,.42);background:linear-gradient(145deg,rgba(230,189,99,.08),rgba(255,255,255,.035));border-radius:18px;padding:14px}
+.find-target-panel[hidden]{display:none}
+.find-target-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.find-target-title{font-size:19px;font-weight:950;margin-top:3px}
+.find-target-sub{font-size:11px;color:var(--muted);line-height:1.45;margin-top:4px}
+.find-target-budget{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end;margin-top:12px}
+.find-target-budget label{display:block;font-size:9px;color:var(--muted);font-weight:950;margin-bottom:5px;letter-spacing:.06em}
+.find-target-money{position:relative}
+.find-target-money .currency-prefix{position:absolute;left:11px;top:50%;transform:translateY(-50%);z-index:1;color:var(--ink);font-weight:950;pointer-events:none}
+.find-target-money input{width:100%;min-height:46px;border-radius:12px;border:1px solid #3a5d52;background:#f9f4e8;color:var(--ink);padding:9px 11px 9px 28px;font-size:16px}
+.find-target-status{font-size:11px;color:var(--muted);line-height:1.45;margin-top:9px}
+.find-target-status.ok{color:var(--green)}
+.find-target-status.bad{color:var(--red)}
+.find-target-result{margin-top:13px;border:1px solid rgba(86,197,138,.42);background:rgba(0,0,0,.12);border-radius:16px;padding:13px}
+.find-target-result[hidden]{display:none}
+.find-target-result .rec-title{font-size:17px;font-weight:950;line-height:1.28;margin:4px 0 8px}
+.find-target-badges{display:flex;gap:6px;flex-wrap:wrap}
+.find-target-badge{font-size:8px;font-weight:950;border-radius:999px;padding:5px 7px;background:rgba(86,197,138,.16);color:#9ce8bb;border:1px solid rgba(86,197,138,.24)}
+.find-target-warning{margin-top:9px;border:1px solid rgba(230,189,99,.46);background:rgba(230,189,99,.10);border-radius:12px;padding:9px 10px;color:#f4d58a;font-size:11px;font-weight:850;line-height:1.4}
+.find-target-warning[hidden]{display:none}
+.find-target-pricegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:11px}
+.find-target-stat{border:1px solid var(--line);border-radius:13px;padding:10px;background:rgba(255,255,255,.025)}
+.find-target-stat .k{font-size:8px;color:var(--muted);font-weight:950;letter-spacing:.08em}
+.find-target-stat .v{font-size:18px;font-weight:950;margin-top:4px}
+.find-target-why{font-size:11px;color:var(--muted);line-height:1.5;margin-top:10px}
+.find-target-seller{border:1px solid var(--line);border-radius:13px;padding:10px;margin-top:10px}
+.find-target-seller .main{font-size:12px;font-weight:950}
+.find-target-seller .sub{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.4}
+.find-target-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}
+.find-target-actions.secondary-actions{grid-template-columns:1fr 1fr}
+@media(max-width:620px){
+  .find-target-budget,.find-target-pricegrid,.find-target-actions,.find-target-actions.secondary-actions{grid-template-columns:1fr}
+}
 @media(max-width:620px){.connect-grid,.market-grid{grid-template-columns:1fr}.market-grid{grid-template-columns:1fr 1fr}.market-grid .market-stat:last-child{grid-column:1/-1}.buy-target-grid{grid-template-columns:1fr}.buy-target .v{font-size:21px}.handoff-grid{grid-template-columns:1fr}.handoff-field.full{grid-column:auto}.deal-prices{grid-template-columns:1fr 1fr}.deal-prices .deal-price:last-child{grid-column:1/-1}}
 .result-box{margin-top:14px;border-radius:17px;border:1px solid var(--line);padding:14px;background:rgba(0,0,0,.12)}
 .result-box h3{margin:0 0 7px;font-size:17px}
@@ -492,6 +527,55 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <div class="action-row" id="targetScoutRow" hidden>
         <button class="primary" id="scoutTargetBtn" style="grid-column:1/-1">🎯 SCOUT THIS TARGET →</button>
       </div>
+
+      <div class="action-row">
+        <button class="secondary" id="findTargetBtn" style="grid-column:1/-1">🔎 FIND A TARGET</button>
+      </div>
+
+      <div class="find-target-panel" id="findTargetPanel" hidden>
+        <div class="find-target-head">
+          <div>
+            <div class="section-eyebrow">SCOUT TARGET FINDER</div>
+            <div class="find-target-title" id="findTargetTitle">Find a Target</div>
+            <div class="find-target-sub" id="findTargetSub"></div>
+          </div>
+        </div>
+        <div class="find-target-budget">
+          <div>
+            <label for="findTargetBudget">MAX DELIVERED PRICE</label>
+            <div class="find-target-money"><span class="currency-prefix">$</span><input id="findTargetBudget" inputmode="decimal" placeholder="Enter budget"></div>
+          </div>
+          <button type="button" class="primary" id="findTargetSearchBtn">🔎 SEARCH</button>
+        </div>
+        <div class="find-target-status" id="findTargetStatus"></div>
+
+        <div class="find-target-result" id="findTargetResult" hidden>
+          <div class="section-eyebrow" id="findTargetEyebrow">SCOUT'S TARGET RECOMMENDATION</div>
+          <div class="rec-title" id="findTargetRecTitle"></div>
+          <div class="find-target-badges" id="findTargetBadges"></div>
+          <div class="find-target-warning" id="findTargetRookieWarning" hidden>⚠ Seller claims “Rookie/RC” — not verified by Scout.</div>
+          <div class="find-target-sub" id="findTargetCondition" style="margin-top:8px"></div>
+          <div class="find-target-pricegrid">
+            <div class="find-target-stat"><div class="k">CARD YEAR</div><div class="v" id="findTargetYear">—</div></div>
+            <div class="find-target-stat"><div class="k">LIST</div><div class="v" id="findTargetPrice">—</div></div>
+            <div class="find-target-stat"><div class="k">DELIVERED</div><div class="v" id="findTargetDelivered">—</div></div>
+          </div>
+          <div class="find-target-why" id="findTargetWhy"></div>
+          <div class="find-target-seller">
+            <div class="main" id="findTargetSellerMain">SELLER CONFIDENCE</div>
+            <div class="sub" id="findTargetSellerSub"></div>
+          </div>
+          <div class="find-target-actions">
+            <button type="button" class="primary" id="findTargetViewBtn">VIEW LISTING →</button>
+            <button type="button" class="secondary" id="findTargetSaveBtn">🎯 MAKE THIS MY TARGET</button>
+          </div>
+          <div class="find-target-actions secondary-actions">
+            <button type="button" class="ghost" id="findTargetRetryBtn">↻ TRY ANOTHER</button>
+            <button type="button" class="ghost" id="findTargetCloseBtn">CLOSE</button>
+          </div>
+        </div>
+      </div>
+
       <div class="action-row">
         <button class="primary" id="refreshValueBtn">↻ REFRESH VALUE</button>
         <button class="ghost" id="detailShopBtn">CHECK A SHOP CARD →</button>
@@ -650,7 +734,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.6.0</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.7.0</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -743,7 +827,7 @@ async function cloudSaveNow(forceTimestamp=false){
       method:"POST",
       headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
       body:JSON.stringify({
-        appVersion:"4.6.0",
+        appVersion:"4.7.0",
         clientUpdatedAt,
         playerUpdates:edits
       })
@@ -1068,6 +1152,11 @@ function huntAction(action,name){
 
 function openPlayer(p,sourceScreen="homeScreen"){
   currentPlayer=p;returnScreen=sourceScreen;
+  if(findTargetPlayerName!==p.name){
+    findTargetPlayerName=p.name;
+    $("findTargetPanel").hidden=true;
+    findTargetResetResult();
+  }
   $("detailName").textContent=p.name;
   const statusText=p.owned?(p.incoming?"✓ OWNED · 📦 INCOMING":"✓ OWNED"):"✕ NEED";
   $("detailStatus").textContent=statusText;
@@ -1280,7 +1369,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"4.6.0",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"4.7.0",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -1502,6 +1591,230 @@ function applyFastMode(on){
 }
 
 let phase3bActiveTargetPlayer=null;
+
+/* v4.7.0 — Find a Target */
+const FIND_TARGET_BUDGET_KEY="hofScoutFindTargetBudgetV1";
+let findTargetSuggestion=null;
+let findTargetExcludedIds=[];
+let findTargetPlayerName="";
+function findTargetNumericGrade(v){
+  const m=String(v||"").match(/(?:^|\s)(10|9\.5|9|8\.5|8|7\.5|7|6\.5|6|5\.5|5|4\.5|4|3\.5|3|2\.5|2|1\.5|1)(?:\s|$)/);
+  return m?Number(m[1]):null;
+}
+function findTargetCurrentGrader(p){
+  const g=String(p?.grader||"").trim();
+  if(g&&g.toLowerCase()!=="raw")return g.toUpperCase();
+  const d=String(p?.description||"").toUpperCase();
+  for(const x of ["PSA","SGC","CGC","BGS","BVG","CSG","GMA","HGA","ISA"]){
+    if(new RegExp("\\b"+x+"\\b").test(d))return x;
+  }
+  return "Raw";
+}
+function findTargetCurrentCardPayload(p){
+  if(!p?.owned)return null;
+  const grade=findTargetNumericGrade(p.gradeCondition)||findTargetNumericGrade(p.description);
+  return {
+    cardYear:p.cardYear||null,
+    year:p.cardYear||null,
+    set:p.set||"",
+    cardNum:p.cardNum||"",
+    description:p.description||"",
+    notes:p.userNotes||"",
+    targetNotes:p.targetNotes||"",
+    grader:findTargetCurrentGrader(p),
+    grade,
+    gradeCondition:p.gradeCondition||"",
+    autograph:!!p.autograph,
+    serial:p.serial||""
+  };
+}
+function findTargetPreferredSellers(){
+  const out=new Set();
+  PLAYERS.forEach(p=>{
+    const src=String(p.purchaseSource||"").trim();
+    let m=src.match(/^eBay\s*:\s*(.+)$/i);
+    if(!m)m=src.match(/^eBay[-\s]+seller\s+(.+)$/i);
+    if(m&&m[1])out.add(m[1].trim());
+  });
+  return [...out];
+}
+function findTargetNormalize(v){
+  return String(v||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+}
+function findTargetMatchesSaved(s,p){
+  if(!s||!p?.target)return false;
+  const t=findTargetNormalize(p.target);
+  const compact=t.replace(/\s+/g,"");
+  const year=String(s.year||"").trim();
+  const set=findTargetNormalize(s.set||"");
+  const num=findTargetNormalize(s.cardNum||"").replace(/\s+/g,"");
+  if(year&&!t.includes(year))return false;
+  if(set&&!t.includes(set))return false;
+  if(num&&!compact.includes(num))return false;
+  return !!(year||set||num);
+}
+function findTargetIdentityLabel(s){
+  const bits=[s?.year,s?.set,s?.cardNum?"#"+s.cardNum:""].filter(Boolean);
+  return bits.join(" ")||String(s?.title||"Target card");
+}
+function findTargetNotes(s){
+  const bits=["Scout Find a Target"];
+  if(s?.gradeInfo?.grader&&s.gradeInfo.grader!=="Raw")bits.push("Desired grade: "+s.gradeInfo.label);
+  if(s?.traits?.autograph)bits.push("Autograph");
+  if(s?.traits?.shortPrint)bits.push("Short print / numbered");
+  if(s?.traits?.rookieVerified)bits.push("Verified rookie");
+  if(s?.upgrade?.reason)bits.push(s.upgrade.reason);
+  return bits.join(" · ");
+}
+function findTargetMoney(v){
+  const n=Number(v);return Number.isFinite(n)?"$"+n.toFixed(2):"—";
+}
+function findTargetResetResult(){
+  findTargetSuggestion=null;
+  findTargetExcludedIds=[];
+  $("findTargetResult").hidden=true;
+  $("findTargetStatus").textContent="";
+  $("findTargetStatus").className="find-target-status";
+  $("findTargetSaveBtn").disabled=false;
+  $("findTargetSaveBtn").textContent="🎯 MAKE THIS MY TARGET";
+}
+function openFindTarget(){
+  if(!currentPlayer)return;
+  if(findTargetPlayerName!==currentPlayer.name){
+    findTargetPlayerName=currentPlayer.name;
+    findTargetResetResult();
+  }
+  const panel=$("findTargetPanel");
+  panel.hidden=false;
+  $("findTargetTitle").textContent=currentPlayer.owned?"Find an Upgrade Target":"Find a Target";
+  $("findTargetSub").textContent=currentPlayer.owned
+    ?"Scout will look for a meaningful upgrade. Older comes first; higher grade on the same card also counts."
+    :"Scout will look for the oldest trustworthy representative card it can find within your budget.";
+  if(!$("findTargetBudget").value)$("findTargetBudget").value=localStorage.getItem(FIND_TARGET_BUDGET_KEY)||"";
+  panel.scrollIntoView({behavior:"smooth",block:"nearest"});
+  setTimeout(()=>$("findTargetBudget")?.focus(),150);
+}
+function closeFindTarget(){
+  $("findTargetPanel").hidden=true;
+}
+function renderFindTargetSuggestion(s){
+  const p=currentPlayer;
+  findTargetSuggestion=s;
+  $("findTargetResult").hidden=false;
+  $("findTargetEyebrow").textContent=p.owned?"SCOUT'S UPGRADE RECOMMENDATION":"SCOUT'S TARGET RECOMMENDATION";
+  $("findTargetRecTitle").textContent=s.title||"";
+  const badges=["OLDEST FIRST"];
+  if(s.gradeInfo?.grader&&s.gradeInfo.grader!=="Raw")badges.push(s.gradeInfo.label||s.gradeInfo.grader);
+  if(s.traits?.rookieVerified)badges.push("VERIFIED ROOKIE");
+  if(s.traits?.autograph)badges.push("AUTO");
+  if(s.traits?.shortPrint)badges.push("SCARCE");
+  $("findTargetBadges").innerHTML=badges.map(x=>'<span class="find-target-badge">'+escapeHtml(x)+'</span>').join("");
+  $("findTargetRookieWarning").hidden=!(s.traits?.rookieClaimed&&!s.traits?.rookieVerified);
+  $("findTargetCondition").textContent="Condition: "+(s.conditionInfo?.label||"not clearly stated");
+  $("findTargetYear").textContent=s.year||"—";
+  $("findTargetPrice").textContent=findTargetMoney(s.price);
+  $("findTargetDelivered").textContent=findTargetMoney(s.delivered);
+  $("findTargetWhy").textContent=s.why||"";
+
+  const st=s.sellerTrust||{}, seller=s.seller||{};
+  $("findTargetSellerMain").textContent=(st.previousSeller?"★ PREVIOUS SELLER · ":"SELLER CONFIDENCE · ")+(st.label||"TRUSTED");
+  const sellerBits=[];
+  if(seller.username)sellerBits.push(seller.username);
+  if(Number.isFinite(Number(seller.positivePct)))sellerBits.push(Number(seller.positivePct).toFixed(1).replace(/\.0$/,"")+"% positive");
+  if(Number.isFinite(Number(seller.reviews)))sellerBits.push(Number(seller.reviews).toLocaleString()+" feedback");
+  $("findTargetSellerSub").textContent=sellerBits.join(" · ")||"Seller passed Scout's trust gate.";
+  $("findTargetViewBtn").dataset.link=s.link||"";
+
+  const match=findTargetMatchesSaved(s,p);
+  $("findTargetSaveBtn").disabled=match;
+  $("findTargetSaveBtn").textContent=match?"✓ MATCHES YOUR SAVED TARGET":"🎯 MAKE THIS MY TARGET";
+}
+async function searchFindTarget(){
+  if(!currentPlayer)return;
+  const budget=Number($("findTargetBudget").value);
+  if(!Number.isFinite(budget)||budget<1){
+    $("findTargetStatus").className="find-target-status bad";
+    $("findTargetStatus").textContent="Enter a maximum delivered price of at least $1.";
+    return;
+  }
+  const c=pricingConfig();
+  if(!c.endpoint||!c.accessKey){
+    $("findTargetStatus").className="find-target-status bad";
+    $("findTargetStatus").textContent="Scout's live connection is not configured on this device. Open CHECK A SHOP CARD and save the connection first.";
+    return;
+  }
+
+  localStorage.setItem(FIND_TARGET_BUDGET_KEY,String(budget));
+  $("findTargetSearchBtn").disabled=true;
+  $("findTargetRetryBtn").disabled=true;
+  $("findTargetResult").hidden=true;
+  $("findTargetStatus").className="find-target-status";
+  $("findTargetStatus").textContent="Scout is checking active eBay listings, condition, and seller quality…";
+
+  try{
+    const p=currentPlayer;
+    const payload={
+      player:p.name,
+      budget,
+      mode:p.owned?"upgrade":"need",
+      currentCard:findTargetCurrentCardPayload(p),
+      searchHint:p.target||"",
+      excludeIds:findTargetExcludedIds,
+      preferredSellers:findTargetPreferredSellers()
+    };
+    const res=await fetch(c.endpoint+"/find-target",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
+      body:JSON.stringify(payload)
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.message||data.error||("Find a Target returned "+res.status));
+    if(!data.suggestion){
+      findTargetSuggestion=null;
+      $("findTargetStatus").className="find-target-status ok";
+      $("findTargetStatus").textContent=data.message||"Scout did not find a qualifying target in this search.";
+      return;
+    }
+    renderFindTargetSuggestion(data.suggestion);
+    $("findTargetStatus").className="find-target-status ok";
+    $("findTargetStatus").textContent=p.owned?"✓ Scout found a meaningful upgrade candidate.":"✓ Scout found a target recommendation.";
+  }catch(err){
+    $("findTargetStatus").className="find-target-status bad";
+    $("findTargetStatus").textContent=err.message||"Scout could not complete the target search.";
+  }finally{
+    $("findTargetSearchBtn").disabled=false;
+    $("findTargetRetryBtn").disabled=false;
+  }
+}
+async function retryFindTarget(){
+  if(findTargetSuggestion){
+    const id=findTargetSuggestion.id||findTargetSuggestion.productId;
+    if(id&&!findTargetExcludedIds.includes(String(id)))findTargetExcludedIds.push(String(id));
+  }
+  await searchFindTarget();
+}
+function saveFindTarget(){
+  const s=findTargetSuggestion,p=currentPlayer;
+  if(!s||!p)return;
+  const label=findTargetIdentityLabel(s);
+  const notes=findTargetNotes(s);
+
+  if(p.target&&p.target!==label){
+    const ok=window.confirm(p.name+" already has a target: "+p.target+". Replace it with "+label+"?");
+    if(!ok)return;
+  }
+  p.target=label;
+  p.targetNotes=notes;
+  savePlayerEdit(p);
+  stats();rotateMission();renderList();
+  $("upgradeTarget").textContent=p.target;
+  if(!p.owned)$("cardNote").textContent="Target on file: "+p.target+(p.targetNotes?" — "+p.targetNotes:"");
+  $("targetScoutRow").hidden=false;
+  $("findTargetSaveBtn").disabled=true;
+  $("findTargetSaveBtn").textContent="✓ MATCHES YOUR SAVED TARGET";
+  toast("🎯 Target saved for "+p.name+".");
+}
+
 function phase3bParseTarget(label){
   const raw=String(label||"").trim();
   const yearMatch=raw.match(/^((?:18|19|20)\d{2})\s+(.+)$/);
@@ -1533,6 +1846,13 @@ function phase3bScoutTarget(p){
   $("shopPrice").value="";
   $("shopGrade").value="Raw";
   $("shopGradeNum").value="";
+  const desiredGrade=String(p.targetNotes||"").match(/Desired grade:\s*(PSA|SGC|CGC|BGS|BVG|CSG|GMA|HGA|ISA)\s*([0-9.]+)?/i);
+  if(desiredGrade){
+    const g=desiredGrade[1].toUpperCase();
+    const option=[...$("shopGrade").options].find(o=>String(o.textContent).toUpperCase().startsWith(g));
+    if(option)$("shopGrade").value=option.value;
+    if(desiredGrade[2])$("shopGradeNum").value=desiredGrade[2];
+  }
   $("shopNotes").value=p.targetNotes||"";
   syncShopGrader();
   resetPsaVerification(true);
@@ -2355,6 +2675,13 @@ $("importBtn").addEventListener("click",()=>$("importFile").click());
 $("importFile").addEventListener("change",e=>importUpdatesFile(e.target.files&&e.target.files[0]));
 $("refreshValueBtn").addEventListener("click",valueRefresh);
 $("scoutTargetBtn").addEventListener("click",()=>phase3bScoutTarget(currentPlayer));
+$("findTargetBtn").addEventListener("click",openFindTarget);
+$("findTargetSearchBtn").addEventListener("click",searchFindTarget);
+$("findTargetRetryBtn").addEventListener("click",retryFindTarget);
+$("findTargetSaveBtn").addEventListener("click",saveFindTarget);
+$("findTargetCloseBtn").addEventListener("click",closeFindTarget);
+$("findTargetViewBtn").addEventListener("click",()=>{const u=$("findTargetViewBtn").dataset.link;if(u)window.open(u,"_blank","noopener")});
+$("findTargetBudget").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();searchFindTarget();}});
 $("targetsBtn").addEventListener("click",showTargets);
 $("addTargetBtn").addEventListener("click",openTargetManage);
 $("targetManageBack").addEventListener("click",()=>{showScreen("homeScreen");showTargets();});
