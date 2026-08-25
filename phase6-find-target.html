@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HOF Card Scout — Find a Target Lab</title>
+<style>
+:root{--bg:#042a22;--panel:#0c342b;--panel2:#113c32;--cream:#fff8e8;--gold:#efc45d;--green:#59c993;--red:#ff7f7f;--line:#2e6657;--text:#fff7e7;--muted:#c7ded6;--ink:#153127}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(145deg,#123821 0,#03261f 38%,#02231d 100%);color:var(--text);font-family:Arial,Helvetica,sans-serif}
+.wrap{max-width:920px;margin:0 auto;padding:18px}.header{display:flex;align-items:center;gap:14px;margin-bottom:16px}.ball{width:58px;height:58px;border-radius:17px;background:var(--cream);display:grid;place-items:center;font-size:31px}.header h1{margin:0;font-size:25px}.header p{margin:3px 0 0;color:var(--muted);font-size:12px}.labtag{margin-left:auto;border:1px solid var(--line);border-radius:999px;padding:7px 10px;font-size:10px}
+.panel{border:1px solid var(--line);background:rgba(13,54,44,.82);border-radius:19px;padding:16px;margin-bottom:14px}.eyebrow{font-size:9px;letter-spacing:.13em;color:var(--gold);font-weight:950}.title{font-size:26px;font-weight:950;margin:7px 0}.status{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.45}.ok{color:#65e7a8}.bad{color:#ff9c9c}.badge{display:inline-block;font-size:9px;font-weight:950;padding:5px 8px;border-radius:999px;margin-right:5px;background:#624337}.owned{background:#215843;color:#9ff0c4}.need{background:#5a3834;color:#ffaaa2}
+.controls{display:grid;grid-template-columns:1.4fr .6fr;gap:10px}.field label{display:block;font-size:9px;color:var(--muted);font-weight:900;margin-bottom:5px}.field select,.field input{width:100%;min-height:46px;border-radius:12px;border:1px solid var(--line);background:var(--cream);color:var(--ink);padding:9px 11px;font-size:15px}.current{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:12px;background:rgba(255,255,255,.025)}.current .label{font-size:8px;color:var(--muted);font-weight:950}.current .value{font-size:14px;font-weight:900;margin-top:4px}.current .sub{font-size:10px;color:var(--muted);margin-top:4px}
+button{border:0;border-radius:13px;min-height:48px;padding:10px 13px;font-size:15px;font-weight:950;cursor:pointer}.primary{background:var(--gold);color:#161b17}.secondary{background:var(--green);color:#062b21}.ghost{background:#183b33;color:var(--text);border:1px solid var(--line)}.danger{background:#172c27;color:#ff9b9b;border:1px solid #79493f}button:disabled{opacity:.55;cursor:not-allowed}.find{width:100%;margin-top:13px}
+.result{border-color:#31845f;background:rgba(4,39,31,.9)}.result[hidden],.empty[hidden]{display:none}.recTitle{font-size:18px;font-weight:950;margin:4px 0 8px}.pricegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}.stat{border:1px solid var(--line);border-radius:13px;padding:11px}.stat .k{font-size:8px;color:var(--muted);font-weight:950}.stat .v{font-size:17px;font-weight:950;margin-top:4px}.why{font-size:11px;color:var(--muted);line-height:1.55;margin-top:12px}.seller{border:1px solid var(--line);border-radius:13px;padding:10px;margin-top:11px}.seller .main{font-size:13px;font-weight:950}.seller .sub{font-size:10px;color:var(--muted);margin-top:4px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.actions3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:9px}.saved{margin-top:11px;color:#71e9ac;font-size:11px;font-weight:900}.empty{text-align:center}.footer{text-align:center;color:var(--muted);font-size:9px;margin-top:13px}.spinner{display:inline-block;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:650px){.controls,.pricegrid,.actions,.actions3{grid-template-columns:1fr}.labtag{display:none}.header h1{font-size:21px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div class="ball">🔎</div>
+    <div><h1>Find a Target</h1><p>Any Hall of Famer. Need card or meaningful upgrade.</p></div>
+    <div class="labtag">LAB v0.1</div>
+  </div>
+
+  <div class="panel">
+    <div class="eyebrow">CHOOSE A PLAYER</div>
+    <div class="controls" style="margin-top:10px">
+      <div class="field"><label>HALL OF FAMER</label><select id="playerSelect"></select></div>
+      <div class="field"><label>MAX DELIVERED PRICE</label><input id="budget" inputmode="decimal" placeholder="Enter budget"></div>
+    </div>
+    <div class="current" id="playerContext"></div>
+    <div class="status" id="cloudStatus">Loading your Scout collection…</div>
+    <button class="primary find" id="findBtn">🔎 FIND A TARGET</button>
+  </div>
+
+  <div class="panel result" id="result" hidden>
+    <div class="eyebrow" id="resultEyebrow">SCOUT'S TARGET RECOMMENDATION</div>
+    <div class="recTitle" id="recTitle"></div>
+    <div id="recBadges"></div>
+    <div class="pricegrid">
+      <div class="stat"><div class="k">CARD YEAR</div><div class="v" id="recYear">—</div></div>
+      <div class="stat"><div class="k">LIST</div><div class="v" id="recPrice">—</div></div>
+      <div class="stat"><div class="k">DELIVERED*</div><div class="v" id="recDelivered">—</div></div>
+    </div>
+    <div class="why" id="recWhy"></div>
+    <div class="seller">
+      <div class="main" id="sellerMain">SELLER CONFIDENCE</div>
+      <div class="sub" id="sellerSub"></div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="viewBtn">VIEW LISTING →</button>
+      <button class="secondary" id="targetBtn">🎯 MAKE THIS MY TARGET</button>
+    </div>
+    <div class="actions3">
+      <button class="ghost" id="retryBtn">↻ TRY ANOTHER</button>
+      <button class="ghost" id="newPlayerBtn">CHOOSE ANOTHER PLAYER</button>
+      <button class="ghost" id="openScoutBtn">OPEN HOF CARD SCOUT</button>
+    </div>
+    <div class="saved" id="saveStatus"></div>
+  </div>
+
+  <div class="panel empty" id="empty" hidden>
+    <div class="title" style="font-size:19px">No qualifying target found</div>
+    <div class="status" id="emptyText"></div>
+    <button class="ghost" id="emptyRetry" style="margin-top:12px">↻ TRY ANOTHER SEARCH</button>
+  </div>
+
+  <div class="footer">Seller trust is a gate. Then age comes first. Owned players only get recommendations Scout can explain as a meaningful upgrade.</div>
+</div>
+<script>
+const WORKER_URL="https://hof-card-scout-pricing.jz9j2778jh.workers.dev";
+const STORAGE_KEY="hofCardScoutEditsV1";
+const ENDPOINT_KEY="hofScoutPricingEndpoint";
+const ACCESS_KEY="hofScoutAccessKey";
+const BUDGET_KEY="hofScoutFindTargetBudgetV1";
+const DB_NAME="hofCardScoutConnectionV1",DB_STORE="settings",DB_RECORD="primary";
+const $=id=>document.getElementById(id);
+let players=[],cloudEdits={},accessKey="",selected=null,suggestion=null,excludedIds=[];
+
+function money(v){const n=Number(v);return Number.isFinite(n)?"$"+n.toFixed(2):"—"}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function numericGrade(v){const m=String(v||"").match(/(?:^|\s)(10|9\.5|9|8\.5|8|7\.5|7|6\.5|6|5\.5|5|4\.5|4|3\.5|3|2\.5|2|1\.5|1)(?:\s|$)/);return m?Number(m[1]):null}
+function currentGrader(p){
+  if(p.grader&&String(p.grader).toLowerCase()!=="raw")return String(p.grader).toUpperCase();
+  const d=String(p.description||"").toUpperCase();
+  for(const g of ["PSA","SGC","BGS","CGC","CSG"]){if(new RegExp("\\b"+g+"\\b").test(d))return g}
+  return "Raw";
+}
+function cardLabel(p){
+  if(!p||!p.owned)return "No representative card on file.";
+  let bits=[p.cardYear,p.set,p.cardNum?"#"+p.cardNum:""].filter(Boolean);
+  const g=currentGrader(p),grade=numericGrade(p.gradeCondition)||numericGrade(p.description);
+  if(g!=="Raw")bits.push(g+(grade!==null?" "+grade:""));
+  if(p.autograph)bits.push("Auto");
+  if(p.serial)bits.push("Numbered "+p.serial);
+  return bits.join(" · ")||"Owned card";
+}
+function priorEbaySellers(){
+  const out=new Set();
+  for(const p of players){
+    const src=String(p.purchaseSource||"").trim();
+    let m=src.match(/^eBay\s*:\s*(.+)$/i);
+    if(!m)m=src.match(/^eBay[-\s]+seller\s+(.+)$/i);
+    if(m&&m[1])out.add(m[1].trim());
+  }
+  return [...out];
+}
+function currentCardPayload(p){
+  if(!p?.owned)return null;
+  return {
+    cardYear:p.cardYear||null,year:p.cardYear||null,set:p.set||"",cardNum:p.cardNum||"",
+    description:p.description||"",grader:currentGrader(p),
+    grade:numericGrade(p.gradeCondition)||numericGrade(p.description),
+    gradeCondition:p.gradeCondition||"",autograph:!!p.autograph,serial:p.serial||""
+  };
+}
+function idbGet(){
+  return new Promise(resolve=>{
+    if(!("indexedDB" in window))return resolve(null);
+    const req=indexedDB.open(DB_NAME,1);
+    req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(DB_STORE))db.createObjectStore(DB_STORE)};
+    req.onerror=()=>resolve(null);
+    req.onsuccess=()=>{const db=req.result;const tx=db.transaction(DB_STORE,"readonly");const g=tx.objectStore(DB_STORE).get(DB_RECORD);g.onsuccess=()=>resolve(g.result||null);g.onerror=()=>resolve(null)}
+  })
+}
+async function getAccessKey(){
+  let k=localStorage.getItem(ACCESS_KEY)||"";
+  if(k)return k;
+  const saved=await idbGet();
+  return saved?.accessKey||"";
+}
+async function loadBaseRoster(){
+  const html=await fetch("index.html?v="+Date.now()).then(r=>r.text());
+  const m=html.match(/let players=(\[[\s\S]*?\]);\s*const STORAGE_KEY/);
+  if(!m)throw new Error("Could not read the Hall of Fame roster from index.html.");
+  return Function('"use strict";return ('+m[1]+')')();
+}
+async function loadCollection(){
+  accessKey=await getAccessKey();
+  if(!accessKey)throw new Error("Scout access key is missing in this browser.");
+  const base=await loadBaseRoster();
+  const r=await fetch(WORKER_URL+"/collection/load",{headers:{"X-Scout-Key":accessKey}});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok||!data.ok)throw new Error(data.message||"Scout Cloud collection could not be loaded.");
+  cloudEdits=data.playerUpdates||{};
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(cloudEdits));
+  players=base.map(p=>cloudEdits[p.name]?Object.assign({},p,cloudEdits[p.name]):p);
+}
+function populatePlayers(){
+  const sel=$("playerSelect");
+  sel.innerHTML=players
+    .slice()
+    .sort((a,b)=>a.name.localeCompare(b.name))
+    .map(p=>`<option value="${esc(p.name)}">${esc(p.name)} — ${p.owned?"Owned":"Need"}</option>`).join("");
+  const rickey=players.find(p=>p.name==="Rickey Henderson");
+  sel.value=(rickey||players[0])?.name||"";
+  selectPlayer();
+}
+function selectPlayer(){
+  selected=players.find(p=>p.name===$("playerSelect").value)||null;
+  suggestion=null;excludedIds=[];
+  $("result").hidden=true;$("empty").hidden=true;$("saveStatus").textContent="";
+  renderContext();
+}
+function renderContext(){
+  if(!selected)return;
+  const mode=selected.owned?"upgrade":"need";
+  const target=selected.target?`<div class="sub">Current saved target: <b>${esc(selected.target)}</b>${selected.targetNotes?" — "+esc(selected.targetNotes):""}</div>`:"";
+  $("playerContext").innerHTML=`
+    <div><span class="badge ${selected.owned?"owned":"need"}">${selected.owned?"OWNED — UPGRADE HUNT":"NEED — FIRST CARD"}</span></div>
+    <div class="label" style="margin-top:8px">${selected.owned?"CURRENT REPRESENTATIVE":"SCOUT'S JOB"}</div>
+    <div class="value">${selected.owned?esc(cardLabel(selected)):"Find the best trustworthy representative card within your budget."}</div>
+    ${selected.owned?'<div class="sub">Older wins first. Same-year higher grade, raw → graded, rookie, autograph, or scarcity can also qualify as an upgrade.</div>':""}
+    ${target}`;
+  $("findBtn").textContent=selected.owned?"🔎 FIND AN UPGRADE TARGET":"🔎 FIND A TARGET";
+}
+async function findTarget(){
+  const budget=Number($("budget").value);
+  if(!Number.isFinite(budget)||budget<1){$("cloudStatus").className="status bad";$("cloudStatus").textContent="Enter a maximum delivered price of at least $1.";return}
+  localStorage.setItem(BUDGET_KEY,String(budget));
+  $("findBtn").disabled=true;$("retryBtn").disabled=true;$("emptyRetry").disabled=true;
+  $("cloudStatus").className="status";$("cloudStatus").innerHTML='<span class="spinner">⚾</span> Scout is checking active eBay listings and seller quality…';
+  $("saveStatus").textContent="";
+  try{
+    const payload={
+      player:selected.name,budget,
+      mode:selected.owned?"upgrade":"need",
+      currentCard:currentCardPayload(selected),
+      excludeIds,
+      preferredSellers:priorEbaySellers()
+    };
+    const r=await fetch(WORKER_URL+"/find-target",{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":accessKey},body:JSON.stringify(payload)});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||!data.ok)throw new Error(data.message||"Find a Target failed.");
+    if(!data.suggestion){
+      suggestion=null;$("result").hidden=true;$("empty").hidden=false;
+      $("emptyText").textContent=data.message||"Scout found no qualifying listing in this search.";
+      $("cloudStatus").className="status ok";$("cloudStatus").textContent="✓ Search completed. No qualifying target was found.";
+      return;
+    }
+    suggestion=data.suggestion;
+    renderSuggestion();
+    $("empty").hidden=true;$("result").hidden=false;
+    $("cloudStatus").className="status ok";$("cloudStatus").textContent=`✓ Scout found ${selected.owned?"an upgrade":"a target"} recommendation.`;
+    $("result").scrollIntoView({behavior:"smooth",block:"nearest"});
+  }catch(err){
+    $("cloudStatus").className="status bad";$("cloudStatus").textContent=err.message;
+  }finally{
+    $("findBtn").disabled=false;$("retryBtn").disabled=false;$("emptyRetry").disabled=false;
+  }
+}
+function renderSuggestion(){
+  const s=suggestion,st=s.sellerTrust||{},seller=s.seller||{},g=s.gradeInfo||{};
+  $("resultEyebrow").textContent=selected.owned?"SCOUT'S UPGRADE RECOMMENDATION":"SCOUT'S TARGET RECOMMENDATION";
+  $("recTitle").textContent=s.title||"";
+  const badges=[];
+  badges.push("OLDEST FIRST");
+  if(g.grader&&g.grader!=="Raw")badges.push(g.label||g.grader);
+  if(s.traits?.rookie)badges.push("ROOKIE");
+  if(s.traits?.autograph)badges.push("AUTO");
+  if(s.traits?.shortPrint)badges.push("SCARCE");
+  $("recBadges").innerHTML=badges.map(x=>`<span class="badge owned">${esc(x)}</span>`).join("");
+  $("recYear").textContent=s.year||"—";$("recPrice").textContent=money(s.price);$("recDelivered").textContent=money(s.delivered);
+  $("recWhy").textContent=s.why||"";
+  $("sellerMain").textContent=(st.previousSeller?"★ PREVIOUS SELLER · ":"SELLER CONFIDENCE · ")+(st.label||"TRUSTED");
+  const parts=[];if(seller.username)parts.push(seller.username);if(Number.isFinite(Number(seller.positivePct)))parts.push(Number(seller.positivePct).toFixed(1).replace(/\.0$/,"")+"% positive");if(Number.isFinite(Number(seller.reviews)))parts.push(Number(seller.reviews).toLocaleString()+" feedback");
+  $("sellerSub").textContent=parts.join(" · ")||"Trusted seller";
+  $("viewBtn").dataset.link=s.link||"";
+}
+function targetLabel(s){
+  const bits=[s.year,s.set,s.cardNum?"#"+s.cardNum:""].filter(Boolean);
+  if(s.gradeInfo?.grader&&s.gradeInfo.grader!=="Raw")bits.push(s.gradeInfo.label);
+  if(s.traits?.autograph)bits.push("Auto");
+  if(s.traits?.shortPrint)bits.push("SP/Numbered");
+  if(s.traits?.rookie)bits.push("Rookie");
+  return bits.join(" ")||s.title;
+}
+async function makeTarget(){
+  if(!suggestion||!selected)return;
+  const label=targetLabel(suggestion);
+  if(selected.target){
+    const ok=confirm(`Replace your existing target for ${selected.name}?\n\nCurrent: ${selected.target}\n\nNew: ${label}`);
+    if(!ok)return;
+  }
+  $("targetBtn").disabled=true;$("saveStatus").textContent="Saving target to Scout Cloud…";
+  try{
+    const existing=cloudEdits[selected.name]&&typeof cloudEdits[selected.name]==="object"?cloudEdits[selected.name]:{};
+    const noteBits=["Scout Find a Target"];
+    if(suggestion.upgrade?.reason)noteBits.push(suggestion.upgrade.reason);
+    else if(suggestion.why)noteBits.push(suggestion.why.split(" Seller check:")[0]);
+    const updated={...existing,target:label,targetNotes:noteBits.join(" · ")};
+    cloudEdits[selected.name]=updated;
+    const r=await fetch(WORKER_URL+"/collection/save",{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":accessKey},body:JSON.stringify({appVersion:"phase6-find-target-lab-v0.1",clientUpdatedAt:new Date().toISOString(),playerUpdates:cloudEdits})});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||!data.ok)throw new Error(data.message||"Scout Cloud save failed.");
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(cloudEdits));
+    Object.assign(selected,updated);
+    $("saveStatus").textContent="✓ This recommendation is now your saved target.";
+    renderContext();
+  }catch(err){$("saveStatus").textContent="Save failed: "+err.message}
+  finally{$("targetBtn").disabled=false}
+}
+async function retry(){
+  if(suggestion){
+    const id=suggestion.id||suggestion.productId;
+    if(id&&!excludedIds.includes(String(id)))excludedIds.push(String(id));
+  }
+  suggestion=null;$("result").hidden=true;await findTarget();
+}
+
+$("playerSelect").onchange=selectPlayer;
+$("findBtn").onclick=findTarget;
+$("retryBtn").onclick=retry;
+$("emptyRetry").onclick=findTarget;
+$("targetBtn").onclick=makeTarget;
+$("viewBtn").onclick=()=>{const u=$("viewBtn").dataset.link;if(u)window.open(u,"_blank","noopener")};
+$("newPlayerBtn").onclick=()=>{$("result").hidden=true;$("playerSelect").focus();window.scrollTo({top:0,behavior:"smooth"})};
+$("openScoutBtn").onclick=()=>window.open("index.html","_blank");
+
+(async()=>{
+  try{
+    await loadCollection();
+    populatePlayers();
+    $("budget").value=localStorage.getItem(BUDGET_KEY)||"";
+    $("cloudStatus").className="status ok";$("cloudStatus").textContent="✓ Real collection loaded from Scout Cloud.";
+  }catch(err){
+    $("cloudStatus").className="status bad";$("cloudStatus").textContent=err.message;$("findBtn").disabled=true;
+  }
+})();
+</script>
+</body>
+</html>
