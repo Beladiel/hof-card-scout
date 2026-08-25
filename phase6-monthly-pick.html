@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0e2b22">
+<title>Scout's Monthly Pick — Lab v0.1</title>
+<style>
+:root{--bg:#071c16;--bg2:#0d2b22;--panel:#12372c;--text:#f7f4ea;--muted:#b9c9c2;--line:#2a5045;--green:#56c58a;--red:#ef6c6c;--gold:#e6bd63;--cream:#fff8e9;--ink:#102019}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% -10%,rgba(230,189,99,.14),transparent 35%),linear-gradient(180deg,var(--bg2),var(--bg) 420px);color:var(--text);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
+button,input{font:inherit}.shell{max-width:760px;margin:0 auto;padding:22px 16px 42px}.top{display:flex;gap:12px;align-items:center}.ball{width:58px;height:58px;border-radius:18px;background:var(--cream);display:grid;place-items:center;font-size:32px}.brand h1{margin:0;font-size:23px}.brand p{margin:4px 0 0;color:var(--muted);font-size:12px}.version{margin-left:auto;font-size:10px;color:var(--muted);border:1px solid var(--line);padding:5px 7px;border-radius:999px}
+.hero{margin-top:18px;border:1px solid rgba(230,189,99,.48);background:linear-gradient(145deg,rgba(230,189,99,.13),rgba(255,255,255,.04));border-radius:20px;padding:16px}.eyebrow{font-size:10px;font-weight:950;letter-spacing:.13em;color:var(--gold)}.month{font-size:13px;color:var(--muted);margin-top:4px}.player{font-size:32px;font-weight:950;letter-spacing:-.7px;margin-top:9px}.mode{display:inline-block;margin-top:8px;border-radius:999px;padding:5px 8px;font-size:9px;font-weight:950;background:rgba(239,108,108,.14);color:#ff9c9c}.mode.upgrade{background:rgba(86,197,138,.14);color:#8be2b0}.whyplayer{font-size:12px;color:var(--muted);line-height:1.45;margin-top:9px}
+.panel{margin-top:14px;border:1px solid var(--line);background:rgba(255,255,255,.04);border-radius:18px;padding:14px}.panel h2{font-size:16px;margin:0 0 10px}.budgetrow{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end}.field label{display:block;font-size:10px;font-weight:900;color:var(--muted);margin-bottom:5px}.money{position:relative}.money span{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink);font-weight:900}.money input{width:100%;min-height:47px;border:1px solid var(--line);border-radius:12px;background:var(--cream);color:var(--ink);padding:8px 10px 8px 28px;font-size:17px}
+button{border:0;border-radius:13px;min-height:46px;padding:9px 13px;font-weight:950;cursor:pointer}.primary{background:var(--gold);color:#211a0b}.secondary{background:var(--green);color:#072116}.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text)}.dangerGhost{background:rgba(239,108,108,.05);border:1px solid rgba(239,108,108,.35);color:#ff9c9c}
+.status{font-size:11px;color:var(--muted);line-height:1.45;margin-top:9px}.status.ok{color:#8be2b0}.status.bad{color:#ff9c9c}
+.scoutbtn{width:100%;margin-top:12px}
+.result{margin-top:14px;border:1px solid rgba(86,197,138,.5);border-radius:18px;padding:14px;background:rgba(86,197,138,.045)}.result[hidden]{display:none}.resulttitle{font-size:17px;font-weight:950;line-height:1.35}.badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.badge{font-size:8px;font-weight:950;border-radius:999px;padding:5px 7px;border:1px solid var(--line)}.badge.age{border-color:rgba(230,189,99,.45);color:#f4d58a}.badge.good{border-color:rgba(86,197,138,.45);color:#8be2b0}
+.pricegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:11px}.price{border:1px solid var(--line);border-radius:11px;padding:8px}.price .k{font-size:8px;color:var(--muted);font-weight:900}.price .v{font-size:17px;font-weight:950;margin-top:3px}.reason{font-size:12px;line-height:1.5;color:var(--muted);margin-top:11px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.retry{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}.retry p{font-size:10px;color:var(--muted);margin:0 0 8px;line-height:1.4}.retry button{width:100%}.tiny{font-size:9px;color:var(--muted);margin-top:7px;text-align:center}
+.empty{padding:20px 12px;text-align:center;color:var(--muted);font-size:12px}.footer{text-align:center;color:var(--muted);font-size:10px;margin-top:20px}
+@media(max-width:560px){.pricegrid{grid-template-columns:1fr 1fr}.pricegrid .price:last-child{grid-column:1/-1}.actions{grid-template-columns:1fr}.budgetrow{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="top">
+    <div class="ball">⚾</div>
+    <div class="brand"><h1>Scout's Monthly Pick</h1><p>One player. One recommendation. Once a month.</p></div>
+    <div class="version">LAB v0.1</div>
+  </div>
+
+  <div class="hero">
+    <div class="eyebrow">THIS MONTH'S HUNT</div>
+    <div class="month" id="monthLabel">Loading…</div>
+    <div class="player" id="playerName">Connecting to Scout…</div>
+    <div class="mode" id="modeBadge">NEED</div>
+    <div class="whyplayer" id="playerWhy">Scout is reading your real collection before choosing the monthly player.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Monthly budget</h2>
+    <div class="budgetrow">
+      <div class="field">
+        <label for="budget">Scout will not recommend a listing above this delivered price</label>
+        <div class="money"><span>$</span><input id="budget" inputmode="decimal" placeholder="Enter budget"></div>
+      </div>
+      <button class="ghost" id="saveBudget">SAVE</button>
+    </div>
+    <div class="status" id="cloudStatus">Reading Scout Cloud…</div>
+    <button class="primary scoutbtn" id="scoutBtn" disabled>🔎 SCOUT THIS MONTH'S PICK</button>
+  </div>
+
+  <div class="result" id="result" hidden>
+    <div class="eyebrow">SCOUT'S RECOMMENDATION</div>
+    <div class="resulttitle" id="resultTitle"></div>
+    <div class="badges" id="resultBadges"></div>
+    <div class="pricegrid">
+      <div class="price"><div class="k">CARD YEAR</div><div class="v" id="resultYear">—</div></div>
+      <div class="price"><div class="k">LIST</div><div class="v" id="resultPrice">—</div></div>
+      <div class="price"><div class="k">DELIVERED*</div><div class="v" id="resultDelivered">—</div></div>
+    </div>
+    <div class="reason" id="resultWhy"></div>
+    <div class="actions">
+      <button class="primary" id="viewListing">VIEW LISTING →</button>
+      <button class="ghost" id="backToScout">OPEN HOF CARD SCOUT</button>
+    </div>
+    <div class="retry">
+      <p>If this exact listing has already sold or is no longer available, Scout can find another one. The monthly player stays locked.</p>
+      <button class="dangerGhost" id="retryBtn">LISTING GONE — TRY ANOTHER</button>
+      <div class="tiny" id="retryNote"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="noResult" hidden>
+    <div class="empty" id="noResultText"></div>
+  </div>
+
+  <div class="footer">Age is the top priority. Graded, autograph, short print/numbered, and rookie traits help break same-year ties.</div>
+</div>
+<script>
+const STORAGE_KEY="hofCardScoutEditsV1";
+const BUDGET_KEY="hofScoutMonthlyBudgetV1";
+const STATE_KEY="hofScoutMonthlyPickLabV1";
+const WORKER_URL="https://hof-card-scout-pricing.jz9j2778jh.workers.dev";
+const CONNECTION_DB="hofCardScoutConnectionV1";
+const CONNECTION_STORE="settings";
+const CONNECTION_RECORD="primary";
+
+let players=[];
+let accessKey="";
+let state=null;
+let monthlyPlayer=null;
+const $=id=>document.getElementById(id);
+
+function monthKey(d=new Date()){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")}
+function monthName(d=new Date()){return d.toLocaleDateString(undefined,{month:"long",year:"numeric"})}
+function money(n){return Number.isFinite(Number(n))?"$"+Number(n).toFixed(2):"—"}
+function readState(){try{return JSON.parse(localStorage.getItem(STATE_KEY)||"null")}catch{return null}}
+function writeState(){localStorage.setItem(STATE_KEY,JSON.stringify(state))}
+function cryptoIndex(max){if(max<=1)return 0;const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]%max}
+
+function readDurableAccessKey(){
+  return new Promise(resolve=>{
+    const direct=(localStorage.getItem("hofScoutAccessKey")||"").trim();
+    if(direct){resolve(direct);return}
+    if(!("indexedDB" in window)){resolve("");return}
+    try{
+      const req=indexedDB.open(CONNECTION_DB,1);
+      req.onsuccess=()=>{
+        const db=req.result;
+        if(!db.objectStoreNames.contains(CONNECTION_STORE)){db.close();resolve("");return}
+        const tx=db.transaction(CONNECTION_STORE,"readonly");
+        const get=tx.objectStore(CONNECTION_STORE).get(CONNECTION_RECORD);
+        get.onsuccess=()=>{const key=String(get.result?.accessKey||"").trim();db.close();resolve(key)};
+        get.onerror=()=>{db.close();resolve("")};
+      };
+      req.onerror=()=>resolve("");
+    }catch{resolve("")}
+  });
+}
+
+async function loadCollection(){
+  const text=await fetch("index.html?monthly="+Date.now(),{cache:"no-store"}).then(r=>{
+    if(!r.ok)throw new Error("Could not read the Scout roster.");return r.text()
+  });
+  const m=text.match(/const PLAYERS\s*=\s*(\[[\s\S]*?\]);\s*const STORAGE_KEY=/);
+  if(!m)throw new Error("Could not locate Scout's Hall of Fame roster.");
+  const base=JSON.parse(m[1]);
+
+  accessKey=await readDurableAccessKey();
+  if(!accessKey){
+    $("cloudStatus").className="status bad";
+    $("cloudStatus").textContent="Scout connection needs updating on this device. Open the main app and update/test the Scout key.";
+    throw new Error("Scout access key is not available.");
+  }
+
+  const res=await fetch(WORKER_URL+"/collection/load",{headers:{"X-Scout-Key":accessKey},cache:"no-store"});
+  const data=await res.json().catch(()=>({}));
+  if(res.status===401){
+    $("cloudStatus").className="status bad";
+    $("cloudStatus").textContent="Scout connection needs updating on this device. The saved key was rejected.";
+    throw new Error("Scout access key was rejected.");
+  }
+  if(!res.ok||!data.ok)throw new Error(data.message||"Scout Cloud could not be read.");
+  if(!data.found)throw new Error("No Scout Cloud backup exists yet.");
+
+  const edits=data.playerUpdates||{};
+  players=base.map(p=>edits[p.name]?Object.assign({},p,edits[p.name]):p);
+  $("cloudStatus").className="status ok";
+  $("cloudStatus").textContent="✓ Real collection loaded from Scout Cloud.";
+}
+
+function selectMonthlyPlayer(){
+  const mk=monthKey();
+  const existing=readState();
+  if(existing&&existing.month===mk&&existing.player){
+    state=existing;
+    monthlyPlayer=players.find(p=>p.name===state.player)||null;
+  }
+
+  if(!monthlyPlayer){
+    const need=players.filter(p=>!p.owned&&!p.incoming);
+    const pool=need.length?need:players.filter(p=>p.owned);
+    if(!pool.length)throw new Error("Scout could not build a Monthly Pick pool.");
+    monthlyPlayer=pool[cryptoIndex(pool.length)];
+    state={
+      month:mk,
+      player:monthlyPlayer.name,
+      mode:need.length?"need":"upgrade",
+      excludedIds:[],
+      retryCount:0,
+      suggestion:null,
+      checkedAt:null
+    };
+    writeState();
+  }
+
+  $("monthLabel").textContent=monthName()+" · player locked for this month";
+  $("playerName").textContent=monthlyPlayer.name;
+  $("modeBadge").textContent=state.mode==="upgrade"?"UPGRADE PICK":"NEED";
+  $("modeBadge").className="mode"+(state.mode==="upgrade"?" upgrade":"");
+  $("playerWhy").textContent=state.mode==="upgrade"
+    ?"Your Hall of Fame roster is complete, so Scout selected an owned player for an age-first upgrade."
+    :"Randomly selected from Hall of Famers you still need. Scout will keep this player for the entire month.";
+
+  if(state.suggestion)renderSuggestion(state.suggestion);
+}
+
+function currentCardPayload(){
+  if(state.mode!=="upgrade")return null;
+  return {
+    cardYear:monthlyPlayer.cardYear||null,
+    set:monthlyPlayer.set||"",
+    cardNum:monthlyPlayer.cardNum||"",
+    grader:monthlyPlayer.grader||"",
+    autograph:!!monthlyPlayer.autograph,
+    serial:monthlyPlayer.serial||""
+  };
+}
+
+async function scoutMonthly(isRetry=false){
+  const budget=Number($("budget").value);
+  if(!Number.isFinite(budget)||budget<1){alert("Enter your monthly budget first.");return}
+  localStorage.setItem(BUDGET_KEY,String(budget));
+
+  $("scoutBtn").disabled=true;
+  $("retryBtn").disabled=true;
+  $("noResult").hidden=true;
+  $("cloudStatus").className="status";
+  $("cloudStatus").textContent=isRetry?"Scout is finding another listing for the same player…":"Scout is checking one live market search…";
+
+  try{
+    const res=await fetch(WORKER_URL+"/monthly-pick",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Scout-Key":accessKey},
+      body:JSON.stringify({
+        player:monthlyPlayer.name,
+        budget,
+        mode:state.mode,
+        currentCard:currentCardPayload(),
+        excludeIds:state.excludedIds||[]
+      })
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.message||"Monthly Pick search failed.");
+
+    state.checkedAt=data.checkedAt||new Date().toISOString();
+    if(!data.suggestion){
+      state.suggestion=null;
+      writeState();
+      $("result").hidden=true;
+      $("noResult").hidden=false;
+      $("noResultText").textContent=data.message||"Scout did not find a trustworthy listing under this budget.";
+      $("cloudStatus").textContent="Search complete — no qualifying listing found.";
+      return;
+    }
+
+    state.suggestion=data.suggestion;
+    writeState();
+    renderSuggestion(data.suggestion);
+    $("cloudStatus").className="status ok";
+    $("cloudStatus").textContent="✓ Monthly recommendation ready. Refreshing this page will not re-search.";
+  }catch(err){
+    $("cloudStatus").className="status bad";
+    $("cloudStatus").textContent=err.message;
+  }finally{
+    $("scoutBtn").disabled=false;
+    $("retryBtn").disabled=false;
+  }
+}
+
+function renderSuggestion(s){
+  $("result").hidden=false;
+  $("noResult").hidden=true;
+  $("resultTitle").textContent=s.title||monthlyPlayer.name;
+  $("resultYear").textContent=s.year||"—";
+  $("resultPrice").textContent=money(s.price);
+  $("resultDelivered").textContent=money(s.delivered);
+  $("resultWhy").textContent=s.why||"";
+  $("viewListing").dataset.link=s.link||"";
+
+  const badges=['<span class="badge age">OLDEST FIRST</span>'];
+  if(s.traits?.rookie)badges.push('<span class="badge good">ROOKIE</span>');
+  if(s.traits?.graded)badges.push('<span class="badge good">GRADED</span>');
+  if(s.traits?.autograph)badges.push('<span class="badge good">AUTOGRAPH</span>');
+  if(s.traits?.shortPrint)badges.push('<span class="badge good">SHORT PRINT / #’D</span>');
+  $("resultBadges").innerHTML=badges.join("");
+  $("retryNote").textContent=state.retryCount
+    ?`Replacement searches used this month: ${state.retryCount}`
+    :"Use Try Another only if this exact listing is gone.";
+}
+
+async function retryListing(){
+  if(!state?.suggestion)return;
+  const oldId=String(state.suggestion.id||state.suggestion.productId||"");
+  if(oldId&&!state.excludedIds.includes(oldId))state.excludedIds.push(oldId);
+  state.retryCount=(state.retryCount||0)+1;
+  state.suggestion=null;
+  writeState();
+  $("result").hidden=true;
+  await scoutMonthly(true);
+}
+
+$("saveBudget").onclick=()=>{
+  const n=Number($("budget").value);
+  if(!Number.isFinite(n)||n<1){alert("Enter a valid budget.");return}
+  localStorage.setItem(BUDGET_KEY,String(n));
+  $("cloudStatus").className="status ok";
+  $("cloudStatus").textContent="✓ Budget saved for future months on this device.";
+};
+$("scoutBtn").onclick=()=>scoutMonthly(false);
+$("retryBtn").onclick=retryListing;
+$("viewListing").onclick=()=>{const link=$("viewListing").dataset.link;if(link)window.open(link,"_blank","noopener")};
+$("backToScout").onclick=()=>window.open("index.html","_blank");
+
+(async function init(){
+  $("monthLabel").textContent=monthName();
+  const savedBudget=localStorage.getItem(BUDGET_KEY)||"";
+  $("budget").value=savedBudget;
+  try{
+    await loadCollection();
+    selectMonthlyPlayer();
+    $("scoutBtn").disabled=false;
+  }catch(err){
+    console.error(err);
+    $("playerName").textContent="Scout connection required";
+    $("playerWhy").textContent=err.message;
+  }
+})();
+</script>
+</body>
+</html>
