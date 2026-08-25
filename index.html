@@ -249,6 +249,37 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .fast-note{display:none;color:var(--gold);font-size:11px;font-weight:850;margin:-4px 0 10px}
 .fast-mode .fast-note{display:block}
 .grade-other[hidden]{display:none}
+
+/* Phase 5 — Hunt List / Shopping Mode */
+.hunt-wrap{background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:18px;padding:14px}
+.hunt-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:4px}
+.hunt-title{font-size:24px;font-weight:950;letter-spacing:-.4px;margin:2px 0 0}
+.hunt-sub{font-size:12px;color:var(--muted);line-height:1.45;margin-top:4px}
+.hunt-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:14px 0 10px}
+.hunt-stat{border:1px solid var(--line);border-radius:14px;padding:10px 11px;background:rgba(255,255,255,.025);color:var(--text);text-align:left;min-height:70px}
+.hunt-stat.active{border-color:var(--gold);box-shadow:0 0 0 1px rgba(230,189,99,.23) inset}
+.hunt-stat .n{font-size:24px;font-weight:950;line-height:1}
+.hunt-stat .k{font-size:9px;color:var(--muted);font-weight:950;letter-spacing:.08em;margin-top:5px}
+.hunt-search{width:100%;min-height:46px;border-radius:13px;border:1px solid var(--line);background:#f9f4e8;color:var(--ink);padding:9px 12px;font-size:16px;margin-top:2px}
+.hunt-filter-row{display:flex;gap:7px;overflow:auto;scrollbar-width:none;margin:10px 0 13px}
+.hunt-filter-row::-webkit-scrollbar{display:none}
+.hunt-chip{white-space:nowrap;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);border-radius:999px;min-height:38px;padding:0 12px;font-size:11px;font-weight:900}
+.hunt-chip.active{background:var(--gold);border-color:var(--gold);color:#211a0b}
+.hunt-section-label{font-size:10px;font-weight:950;letter-spacing:.12em;color:var(--gold);margin:3px 1px 7px}
+.hunt-card{border:1px solid var(--line);border-radius:15px;padding:12px;margin-top:9px;background:rgba(255,255,255,.025)}
+.hunt-card.target{border-color:rgba(230,189,99,.46)}
+.hunt-card.incoming{border-color:rgba(117,174,233,.46)}
+.hunt-card-top{display:flex;gap:9px;align-items:flex-start}
+.hunt-player{font-size:15px;font-weight:950}
+.hunt-cardline{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4}
+.hunt-badges{margin-left:auto;display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.hunt-badge{font-size:8px;font-weight:950;border-radius:999px;padding:5px 7px;white-space:nowrap}
+.hunt-badge.need{background:rgba(239,108,108,.14);color:#ff9c9c}
+.hunt-badge.target{background:rgba(230,189,99,.14);color:#f4d58a}
+.hunt-badge.incoming{background:rgba(117,174,233,.14);color:#9cc7f0}
+.hunt-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.hunt-actions button{min-height:40px;padding:8px 11px;font-size:11px}
+.hunt-empty{text-align:center;padding:28px 14px;color:var(--muted)}
 @media(max-width:620px){.connect-grid,.market-grid{grid-template-columns:1fr}.market-grid{grid-template-columns:1fr 1fr}.market-grid .market-stat:last-child{grid-column:1/-1}.buy-target-grid{grid-template-columns:1fr}.buy-target .v{font-size:21px}.handoff-grid{grid-template-columns:1fr}.handoff-field.full{grid-column:auto}.deal-prices{grid-template-columns:1fr 1fr}.deal-prices .deal-price:last-child{grid-column:1/-1}}
 .result-box{margin-top:14px;border-radius:17px;border:1px solid var(--line);padding:14px;background:rgba(0,0,0,.12)}
 .result-box h3{margin:0 0 7px;font-size:17px}
@@ -269,6 +300,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .detail-grid .metric:last-child{grid-column:1/-1}
   .form-grid{grid-template-columns:1fr}
   .field.full{grid-column:auto}
+  .hunt-stats{grid-template-columns:repeat(3,1fr)}
+  .hunt-stat{padding:9px 8px}.hunt-stat .n{font-size:21px}
+  .hunt-actions button{flex:1}
 }
 </style>
 </head>
@@ -303,6 +337,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
       <div class="quick-grid">
         <button class="primary" id="shopModeBtn">🔎 CHECK A CARD</button>
+        <button class="secondary" id="huntModeBtn">🛒 HUNT LIST</button>
         <button class="ghost" id="targetsBtn">🎯 TARGET CARDS (<span id="targetCount">2</span>)</button>
         <button class="ghost" id="exportBtn">📤 EXPORT UPDATES</button>
         <button class="ghost" id="importBtn">📥 IMPORT UPDATES</button>
@@ -363,6 +398,43 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
           </div>
           <div class="player-list" id="playerList"></div>
         </div>
+      </div>
+    </section>
+
+    <section class="screen" id="huntScreen">
+      <button class="back" id="huntBack">← Back home</button>
+      <div class="hunt-wrap">
+        <div class="hunt-head">
+          <div>
+            <div class="section-eyebrow">SHOPPING MODE</div>
+            <div class="hunt-title">🛒 My Hunt List</div>
+            <div class="hunt-sub">Your fast card-shop view: missing Hall of Famers, saved targets, and cards still on the way.</div>
+          </div>
+        </div>
+
+        <div class="hunt-stats">
+          <button type="button" class="hunt-stat active" data-hunt-filter="need">
+            <div class="n" id="huntNeedCount">0</div><div class="k">NEED</div>
+          </button>
+          <button type="button" class="hunt-stat" data-hunt-filter="target">
+            <div class="n" id="huntTargetCount">0</div><div class="k">TARGETS</div>
+          </button>
+          <button type="button" class="hunt-stat" data-hunt-filter="incoming">
+            <div class="n" id="huntIncomingCount">0</div><div class="k">INCOMING</div>
+          </button>
+        </div>
+
+        <input class="hunt-search" id="huntSearch" type="search" placeholder="Search Hunt List…" autocomplete="off">
+
+        <div class="hunt-filter-row">
+          <button type="button" class="hunt-chip active" data-hunt-filter="need">NEED</button>
+          <button type="button" class="hunt-chip" data-hunt-filter="target">TARGETS</button>
+          <button type="button" class="hunt-chip" data-hunt-filter="incoming">INCOMING</button>
+          <button type="button" class="hunt-chip" data-hunt-filter="all">ALL HUNTS</button>
+        </div>
+
+        <div class="hunt-section-label" id="huntSectionLabel">PLAYERS YOU STILL NEED</div>
+        <div id="huntList"></div>
       </div>
     </section>
 
@@ -578,7 +650,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.5.1</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.6.0</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -671,7 +743,7 @@ async function cloudSaveNow(forceTimestamp=false){
       method:"POST",
       headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
       body:JSON.stringify({
-        appVersion:"4.5.1",
+        appVersion:"4.6.0",
         clientUpdatedAt,
         playerUpdates:edits
       })
@@ -782,7 +854,7 @@ function completion(){return ownedCount()/TOTAL*100}
 loadLocalEdits();
 
 const $=id=>document.getElementById(id);
-const homeScreen=$("homeScreen"), detailScreen=$("detailScreen"), manageScreen=$("manageScreen"), targetManageScreen=$("targetManageScreen"), shopScreen=$("shopScreen");
+const homeScreen=$("homeScreen"), huntScreen=$("huntScreen"), detailScreen=$("detailScreen"), manageScreen=$("manageScreen"), targetManageScreen=$("targetManageScreen"), shopScreen=$("shopScreen");
 
 function lastInitial(p){return (p.last||p.name).trim().charAt(0).toUpperCase()}
 function cardLabel(p){
@@ -812,7 +884,8 @@ function purchaseSummary(p){
 }
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
 function showScreen(id){
-  [homeScreen,detailScreen,manageScreen,targetManageScreen,shopScreen].forEach(s=>s.classList.toggle("active",s.id===id));
+  [homeScreen,huntScreen,detailScreen,manageScreen,targetManageScreen,shopScreen].forEach(s=>s.classList.toggle("active",s.id===id));
+  if(id==="huntScreen")renderHuntList();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 function toast(msg){
@@ -858,7 +931,7 @@ function filteredPlayers(){
   else if(activeLetter) list=list.filter(p=>lastInitial(p)===activeLetter);
   // With no letter selected, the collection filters should still work across the entire Hall.
   if(activeFilter==="owned") list=list.filter(p=>p.owned);
-  if(activeFilter==="need") list=list.filter(p=>!p.owned);
+  if(activeFilter==="need") list=list.filter(p=>!p.owned&&!p.incoming);
   if(activeFilter==="target") list=list.filter(p=>p.target);
   if(!q&&!activeLetter&&activeFilter==="all") list=[];
   return list.sort((a,b)=>a.last.localeCompare(b.last)||a.name.localeCompare(b.name));
@@ -882,8 +955,119 @@ function renderList(){
     row.addEventListener("click",()=>openPlayer(p));box.appendChild(row);
   });
 }
-function openPlayer(p){
-  currentPlayer=p;returnScreen="homeScreen";
+
+let huntFilter="need";
+
+function huntNeedPlayers(){return PLAYERS.filter(p=>!p.owned&&!p.incoming)}
+function huntTargetPlayers(){return PLAYERS.filter(p=>!!p.target)}
+function huntIncomingPlayers(){return PLAYERS.filter(p=>!!p.incoming)}
+function huntMatchesFilter(p){
+  if(huntFilter==="need")return !p.owned&&!p.incoming;
+  if(huntFilter==="target")return !!p.target;
+  if(huntFilter==="incoming")return !!p.incoming;
+  return (!p.owned&&!p.incoming)||!!p.target||!!p.incoming;
+}
+function huntSectionName(){
+  if(huntFilter==="target")return "SAVED TARGET CARDS";
+  if(huntFilter==="incoming")return "CARDS ON THE WAY";
+  if(huntFilter==="all")return "ALL ACTIVE HUNTS";
+  return "PLAYERS YOU STILL NEED";
+}
+function huntBadges(p){
+  const b=[];
+  if(!p.owned&&!p.incoming)b.push('<span class="hunt-badge need">✕ NEED</span>');
+  if(p.target)b.push('<span class="hunt-badge target">🎯 TARGET</span>');
+  if(p.incoming)b.push('<span class="hunt-badge incoming">📦 INCOMING</span>');
+  return b.join("");
+}
+function huntDetail(p){
+  if(p.incoming){
+    const bits=[cardLabel(p)];
+    const purchase=purchaseSummary(p);
+    if(purchase)bits.push(purchase);
+    return bits.filter(Boolean).join(" · ");
+  }
+  if(p.target)return p.target+(p.targetNotes?" · "+p.targetNotes:"");
+  return "No target selected yet · any representative card can fill this spot.";
+}
+function huntActions(p){
+  const name=escapeHtml(p.name);
+  if(p.incoming){
+    return '<button type="button" class="primary" data-hunt-action="view" data-player="'+name+'">VIEW CARD →</button>';
+  }
+  if(p.target){
+    return '<button type="button" class="secondary" data-hunt-action="target" data-player="'+name+'">⚾ SCOUT TARGET</button>'+
+      '<button type="button" class="primary" data-hunt-action="deals" data-player="'+name+'">🔎 FIND DEALS</button>'+
+      '<button type="button" class="ghost" data-hunt-action="view" data-player="'+name+'">VIEW PLAYER</button>';
+  }
+  return '<button type="button" class="secondary" data-hunt-action="scout" data-player="'+name+'">⚾ SCOUT A CARD</button>'+
+    '<button type="button" class="ghost" data-hunt-action="settarget" data-player="'+name+'">🎯 SET TARGET</button>'+
+    '<button type="button" class="ghost" data-hunt-action="view" data-player="'+name+'">VIEW PLAYER</button>';
+}
+function renderHuntList(){
+  if(!$("huntList"))return;
+  $("huntNeedCount").textContent=huntNeedPlayers().length;
+  $("huntTargetCount").textContent=huntTargetPlayers().length;
+  $("huntIncomingCount").textContent=huntIncomingPlayers().length;
+  $("huntSectionLabel").textContent=huntSectionName();
+
+  const q=$("huntSearch").value.trim().toLowerCase();
+  const rows=PLAYERS.filter(huntMatchesFilter).filter(p=>{
+    if(!q)return true;
+    return [p.name,p.target,p.targetNotes,cardLabel(p),purchaseSummary(p)]
+      .some(v=>String(v||"").toLowerCase().includes(q));
+  }).sort((a,b)=>String(a.last||a.name).localeCompare(String(b.last||b.name))||a.name.localeCompare(b.name));
+
+  $("huntList").innerHTML=rows.length?rows.map(p=>
+    '<div class="hunt-card '+(p.incoming?"incoming":p.target?"target":"")+'">'+
+      '<div class="hunt-card-top"><div><div class="hunt-player">'+escapeHtml(p.name)+'</div>'+
+      '<div class="hunt-cardline">'+escapeHtml(huntDetail(p))+'</div></div>'+
+      '<div class="hunt-badges">'+huntBadges(p)+'</div></div>'+
+      '<div class="hunt-actions">'+huntActions(p)+'</div>'+
+    '</div>'
+  ).join(""):'<div class="hunt-empty">Nothing in this view.</div>';
+
+  document.querySelectorAll("[data-hunt-action]").forEach(b=>b.addEventListener("click",()=>huntAction(b.dataset.huntAction,b.dataset.player)));
+}
+function setHuntFilter(f){
+  huntFilter=f;
+  document.querySelectorAll("[data-hunt-filter]").forEach(el=>el.classList.toggle("active",el.dataset.huntFilter===f));
+  renderHuntList();
+}
+function openHuntList(filter="need"){
+  huntFilter=filter;
+  $("huntSearch").value="";
+  document.querySelectorAll("[data-hunt-filter]").forEach(el=>el.classList.toggle("active",el.dataset.huntFilter===filter));
+  showScreen("huntScreen");
+}
+function huntAction(action,name){
+  const p=findPlayer(name);
+  if(!p){toast("Scout couldn't find that Hall of Famer.");return}
+  if(action==="view"){
+    openPlayer(p,"huntScreen");
+    return;
+  }
+  if(action==="scout"){
+    openShop({name:p.name,cardYear:"",set:"",cardNum:"",description:""});
+    return;
+  }
+  if(action==="settarget"){
+    openTargetManage();
+    $("targetPlayer").value=p.name;
+    return;
+  }
+  if(action==="target"){
+    phase3bScoutTarget(p);
+    return;
+  }
+  if(action==="deals"){
+    phase3bScoutTarget(p);
+    setTimeout(()=>toast("🎯 Run Scout first — FIND DEALS appears in the pricing result."),120);
+  }
+}
+
+function openPlayer(p,sourceScreen="homeScreen"){
+  currentPlayer=p;returnScreen=sourceScreen;
   $("detailName").textContent=p.name;
   const statusText=p.owned?(p.incoming?"✓ OWNED · 📦 INCOMING":"✓ OWNED"):"✕ NEED";
   $("detailStatus").textContent=statusText;
@@ -1096,7 +1280,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"4.5.1",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"4.6.0",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -2150,10 +2334,14 @@ function valueRefresh(){
   toast("Loaded your card into Card Shop Mode.");
 }
 $("homeBtn").addEventListener("click",()=>showScreen("homeScreen"));
-$("detailBack").addEventListener("click",()=>showScreen("homeScreen"));
+$("detailBack").addEventListener("click",()=>showScreen(returnScreen||"homeScreen"));
 $("manageBack").addEventListener("click",()=>showScreen("detailScreen"));
 $("shopBack").addEventListener("click",()=>showScreen(returnScreen==="shopScreen"?"homeScreen":returnScreen));
 $("shopModeBtn").addEventListener("click",()=>openShop(null));
+$("huntModeBtn").addEventListener("click",()=>openHuntList("need"));
+$("huntBack").addEventListener("click",()=>showScreen("homeScreen"));
+$("huntSearch").addEventListener("input",renderHuntList);
+document.querySelectorAll("[data-hunt-filter]").forEach(el=>el.addEventListener("click",()=>setHuntFilter(el.dataset.huntFilter)));
 $("detailShopBtn").addEventListener("click",()=>openShop(null));
 $("manageCardBtn").addEventListener("click",()=>openManage(currentPlayer&&currentPlayer.owned?"edit":"add"));
 $("upgradeCardBtn").addEventListener("click",()=>openManage("upgrade"));
