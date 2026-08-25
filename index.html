@@ -281,9 +281,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .hunt-actions button{min-height:40px;padding:8px 11px;font-size:11px}
 .hunt-empty{text-align:center;padding:28px 14px;color:var(--muted)}
 
-/* v4.8.1 — Find a Target */
+/* v4.9.0 — Find a Target */
 
-/* v4.8.1 — Scout's Monthly Pick */
+/* v4.9.0 — Scout's Monthly Pick */
 .monthly-pick-card{position:relative;overflow:hidden;border:1px solid rgba(230,189,99,.48);background:linear-gradient(145deg,rgba(230,189,99,.12),rgba(30,91,71,.13));border-radius:20px;padding:15px;margin:0 0 16px}
 .monthly-pick-card:after{content:"⚾";position:absolute;right:-8px;top:-18px;font-size:76px;opacity:.06;transform:rotate(18deg);pointer-events:none}
 .monthly-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
@@ -360,6 +360,22 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .find-target-seller{border:1px solid var(--line);border-radius:13px;padding:10px;margin-top:10px}
 .find-target-seller .main{font-size:12px;font-weight:950}
 .find-target-seller .sub{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.4}
+
+.scout-deal-box{margin-top:10px;border:1px solid rgba(230,189,99,.42);border-radius:14px;padding:10px;background:rgba(230,189,99,.07)}
+.scout-deal-top{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.scout-deal-label{font-size:16px;font-weight:950;line-height:1.1}
+.scout-deal-label.great_buy,.scout-deal-label.buy{color:#9ce8bb}
+.scout-deal-label.fair,.scout-deal-label.negotiate,.scout-deal-label.market_check{color:#f4d58a}
+.scout-deal-label.pass{color:#ffaaa2}
+.scout-deal-confidence{font-size:8px;font-weight:950;color:var(--muted);text-align:right;line-height:1.35}
+.scout-deal-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:9px}
+.scout-deal-metric{border:1px solid var(--line);border-radius:10px;padding:7px;background:rgba(255,255,255,.02)}
+.scout-deal-metric .k{font-size:7px;font-weight:950;letter-spacing:.07em;color:var(--muted)}
+.scout-deal-metric .v{font-size:13px;font-weight:950;margin-top:3px}
+.scout-deal-message{font-size:9.5px;color:var(--muted);line-height:1.45;margin-top:8px}
+.scout-deal-box[hidden]{display:none}
+@media(max-width:620px){.scout-deal-metrics{grid-template-columns:1fr 1fr}}
+
 .find-target-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}
 .find-target-actions.secondary-actions{grid-template-columns:1fr 1fr}
 @media(max-width:620px){
@@ -475,6 +491,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
             <div class="m" id="monthlySellerMain">SELLER CONFIDENCE</div>
             <div class="s" id="monthlySellerSub"></div>
           </div>
+          <div id="monthlyDealCheck" class="scout-deal-box" hidden></div>
           <div class="monthly-actions">
             <button type="button" class="primary" id="monthlyViewBtn">VIEW LISTING →</button>
             <button type="button" class="secondary" id="monthlyBoughtBtn">✓ I BOUGHT IT</button>
@@ -683,6 +700,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
             <div class="main" id="findTargetSellerMain">SELLER CONFIDENCE</div>
             <div class="sub" id="findTargetSellerSub"></div>
           </div>
+          <div id="findTargetDealCheck" class="scout-deal-box" hidden></div>
           <div class="find-target-actions">
             <button type="button" class="primary" id="findTargetViewBtn">VIEW LISTING →</button>
             <button type="button" class="secondary" id="findTargetSaveBtn">🎯 MAKE THIS MY TARGET</button>
@@ -852,7 +870,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.8.1</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.9.0</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -945,7 +963,7 @@ async function cloudSaveNow(forceTimestamp=false){
       method:"POST",
       headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
       body:JSON.stringify({
-        appVersion:"4.8.1",
+        appVersion:"4.9.0",
         clientUpdatedAt,
         playerUpdates:edits,
         monthlyPick:monthlyReadState()
@@ -1508,7 +1526,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"4.8.1",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"4.9.0",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -1731,18 +1749,213 @@ function applyFastMode(on){
 
 let phase3bActiveTargetPlayer=null;
 
-/* v4.8.1 — Find a Target */
+/* v4.9.0 — Find a Target */
 const FIND_TARGET_BUDGET_KEY="hofScoutFindTargetBudgetV1";
 let findTargetSuggestion=null;
 let findTargetExcludedIds=[];
 let findTargetPlayerName="";
 
-/* v4.8.1 — Monthly Pick */
+/* v4.9.0 — Monthly Pick */
 const MONTHLY_BUDGET_KEY="hofScoutMonthlyBudgetV1";
 const MONTHLY_STATE_KEY="hofScoutMonthlyPickV1";
 const MONTHLY_LAB_STATE_KEY="hofScoutMonthlyPickLabV2";
 let monthlyState=null;
 let monthlyPlayer=null;
+
+
+/* v4.9.0 — recommendation listing price check */
+function scoutDealClamp(v,min,max){return Math.max(min,Math.min(max,v))}
+function scoutDealStep(v){
+  if(v<10)return .25;
+  if(v<25)return .50;
+  if(v<100)return 1;
+  if(v<250)return 2;
+  if(v<1000)return 5;
+  return 10;
+}
+function scoutDealRound(v){
+  if(!Number.isFinite(v))return null;
+  const step=scoutDealStep(v);
+  return Math.round(v/step)*step;
+}
+function scoutSmartBuyTargets(v){
+  const median=Number(v?.median);
+  if(!Number.isFinite(median)||median<=0)return null;
+
+  const market=v?.confidenceLab?.market||{};
+  const score=Number.isFinite(Number(market.score))?Number(market.score):Number(v?.confidenceScore||50);
+  const conf=scoutDealClamp(score/100,0,1);
+  const spreadRaw=Number(market?.components?.priceConsistency?.iqrToMedian);
+  const low=Number(v?.low),high=Number(v?.high);
+  const fallbackSpread=Number.isFinite(low)&&Number.isFinite(high)&&median>0?(high-low)/median:.60;
+  const spread=scoutDealClamp(Number.isFinite(spreadRaw)?spreadRaw:fallbackSpread,0,1.5);
+  const spreadForBuffer=Math.min(spread,1);
+
+  const greatDiscount=scoutDealClamp(.12+.12*(1-conf)+.08*spreadForBuffer,.14,.32);
+  const ceilingDiscount=scoutDealClamp(.02+.08*(1-conf)+.05*spreadForBuffer,.04,.18);
+  const walkPremium=scoutDealClamp(.08*conf-.05*spreadForBuffer,-.03,.06);
+
+  let greatRaw=median*(1-greatDiscount);
+  if(Number.isFinite(low)&&low>0&&low<greatRaw){
+    const softenedLow=low*1.02;
+    greatRaw=(greatRaw*.75)+(softenedLow*.25);
+  }
+  greatRaw=Math.max(greatRaw,median*.68);
+
+  const ceilingRaw=median*(1-ceilingDiscount);
+  let walkRaw=median*(1+walkPremium);
+  if(Number.isFinite(high)&&high>0)walkRaw=Math.min(walkRaw,high*1.02);
+
+  let greatBuy=scoutDealRound(greatRaw);
+  let buyCeiling=scoutDealRound(ceilingRaw);
+  let walkAway=scoutDealRound(walkRaw);
+  if(buyCeiling<=greatBuy)buyCeiling=greatBuy+scoutDealStep(greatBuy);
+  if(walkAway<=buyCeiling)walkAway=buyCeiling+scoutDealStep(buyCeiling);
+
+  return {median,greatBuy,buyCeiling,walkAway,confidenceScore:score};
+}
+function scoutRecommendationVerdict(delivered,t){
+  const p=Number(delivered);
+  if(!t||!Number.isFinite(p))return {tier:"market_check",label:"MARKET CHECK",reason:"Scout could not rate this listing price."};
+  if(p<=t.greatBuy)return {tier:"great_buy",label:"GREAT BUY",reason:"This listing is at or below Scout's Great Buy price."};
+  if(p<=t.buyCeiling)return {tier:"buy",label:"BUY",reason:"This listing is below Scout's Buy Ceiling."};
+  if(p<=t.median)return {tier:"fair",label:"FAIR PRICE",reason:"The listing is reasonable, but it is not a bargain."};
+  if(p<=t.walkAway)return {tier:"negotiate",label:"NEGOTIATE",reason:"Scout likes the card, but would try for a lower price."};
+  return {tier:"pass",label:"PASS",reason:"Good target, bad price. Scout would wait for another copy."};
+}
+function scoutRecommendationCanonicalSet(s){
+  const verified=String(s?.traits?.rookieVerification?.set||"").trim();
+  if(verified)return verified;
+  return String(s?.set||"").trim();
+}
+function scoutRecommendationPricingCard(playerName,s){
+  const gradeInfo=s?.gradeInfo||{};
+  return {
+    year:Number(s?.year),
+    set:scoutRecommendationCanonicalSet(s),
+    player:playerName,
+    cardNum:String(s?.cardNum||""),
+    grader:gradeInfo?.grader||"Raw",
+    grade:gradeInfo?.grade??"",
+    autograph:!!s?.traits?.autograph,
+    relic:false,
+    serial:"",
+    shopPrice:Number(s?.delivered),
+    notes:"",
+    fastMode:true
+  };
+}
+async function scoutRecommendationMarketCheck(playerName,s){
+  const c=pricingConfig();
+  const card=scoutRecommendationPricingCard(playerName,s);
+
+  if(!c.endpoint||!c.accessKey){
+    return {rated:false,tier:"market_check",label:"MARKET CHECK",reason:"Scout's live pricing connection is not configured on this device."};
+  }
+  if(!Number.isInteger(card.year)||!card.set||!Number.isFinite(card.shopPrice)){
+    return {
+      rated:false,tier:"market_check",label:"MARKET CHECK",
+      reason:"Scout likes the target, but the card identity is not specific enough for a trustworthy sold-comps price check."
+    };
+  }
+
+  try{
+    const res=await fetch(c.endpoint+"/value",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
+      body:JSON.stringify(card)
+    });
+    const v=await res.json().catch(()=>({}));
+    if(!res.ok||!v.ok)throw new Error(v.message||v.error||("Pricing returned "+res.status));
+
+    const used=Number(v.used||0);
+    const confidence=String(v.confidence||"insufficient");
+    const median=Number(v.median);
+
+    if(used<2||confidence==="insufficient"||!Number.isFinite(median)||median<=0){
+      return {
+        rated:false,tier:"market_check",label:"MARKET CHECK",
+        delivered:card.shopPrice,used,confidence,
+        confidenceScore:Number(v.confidenceScore||0),
+        median:Number.isFinite(median)&&median>0?median:null,
+        low:Number.isFinite(Number(v.low))&&Number(v.low)>0?Number(v.low):null,
+        high:Number.isFinite(Number(v.high))&&Number(v.high)>0?Number(v.high):null,
+        pricingIdentity:{year:card.year,set:card.set,player:playerName,cardNum:card.cardNum},
+        reason:"Scout likes the target, but there are not enough reliable sold comps to confidently rate this listing price."
+      };
+    }
+
+    const targets=scoutSmartBuyTargets(v);
+    const verdict=scoutRecommendationVerdict(card.shopPrice,targets);
+    return {
+      rated:true,...verdict,
+      delivered:card.shopPrice,
+      median:Number(v.median),
+      low:Number(v.low),
+      high:Number(v.high),
+      used,confidence,
+      confidenceScore:Number(v.confidenceScore||0),
+      greatBuy:targets.greatBuy,
+      buyCeiling:targets.buyCeiling,
+      walkAway:targets.walkAway,
+      provider:v.provider||"",
+      pricingIdentity:{year:card.year,set:card.set,player:playerName,cardNum:card.cardNum},
+      reason:verdict.reason
+    };
+  }catch(err){
+    return {
+      rated:false,tier:"market_check",label:"MARKET CHECK",
+      delivered:card.shopPrice,
+      pricingIdentity:{year:card.year,set:card.set,player:playerName,cardNum:card.cardNum},
+      reason:"Scout found the target, but the sold-comps price check could not be completed for this listing."
+    };
+  }
+}
+function scoutDealMoney(v){
+  const n=Number(v);
+  return Number.isFinite(n)&&n>0?"$"+n.toFixed(2):"—";
+}
+function scoutDealHtml(m){
+  if(!m)return "";
+  const tier=String(m.tier||"market_check");
+  const confidence=String(m.confidence||"").toUpperCase();
+  const score=Number(m.confidenceScore);
+  const used=Number(m.used||0);
+  const confidenceText=m.rated
+    ? `${confidence||"UNKNOWN"} CONFIDENCE${Number.isFinite(score)?` · ${Math.round(score)}/100`:""} · ${used} COMPS`
+    : `PRICE EVIDENCE LIMITED${used?` · ${used} COMPS`:""}`;
+
+  let metrics="";
+  if(m.rated){
+    metrics=`<div class="scout-deal-metrics">
+      <div class="scout-deal-metric"><div class="k">RECENT MEDIAN</div><div class="v">${scoutDealMoney(m.median)}</div></div>
+      <div class="scout-deal-metric"><div class="k">GREAT BUY</div><div class="v">${scoutDealMoney(m.greatBuy)}</div></div>
+      <div class="scout-deal-metric"><div class="k">BUY CEILING</div><div class="v">${scoutDealMoney(m.buyCeiling)}</div></div>
+      <div class="scout-deal-metric"><div class="k">WALK AWAY</div><div class="v">${scoutDealMoney(m.walkAway)}</div></div>
+    </div>`;
+  }else{
+    // Do not render a meaningless "$0.00" median. Only show a thin-market
+    // median when the provider actually returned a positive value.
+    const median=Number(m.median);
+    if(Number.isFinite(median)&&median>0){
+      metrics=`<div class="scout-deal-metrics"><div class="scout-deal-metric"><div class="k">RECENT MEDIAN</div><div class="v">${scoutDealMoney(median)}</div></div></div>`;
+    }
+  }
+
+  return `<div class="scout-deal-top">
+    <div><div class="section-eyebrow">💰 LISTING PRICE CHECK</div><div class="scout-deal-label ${escapeHtml(tier)}">${escapeHtml(m.label||"MARKET CHECK")}</div></div>
+    <div class="scout-deal-confidence">${escapeHtml(confidenceText)}</div>
+  </div>
+  ${metrics}
+  <div class="scout-deal-message">${escapeHtml(m.reason||"")}</div>`;
+}
+function scoutRenderDealBox(id,m){
+  const el=$(id);
+  if(!el)return;
+  if(!m){el.hidden=true;el.innerHTML="";return}
+  el.innerHTML=scoutDealHtml(m);
+  el.hidden=false;
+}
 
 function monthlyKey(d=new Date()){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")}
 function monthlyName(d=new Date()){return d.toLocaleDateString(undefined,{month:"long",year:"numeric"})}
@@ -1860,6 +2073,7 @@ function monthlyRenderSuggestion(s){
   if(Number.isFinite(Number(seller.reviews)))bits.push(Number(seller.reviews).toLocaleString()+" feedback");
   $("monthlySellerMain").textContent=(st.previousSeller?"★ PREVIOUS SELLER · ":"SELLER CONFIDENCE · ")+(st.label||"TRUSTED");
   $("monthlySellerSub").textContent=bits.join(" · ")||"Seller passed Scout's trust gate.";
+  scoutRenderDealBox("monthlyDealCheck",s.marketCheck||null);
 
   $("monthlyBoughtBtn").disabled=false;
   $("monthlyRetryBtn").disabled=false;
@@ -1904,6 +2118,19 @@ function monthlyInit(){
     monthlyRenderSuggestion(monthlyState.suggestion);
     $("monthlyStatus").className="monthly-status ok";
     $("monthlyStatus").textContent="✓ Monthly recommendation is locked. Refreshing will not run another search.";
+    if(!monthlyState.suggestion.marketCheck){
+      (async()=>{
+        $("monthlyStatus").className="monthly-status";
+        $("monthlyStatus").textContent="Monthly pick is locked. Scout is adding the sold-market price check…";
+        monthlyState.suggestion.marketCheck=await scoutRecommendationMarketCheck(monthlyPlayer.name,monthlyState.suggestion);
+        monthlyWriteState(true);
+        monthlyRenderSuggestion(monthlyState.suggestion);
+        $("monthlyStatus").className="monthly-status ok";
+        $("monthlyStatus").textContent=monthlyState.suggestion.marketCheck?.rated
+          ?"✓ Monthly recommendation is locked with a listing price verdict."
+          :"✓ Monthly recommendation is locked. Pricing evidence is limited.";
+      })();
+    }
   }else{
     $("monthlyScoutBtn").disabled=false;
   }
@@ -1959,11 +2186,16 @@ async function monthlyScout(isRetry=false){
       return;
     }
 
+    $("monthlyStatus").className="monthly-status";
+    $("monthlyStatus").textContent="✓ Target found. Scout is checking the exact-card sold market…";
+    data.suggestion.marketCheck=await scoutRecommendationMarketCheck(monthlyPlayer.name,data.suggestion);
     monthlyState.suggestion=data.suggestion;
     monthlyWriteState(true);
     monthlyRenderSuggestion(data.suggestion);
     $("monthlyStatus").className="monthly-status ok";
-    $("monthlyStatus").textContent="✓ Monthly recommendation ready and locked for this month.";
+    $("monthlyStatus").textContent=data.suggestion.marketCheck?.rated
+      ?"✓ Monthly recommendation ready with a listing price verdict."
+      :"✓ Monthly recommendation ready. Pricing evidence is limited.";
   }catch(err){
     $("monthlyStatus").className="monthly-status bad";
     $("monthlyStatus").textContent=err.message||"Scout could not complete the Monthly Pick search.";
@@ -2119,6 +2351,7 @@ function findTargetIdentityLabel(s){
 }
 function findTargetNotes(s){
   const bits=["Scout Find a Target"];
+  if(s?.marketCheck?.rated)bits.push("Price verdict: "+s.marketCheck.label);
   if(s?.gradeInfo?.grader&&s.gradeInfo.grader!=="Raw")bits.push("Desired grade: "+s.gradeInfo.label);
   if(s?.traits?.autograph)bits.push("Autograph");
   if(s?.traits?.shortPrint)bits.push("Short print / numbered");
@@ -2137,6 +2370,7 @@ function findTargetResetResult(){
   $("findTargetStatus").className="find-target-status";
   $("findTargetSaveBtn").disabled=false;
   $("findTargetSaveBtn").textContent="🎯 MAKE THIS MY TARGET";
+  scoutRenderDealBox("findTargetDealCheck",null);
 }
 function openFindTarget(){
   if(!currentPlayer)return;
@@ -2183,6 +2417,7 @@ function renderFindTargetSuggestion(s){
   if(Number.isFinite(Number(seller.positivePct)))sellerBits.push(Number(seller.positivePct).toFixed(1).replace(/\.0$/,"")+"% positive");
   if(Number.isFinite(Number(seller.reviews)))sellerBits.push(Number(seller.reviews).toLocaleString()+" feedback");
   $("findTargetSellerSub").textContent=sellerBits.join(" · ")||"Seller passed Scout's trust gate.";
+  scoutRenderDealBox("findTargetDealCheck",s.marketCheck||null);
   $("findTargetViewBtn").dataset.link=s.link||"";
 
   const match=findTargetMatchesSaved(s,p);
@@ -2235,9 +2470,20 @@ async function searchFindTarget(){
       $("findTargetStatus").textContent=data.message||"Scout did not find a qualifying target in this search.";
       return;
     }
+    $("findTargetStatus").className="find-target-status";
+    $("findTargetStatus").textContent="✓ Target found. Scout is checking the exact-card sold market…";
+    data.suggestion.marketCheck=await scoutRecommendationMarketCheck(p.name,data.suggestion);
     renderFindTargetSuggestion(data.suggestion);
     $("findTargetStatus").className="find-target-status ok";
-    $("findTargetStatus").textContent=p.owned?"✓ Scout found a meaningful upgrade candidate.":"✓ Scout found a target recommendation.";
+    if(data.suggestion.marketCheck?.rated){
+      $("findTargetStatus").textContent=p.owned
+        ?"✓ Scout found a meaningful upgrade candidate with a listing price verdict."
+        :"✓ Scout found a target recommendation with a listing price verdict.";
+    }else{
+      $("findTargetStatus").textContent=p.owned
+        ?"✓ Scout found a meaningful upgrade candidate. Pricing evidence is limited."
+        :"✓ Scout found a target recommendation. Pricing evidence is limited.";
+    }
   }catch(err){
     $("findTargetStatus").className="find-target-status bad";
     $("findTargetStatus").textContent=err.message||"Scout could not complete the target search.";
