@@ -124,6 +124,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .field.full{grid-column:1/-1}
 .field label{display:block;font-size:11px;color:var(--muted);font-weight:850;margin:0 0 5px}
 .field input,.field select,.field textarea{width:100%;min-height:46px;border-radius:12px;border:1px solid #3a5d52;background:#f9f4e8;color:var(--ink);padding:9px 11px;font-size:16px}
+.money-input{position:relative}
+.money-input .currency-prefix{position:absolute;left:11px;top:50%;transform:translateY(-50%);z-index:1;color:var(--ink);font-weight:900;pointer-events:none}
+.money-input input{padding-left:28px!important}
 .field textarea{min-height:74px;resize:vertical}
 .psa-verify-wrap{grid-column:1/-1;border:1px solid rgba(86,197,138,.32);background:rgba(86,197,138,.07);border-radius:15px;padding:12px}
 .psa-verify-row{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end}
@@ -429,7 +432,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
                 <label class="check"><input type="checkbox" id="manageIncoming"> 📦 Card is still in transit</label>
               </div>
             </div>
-            <div class="field"><label for="managePricePaid">Price paid</label><input id="managePricePaid" inputmode="decimal" placeholder="24.99"></div>
+            <div class="field"><label for="managePricePaid">Price paid</label><div class="money-input"><span class="currency-prefix">$</span><input id="managePricePaid" inputmode="decimal" placeholder="24.99"></div></div>
             <div class="field"><label for="managePurchaseDate">Purchase date</label><input id="managePurchaseDate" type="date"></div>
             <div class="field full"><label for="manageSource">Where bought</label>
               <select id="manageSource">
@@ -558,7 +561,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.4.0</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.4.1</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -914,7 +917,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"4.4.0",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"4.4.1",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -1578,7 +1581,7 @@ function phase3aOpenPurchase(card,data,p){
     <div class="handoff-summary"><div class="main">${escapeHtml(p.name)} · ${escapeHtml(phase3aShopCardLabel(card))}</div>
       <div class="sub">Scout carried the card details forward${price!==null?" · shop price "+escapeHtml(formatMoney(price)):""}. Finish the purchase details below.</div></div>
     <div class="handoff-grid">
-      <div class="handoff-field"><label>PRICE PAID</label><input id="phase3aPaid" inputmode="decimal" value="${price!==null?escapeHtml(price.toFixed(2)):""}" placeholder="Optional"></div>
+      <div class="handoff-field"><label>PRICE PAID</label><div class="money-input"><span class="currency-prefix">$</span><input id="phase3aPaid" inputmode="decimal" value="${price!==null?escapeHtml(price.toFixed(2)):""}" placeholder="Optional"></div></div>
       <div class="handoff-field"><label>PURCHASE DATE</label><input id="phase3aDate" type="date" value="${escapeHtml(phase3aLocalDate())}"></div>
       <div class="handoff-field full"><label>WHERE BOUGHT</label><select id="phase3aSource"><option>Card shop</option><option>Card show</option><option>eBay</option><option>Trade</option><option>Other</option></select></div>
       <div class="handoff-field full" id="phase3aSourceDetail"></div>
