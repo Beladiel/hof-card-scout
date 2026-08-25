@@ -1,49 +1,48 @@
-<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>HOF Card Scout — Phase 5 Hunt List Lab</title>
 <style>
-:root{--bg:#0f1a16;--panel:#172720;--text:#f7f1df;--muted:#aab9b0;--line:#355247;--green:#56c58a;--gold:#e6bd63;--red:#ef7474;--blue:#75aee9}
-*{box-sizing:border-box}body{margin:0;background:#0f1a16;color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-.wrap{max-width:760px;margin:auto;padding:16px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px;margin:12px 0}
-h1,h2{margin:0 0 8px}.small{font-size:11px;color:var(--muted);line-height:1.5}.eyebrow{font-size:9px;font-weight:950;letter-spacing:.1em;color:var(--gold)}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.stat{border:1px solid var(--line);border-radius:13px;padding:10px}.stat.active{border-color:var(--gold)}.n{font-size:22px;font-weight:1000}.k{font-size:9px;color:var(--muted)}
-.controls,.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.pill,button{border-radius:11px;min-height:40px;padding:8px 10px;font-weight:950;border:1px solid var(--line);background:transparent;color:var(--text)}
-.pill.active{background:var(--gold);color:#211a0b;border-color:var(--gold)}.primary{background:var(--green);color:#072116;border:0}.gold{background:var(--gold);color:#211a0b;border:0}
-.search{width:100%;margin-top:10px;min-height:42px;border-radius:11px;border:1px solid #49665a;background:#fbf6e9;padding:8px 10px}
-.card{border:1px solid var(--line);border-radius:15px;padding:11px;margin-top:9px}.top{display:flex;gap:8px}.player{font-size:15px;font-weight:1000}.badge{margin-left:auto;font-size:8px;font-weight:1000;border-radius:999px;padding:5px 7px}
-.needb{color:#ff9b9b;background:rgba(239,116,116,.13)}.targetb{color:#f3cf7f;background:rgba(230,189,99,.14)}.incomingb{color:#9cc7f0;background:rgba(117,174,233,.14)}.line{font-size:10px;color:var(--muted);margin-top:4px}
-.note{text-align:center;font-size:9px;color:#7e9188;margin-top:16px}
-</style></head><body><div class='wrap'>
-<div class='panel'><div class='eyebrow'>PHASE 5 v0.1</div><h1>🛒 My Hunt List</h1><div class='small'>Sample data only. This lab cannot change your real collection.</div>
-<div class='stats'>
-<div class='stat active' data-filter='need'><div class='n'>3</div><div class='k'>NEED</div></div>
-<div class='stat' data-filter='target'><div class='n'>2</div><div class='k'>TARGETS</div></div>
-<div class='stat' data-filter='incoming'><div class='n'>1</div><div class='k'>INCOMING</div></div></div>
-<input class='search' id='search' placeholder='Search Hunt List…'>
-<div class='controls'><button class='pill active' data-filter='need'>NEED</button><button class='pill' data-filter='target'>TARGETS</button><button class='pill' data-filter='incoming'>INCOMING</button><button class='pill' data-filter='all'>ALL HUNTS</button></div>
-</div>
-<div class='panel'><div class='eyebrow' id='label'>PLAYERS YOU STILL NEED</div><div id='list'></div></div>
-<div class='note'>Phase 5 v0.1 · Sample data only · No collection writes</div>
+:root{--bg:#0f1a16;--panel:#172720;--text:#f7f1df;--muted:#aab9b0;--line:#355247;--green:#56c58a;--gold:#e6bd63;--red:#ef7474;--blue:#75aee9;--ink:#17251f}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#20362c 0,#0f1a16 46%);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:780px;margin:auto;padding:15px 13px 50px}header{display:flex;align-items:center;gap:11px;margin:3px 0 14px}.ball{width:52px;height:52px;border-radius:50%;background:#fffdf5;border:2px solid #c9c0ad;display:grid;place-items:center;font-size:27px}h1{font-size:22px;margin:0}.sub{font-size:11px;color:var(--muted);margin-top:2px}.version{margin-left:auto;font-size:9px;color:var(--gold);font-weight:950;letter-spacing:.09em}
+.panel{background:rgba(23,39,32,.97);border:1px solid var(--line);border-radius:18px;padding:13px;margin:11px 0;box-shadow:0 12px 30px rgba(0,0,0,.17)}.eyebrow{font-size:9px;font-weight:950;letter-spacing:.11em;color:var(--gold)}h2{font-size:18px;margin:4px 0 8px}.small{font-size:10px;line-height:1.5;color:var(--muted)}
+.sync{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin-top:10px}.sync .copy{flex:1}.sync .state{font-size:10px;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:11px}.stat{border:1px solid var(--line);border-radius:13px;padding:9px;background:rgba(255,255,255,.025);cursor:pointer;color:var(--text);text-align:left}.stat .n{font-size:22px;font-weight:1000}.stat .k{font-size:9px;color:var(--muted);font-weight:900}.stat.active{border-color:var(--gold);box-shadow:0 0 0 1px rgba(230,189,99,.25) inset}
+.controls{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.pill{border:1px solid var(--line);background:transparent;color:var(--text);border-radius:999px;padding:7px 10px;font-size:9px;font-weight:950}.pill.active{background:var(--gold);color:#211a0b;border-color:var(--gold)}
+.search{width:100%;margin-top:9px;min-height:42px;border:1px solid #49665a;border-radius:11px;background:#fbf6e9;color:var(--ink);padding:8px 10px}.card{border:1px solid var(--line);border-radius:15px;padding:11px;margin-top:9px;background:rgba(255,255,255,.025)}.card.target{border-color:rgba(230,189,99,.55)}.card.incoming{border-color:rgba(117,174,233,.5)}.top{display:flex;gap:8px;align-items:flex-start}.player{font-size:15px;font-weight:1000}.badgebox{margin-left:auto;display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.badge{font-size:8px;font-weight:1000;border-radius:999px;padding:5px 7px;white-space:nowrap}.needb{background:rgba(239,116,116,.13);color:#ff9b9b}.targetb{background:rgba(230,189,99,.14);color:#f3cf7f}.incomingb{background:rgba(117,174,233,.14);color:#9cc7f0}.line{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.45}.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}button{border:0;border-radius:11px;min-height:40px;padding:8px 10px;font-weight:950;cursor:pointer}.primary{background:var(--green);color:#072116}.gold{background:var(--gold);color:#211a0b}.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}.empty{text-align:center;padding:26px 12px;color:var(--muted)}.note{text-align:center;color:#7e9188;font-size:9px;margin-top:16px}
+@media(max-width:620px){.actions button{flex:1}}
+</style>
+</head>
+<body><div class="wrap">
+<header><div class="ball">⚾</div><div><h1>HOF Card Scout</h1><div class="sub">Phase 5 — Hunt List / Shopping Mode lab</div></div><div class="version">v0.2</div></header>
+<section class="panel">
+<div class="eyebrow">REAL COLLECTION DATA</div><h2>🛒 My Hunt List</h2><div class="small">This page reads your current Scout collection from the same browser. Actions open the real Scout app in a new tab with the selected player/workflow loaded.</div>
+<div class="sync"><div class="copy"><div class="eyebrow">LIVE SCOUT ROSTER</div><div class="state" id="loadState">Loading your collection…</div></div><button class="ghost" id="refreshBtn">REFRESH</button></div>
+<div class="stats"><button class="stat active" data-filter="need"><div class="n" id="needCount">—</div><div class="k">NEED</div></button><button class="stat" data-filter="target"><div class="n" id="targetCount">—</div><div class="k">TARGETS</div></button><button class="stat" data-filter="incoming"><div class="n" id="incomingCount">—</div><div class="k">INCOMING</div></button></div>
+<input class="search" id="search" placeholder="Search Hunt List…">
+<div class="controls"><button class="pill active" data-filter="need">NEED</button><button class="pill" data-filter="target">TARGETS</button><button class="pill" data-filter="incoming">INCOMING</button><button class="pill" data-filter="all">ALL HUNTS</button></div>
+</section>
+<section class="panel"><div class="eyebrow" id="sectionLabel">PLAYERS YOU STILL NEED</div><div id="list"><div class="empty">Loading…</div></div></section>
+<div class="note">Phase 5 v0.2 · Reads real Scout data · Live actions open the real app</div>
 </div>
 <script>
-const hunts=[
-{name:"Dave Bancroft",type:"need",card:"No target selected yet",note:"Pick any representative card you like."},
-{name:"Nellie Fox",type:"target",card:"1961 Topps #30",note:"Saved target · Typical target: $8–$14"},
-{name:"Jim Bunning",type:"need",card:"No target selected yet",note:"Still need one representative card."},
-{name:"Larry Doby",type:"target",card:"1954 Topps #70",note:"Saved target · Typical target: $28–$40"},
-{name:"Rickey Henderson",type:"incoming",card:"1980 Topps #482 · Raw",note:"Purchased on eBay · Paid $40.00"},
-{name:"Arky Vaughan",type:"need",card:"No target selected yet",note:"Still need one representative card."}
-];
-let filter="need";
+const STORAGE_KEY="hofCardScoutEditsV1";
+let players=[];let filter="need";
 const $=id=>document.getElementById(id);
-function badge(t){if(t==="target")return "<span class='badge targetb'>🎯 TARGET</span>";if(t==="incoming")return "<span class='badge incomingb'>📦 INCOMING</span>";return "<span class='badge needb'>✕ NEED</span>"}
-function title(f){return f==="target"?"SAVED TARGET CARDS":f==="incoming"?"CARDS ON THE WAY":f==="all"?"ALL ACTIVE HUNTS":"PLAYERS YOU STILL NEED"}
-function render(){
- const q=$("search").value.toLowerCase();
- const rows=hunts.filter(h=>(filter==="all"||h.type===filter)&&(!q||h.name.toLowerCase().includes(q)||h.card.toLowerCase().includes(q)));
- $("label").textContent=title(filter);
- $("list").innerHTML=rows.map(h=>`<div class='card'><div class='top'><div><div class='player'>${h.name}</div><div class='line'>${h.card}</div></div>${badge(h.type)}</div><div class='line'>${h.note}</div><div class='actions'>${h.type==="incoming"?`<button class='primary' onclick="act('received','${h.name}')">✓ MARK RECEIVED</button>`:`<button class='primary' onclick="act('scout','${h.name}')">⚾ SCOUT</button><button class='gold' onclick="act('deals','${h.name}')">🔎 FIND DEALS</button>${h.type==="need"?`<button onclick="act('target','${h.name}')">🎯 SET TARGET</button>`:""}`}</div></div>`).join("")||"<div class='small'>Nothing in this view.</div>";
-}
-function act(a,n){const m={scout:`Lab: ${n} would open in Card Shop Mode.`,deals:`Lab: Scout would price the selected card first, then search live deals for ${n}.`,target:`Lab: this would open ${n}'s Target Card editor.`,received:`Lab: ${n} would be marked Received.`};alert(m[a])}
-document.querySelectorAll("[data-filter]").forEach(el=>el.onclick=()=>{filter=el.dataset.filter;document.querySelectorAll("[data-filter]").forEach(x=>x.classList.toggle("active",x.dataset.filter===filter));render()});
-$("search").oninput=render;render();
-</script></body></html>
+const esc=s=>String(s??"").replace(/[&<>\"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+function cardLabel(p){if(!p.owned)return "No representative card yet";return [p.cardYear,p.set,p.cardNum?"#"+p.cardNum:""].filter(Boolean).join(" ")||"Representative card details not entered"}
+function badges(p){const b=[];if(!p.owned)b.push('<span class="badge needb">✕ NEED</span>');if(p.target)b.push('<span class="badge targetb">🎯 TARGET</span>');if(p.incoming)b.push('<span class="badge incomingb">📦 INCOMING</span>');return b.join("")}
+function detail(p){if(p.incoming&&p.owned)return cardLabel(p)+(p.pricePaid?" · Paid $"+Number(p.pricePaid).toFixed(2):"");if(p.target)return p.target+(p.targetNotes?" · "+p.targetNotes:"");return "No target selected yet · any representative card can fill this spot."}
+function matches(p){if(filter==="need")return !p.owned;if(filter==="target")return !!p.target;if(filter==="incoming")return !!p.incoming;return !p.owned||!!p.target||!!p.incoming}
+function sectionName(){return filter==="target"?"SAVED TARGET CARDS":filter==="incoming"?"CARDS ON THE WAY":filter==="all"?"ALL ACTIVE HUNTS":"PLAYERS YOU STILL NEED"}
+function actions(p){if(p.incoming)return `<button class="primary" data-action="view" data-name="${esc(p.name)}">VIEW CARD →</button>`;if(p.target)return `<button class="primary" data-action="target" data-name="${esc(p.name)}">⚾ SCOUT TARGET</button><button class="gold" data-action="deals" data-name="${esc(p.name)}">🔎 FIND DEALS</button><button class="ghost" data-action="view" data-name="${esc(p.name)}">VIEW PLAYER</button>`;return `<button class="primary" data-action="scout" data-name="${esc(p.name)}">⚾ SCOUT A CARD</button><button class="ghost" data-action="settarget" data-name="${esc(p.name)}">🎯 SET TARGET</button><button class="ghost" data-action="view" data-name="${esc(p.name)}">VIEW PLAYER</button>`}
+function render(){const q=$("search").value.trim().toLowerCase();$("needCount").textContent=players.filter(p=>!p.owned).length;$("targetCount").textContent=players.filter(p=>p.target).length;$("incomingCount").textContent=players.filter(p=>p.incoming).length;$("sectionLabel").textContent=sectionName();const rows=players.filter(matches).filter(p=>!q||[p.name,p.target,p.targetNotes,cardLabel(p)].some(v=>String(v||"").toLowerCase().includes(q))).sort((a,b)=>String(a.last||a.name).localeCompare(String(b.last||b.name)));$("list").innerHTML=rows.length?rows.map(p=>`<div class="card ${p.incoming?"incoming":p.target?"target":""}"><div class="top"><div><div class="player">${esc(p.name)}</div><div class="line">${esc(detail(p))}</div></div><div class="badgebox">${badges(p)}</div></div><div class="actions">${actions(p)}</div></div>`).join(""):'<div class="empty">Nothing in this view.</div>';document.querySelectorAll("[data-action]").forEach(b=>b.onclick=()=>launch(b.dataset.action,b.dataset.name))}
+function setFilter(f){filter=f;document.querySelectorAll("[data-filter]").forEach(el=>el.classList.toggle("active",el.dataset.filter===f));render()}
+async function loadRealData(){$("loadState").textContent="Reading live Scout roster + local collection…";try{const text=await fetch("index.html?phase5="+Date.now(),{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error("Could not read index.html");return r.text()});const m=text.match(/const PLAYERS\s*=\s*(\[[\s\S]*?\]);\s*const STORAGE_KEY=/);if(!m)throw new Error("Could not locate Scout player roster");const base=JSON.parse(m[1]);let edits={};try{edits=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}")}catch{}players=base.map(p=>edits[p.name]?Object.assign({},p,edits[p.name]):p);$("loadState").textContent=`Loaded ${players.length} Hall of Famers from your live Scout collection.`;render()}catch(err){console.error(err);$("loadState").textContent="Could not load live collection: "+err.message;$("list").innerHTML='<div class="empty">Scout could not read the live roster.</div>'}}
+function launch(action,name){const w=window.open("index.html","_blank");if(!w){alert("Your browser blocked the Scout window. Allow pop-ups for this site and try again.");return}let tries=0;const timer=setInterval(()=>{tries++;try{if(typeof w.findPlayer!=="function"||typeof w.openShop!=="function"){if(tries>80)clearInterval(timer);return}const p=w.findPlayer(name);if(!p){clearInterval(timer);return}if(action==="view"){w.openPlayer(p);clearInterval(timer);return}if(action==="target"||action==="deals"){w.phase3bScoutTarget(p);if(action==="deals"&&typeof w.toast==="function")w.toast("🎯 Run Scout first — FIND DEALS appears in the pricing result.");clearInterval(timer);return}if(action==="settarget"){w.openTargetManage();const input=w.document.getElementById("targetPlayer");if(input)input.value=p.name;clearInterval(timer);return}if(action==="scout"){w.openShop({name:p.name,cardYear:"",set:"",cardNum:"",description:""});if(typeof w.toast==="function")w.toast("Player loaded. Enter the card in front of you and run Scout.");clearInterval(timer);return}}catch(e){if(tries>80)clearInterval(timer)}},100)}
+document.querySelectorAll("[data-filter]").forEach(el=>el.onclick=()=>setFilter(el.dataset.filter));$("search").oninput=render;$("refreshBtn").onclick=loadRealData;loadRealData();
+</script>
+</body></html>
