@@ -20,7 +20,7 @@ button{border:0;border-radius:13px;min-height:48px;padding:10px 13px;font-size:1
   <div class="header">
     <div class="ball">🔎</div>
     <div><h1>Find a Target</h1><p>Any Hall of Famer. Need card or meaningful upgrade.</p></div>
-    <div class="labtag">LAB v0.1.5</div>
+    <div class="labtag">LAB v0.1.6</div>
   </div>
 
   <div class="panel">
@@ -42,6 +42,7 @@ button{border:0;border-radius:13px;min-height:48px;padding:10px 13px;font-size:1
     <div class="eyebrow" id="resultEyebrow">SCOUT'S TARGET RECOMMENDATION</div>
     <div class="recTitle" id="recTitle"></div>
     <div id="recBadges"></div>
+    <div class="status" id="conditionLine"></div>
     <div class="pricegrid">
       <div class="stat"><div class="k">CARD YEAR</div><div class="v" id="recYear">—</div></div>
       <div class="stat"><div class="k">LIST</div><div class="v" id="recPrice">—</div></div>
@@ -166,6 +167,7 @@ function selectPlayer(){
   selected=players.find(p=>p.name.toLowerCase()===raw)||null;
   suggestion=null;excludedIds=[];
   $("result").hidden=true;$("empty").hidden=true;$("saveStatus").textContent="";
+  $("targetBtn").disabled=false;$("targetBtn").textContent="🎯 MAKE THIS MY TARGET";
   if(selected){
     renderContext();
     $("findBtn").disabled=false;
@@ -222,6 +224,22 @@ async function findTarget(){
     $("findBtn").disabled=false;$("retryBtn").disabled=false;$("emptyRetry").disabled=false;
   }
 }
+function normTargetText(v){
+  return String(v||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+}
+function recommendationMatchesSavedTarget(s,p){
+  if(!s||!p?.target)return false;
+  const t=normTargetText(p.target);
+  const compact=t.replace(/\s+/g,"");
+  const year=String(s.year||"").trim();
+  const set=normTargetText(s.set||"");
+  const num=normTargetText(s.cardNum||"").replace(/\s+/g,"");
+  if(year&&!t.includes(year))return false;
+  if(set&&!t.includes(set))return false;
+  if(num&&!compact.includes(num))return false;
+  return !!(year||set||num);
+}
+
 function renderSuggestion(){
   const s=suggestion,st=s.sellerTrust||{},seller=s.seller||{},g=s.gradeInfo||{};
   $("resultEyebrow").textContent=selected.owned?"SCOUT'S UPGRADE RECOMMENDATION":"SCOUT'S TARGET RECOMMENDATION";
@@ -235,10 +253,17 @@ function renderSuggestion(){
   $("recBadges").innerHTML=badges.map(x=>`<span class="badge owned">${esc(x)}</span>`).join("");
   $("recYear").textContent=s.year||"—";$("recPrice").textContent=money(s.price);$("recDelivered").textContent=money(s.delivered);
   $("recWhy").textContent=s.why||"";
+  const ci=s.conditionInfo||{};
+  $("conditionLine").textContent=ci.label?`Condition: ${ci.label}`:"Condition: not clearly stated";
   $("sellerMain").textContent=(st.previousSeller?"★ PREVIOUS SELLER · ":"SELLER CONFIDENCE · ")+(st.label||"TRUSTED");
   const parts=[];if(seller.username)parts.push(seller.username);if(Number.isFinite(Number(seller.positivePct)))parts.push(Number(seller.positivePct).toFixed(1).replace(/\.0$/,"")+"% positive");if(Number.isFinite(Number(seller.reviews)))parts.push(Number(seller.reviews).toLocaleString()+" feedback");
   $("sellerSub").textContent=parts.join(" · ")||"Trusted seller";
   $("viewBtn").dataset.link=s.link||"";
+
+  const match=recommendationMatchesSavedTarget(s,selected);
+  $("targetBtn").disabled=match;
+  $("targetBtn").textContent=match?"✓ MATCHES YOUR SAVED TARGET":"🎯 MAKE THIS MY TARGET";
+  $("saveStatus").textContent=match?"✓ Scout found a live listing that matches the target you already saved.":"";
 }
 function targetLabel(s){
   const bits=[s.year,s.set,s.cardNum?"#"+s.cardNum:""].filter(Boolean);
@@ -263,7 +288,7 @@ async function makeTarget(){
     else if(suggestion.why)noteBits.push(suggestion.why.split(" Seller check:")[0]);
     const updated={...existing,target:label,targetNotes:noteBits.join(" · ")};
     cloudEdits[selected.name]=updated;
-    const r=await fetch(WORKER_URL+"/collection/save",{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":accessKey},body:JSON.stringify({appVersion:"phase6-find-target-lab-v0.1.5",clientUpdatedAt:new Date().toISOString(),playerUpdates:cloudEdits})});
+    const r=await fetch(WORKER_URL+"/collection/save",{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":accessKey},body:JSON.stringify({appVersion:"phase6-find-target-lab-v0.1.6",clientUpdatedAt:new Date().toISOString(),playerUpdates:cloudEdits})});
     const data=await r.json().catch(()=>({}));
     if(!r.ok||!data.ok)throw new Error(data.message||"Scout Cloud save failed.");
     localStorage.setItem(STORAGE_KEY,JSON.stringify(cloudEdits));
