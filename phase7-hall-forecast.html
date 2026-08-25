@@ -30,11 +30,37 @@ h1{margin:0;font-size:28px}.sub{color:var(--muted);font-size:12px;margin-top:4px
 button{border:0;border-radius:12px;padding:12px 15px;font-weight:950;cursor:pointer;background:var(--gold);color:#102b24}button.secondary{background:var(--green)}button.ghost{background:#173f36;color:var(--ink);border:1px solid var(--line)}
 .watch{margin-top:10px;font-size:11px;color:#8ce2b5}
 .formula{border:1px dashed #4e7e70;border-radius:13px;padding:12px;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.5}
+
+.future-list{display:grid;gap:10px;margin-top:14px}
+.future-row{border:1px solid var(--line);border-radius:16px;padding:13px;background:rgba(255,255,255,.025)}
+.future-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.future-name{font-size:17px;font-weight:950}
+.future-meta{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.45}
+.future-budget{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end;margin-top:10px}
+.future-budget label{display:block;font-size:8px;font-weight:950;color:var(--muted);letter-spacing:.07em;margin-bottom:4px}
+.money{position:relative}
+.money span{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-weight:950;color:#18372e;z-index:1}
+.money input{width:100%;min-height:43px;border-radius:11px;border:1px solid #4f786c;background:var(--cream);color:#18372e;padding:9px 10px 9px 27px;font-size:14px}
+.future-status{font-size:10px;color:var(--muted);margin-top:8px;line-height:1.45}
+.future-status.ok{color:#8ce2b5}.future-status.bad{color:#ffaaa2}
+.future-result{margin-top:10px;border:1px solid rgba(88,201,146,.38);border-radius:14px;padding:11px;background:rgba(0,0,0,.10)}
+.future-result[hidden]{display:none}
+.future-result-title{font-size:14px;font-weight:950;line-height:1.35}
+.future-price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}
+.future-stat{border:1px solid var(--line);border-radius:11px;padding:8px}
+.future-stat .k{font-size:7px;font-weight:950;letter-spacing:.08em;color:var(--muted)}
+.future-stat .v{font-size:15px;font-weight:950;margin-top:3px}
+.future-warning{margin-top:8px;border:1px solid rgba(242,198,92,.35);background:rgba(242,198,92,.08);border-radius:11px;padding:8px;font-size:9.5px;color:#f7dc99;line-height:1.4}
+.future-seller,.future-why{font-size:9.5px;color:var(--muted);line-height:1.45;margin-top:8px}
+.future-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+.future-target{margin-top:8px;color:#8ce2b5;font-size:9.5px;font-weight:900}
+.empty-future{padding:18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}
+
 @media(max-width:700px){.class-grid{grid-template-columns:1fr}.pick{grid-template-columns:45px 1fr}.score{grid-column:2;justify-self:start}}
 </style>
 </head>
 <body><div class="wrap">
-<header><div><h1>🏛️ Hall of Fame Forecast</h1><div class="sub">Annual roster check + Scout's early-buy watchlist</div></div><div class="lab">LAB v0.1</div></header>
+<header><div><h1>🏛️ Hall of Fame Forecast</h1><div class="sub">Annual roster check + Scout's early-buy watchlist</div></div><div class="lab">LAB v0.2</div></header>
 
 <section class="card">
 <div class="eyebrow">ANNUAL HALL UPDATE</div><h2>Class of 2026 roster audit</h2>
@@ -53,9 +79,10 @@ button{border:0;border-radius:12px;padding:12px 15px;font-weight:950;cursor:poin
 </section>
 
 <section class="card">
-<div class="eyebrow">FUTURE WORKFLOW</div><h2>What happens after we approve the forecast design?</h2>
-<div class="explain">The real app will get a Hall Forecast screen, a Future HOF watchlist, and the ability to run Find a Target on forecast players before they are elected. When a watched player is later elected, Scout will move him into the Hall roster while preserving any card you bought early.</div>
+<div class="eyebrow">👁 FUTURE HOF WATCHLIST</div><h2>Buy before the Hall announcement?</h2>
+<div class="explain">Watched forecast players stay separate from the official Hall roster. You can already use the live Scout engine to look for a card worth targeting before a possible future election.</div>
 <div class="watch" id="watchText">No lab watch selections yet.</div>
+<div class="future-list" id="futureList"></div>
 </section>
 </div>
 <script>
@@ -83,7 +110,7 @@ function renderForecast(){
    const pills=p.firstYear
     ? `<span class="pill first">FIRST-YEAR ELIGIBLE</span><span class="pill">NO VOTE HISTORY YET</span>`
     : `<span class="pill">${p.current.toFixed(1)}% CURRENT</span><span class="pill">${p.trend>=0?"+":""}${p.trend.toFixed(1)} TREND</span><span class="pill">${p.projected.toFixed(1)}% SIMPLE PROJECTION</span>`;
-   return `<div class="pick"><div class="rank">#${i+1}</div><div><div class="name">${p.name}</div><div class="reason">${pickReason(p)}</div><div class="stats">${pills}</div><div class="buttons"><button class="secondary" onclick="toggleWatch('${p.name.replace(/'/g,"\\'")}')">${watched.has(p.name)?"✓ WATCHING":"👁 WATCH"}</button><button class="ghost" onclick="previewTarget('${p.name.replace(/'/g,"\\'")}')">🔎 FIND A TARGET — NEXT</button></div></div><div class="score"><b>${p.score.toFixed(1)}</b><span>SCOUT MOMENTUM</span></div></div>`;
+   return `<div class="pick"><div class="rank">#${i+1}</div><div><div class="name">${p.name}</div><div class="reason">${pickReason(p)}</div><div class="stats">${pills}</div><div class="buttons"><button class="secondary" onclick="toggleWatch('${p.name.replace(/'/g,"\\'")}')">${watched.has(p.name)?"✓ WATCHING":"👁 WATCH"}</button><button class="ghost" onclick="previewTarget('${p.name.replace(/'/g,"\\'")}')">🔎 FIND A TARGET</button></div></div><div class="score"><b>${p.score.toFixed(1)}</b><span>SCOUT MOMENTUM</span></div></div>`;
  }).join("");
  renderWatch();
 }
@@ -92,13 +119,190 @@ function toggleWatch(name){
  localStorage.setItem("hofScoutForecastLabWatch",JSON.stringify([...watched]));
  renderForecast();
 }
+const FUTURE_BUDGET_KEY="hofScoutFutureHofBudgetV1";
+const FUTURE_TARGET_KEY="hofScoutFutureHofTargetsV1";
+const futureExcluded={};
+const futureSuggestions={};
+
+function futureTargetsRead(){
+ try{return JSON.parse(localStorage.getItem(FUTURE_TARGET_KEY)||"{}")}catch{return {}}
+}
+function futureTargetsWrite(v){localStorage.setItem(FUTURE_TARGET_KEY,JSON.stringify(v))}
+function futureMoney(v){const n=Number(v);return Number.isFinite(n)?"$"+n.toFixed(2):"—"}
+function futureEsc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function futureConnection(){
+ return {
+   endpoint:(localStorage.getItem("hofScoutPricingEndpoint")||"").replace(/\/+$/,""),
+   accessKey:localStorage.getItem("hofScoutAccessKey")||""
+ };
+}
+async function futureDurableConnection(){
+ let c=futureConnection();
+ if(c.endpoint&&c.accessKey)return c;
+ try{
+   const db=await new Promise((resolve,reject)=>{
+     const req=indexedDB.open("hofCardScoutConnectionV1",1);
+     req.onerror=()=>reject(req.error);
+     req.onsuccess=()=>resolve(req.result);
+   });
+   const rec=await new Promise((resolve,reject)=>{
+     const tx=db.transaction("settings","readonly");
+     const req=tx.objectStore("settings").get("primary");
+     req.onerror=()=>reject(req.error);
+     req.onsuccess=()=>resolve(req.result||null);
+   });
+   db.close();
+   if(rec?.endpoint&&rec?.accessKey){
+     localStorage.setItem("hofScoutPricingEndpoint",rec.endpoint);
+     localStorage.setItem("hofScoutAccessKey",rec.accessKey);
+     c={endpoint:String(rec.endpoint).replace(/\/+$/,""),accessKey:String(rec.accessKey)};
+   }
+ }catch{}
+ return c;
+}
+async function futurePreferredSellers(c){
+ try{
+   const res=await fetch(c.endpoint+"/collection/load",{headers:{"X-Scout-Key":c.accessKey}});
+   if(!res.ok)return [];
+   const data=await res.json();
+   const updates=data.playerUpdates||{};
+   const set=new Set();
+   Object.values(updates).forEach(p=>{
+     const src=String(p?.purchaseSource||"").trim();
+     let m=src.match(/^eBay\s*:\s*(.+)$/i);
+     if(!m)m=src.match(/^eBay[-\s]+seller\s+(.+)$/i);
+     if(m?.[1])set.add(m[1].trim());
+   });
+   return [...set];
+ }catch{return []}
+}
+function futureCandidate(name){
+ return DATA.top5.find(x=>x.name===name)||DATA.allReturning.find(x=>x.name===name)||{name};
+}
 function renderWatch(){
- document.getElementById("watchText").textContent=watched.size
-  ? "Watching in this lab: "+[...watched].join(", ")
-  : "No lab watch selections yet.";
+ const names=[...watched];
+ document.getElementById("watchText").textContent=names.length
+  ? "Watching: "+names.join(", ")
+  : "No Future HOF players are being watched yet.";
+ const list=document.getElementById("futureList");
+ if(!names.length){
+   list.innerHTML='<div class="empty-future">Tap <b>WATCH</b> on one of Scout’s forecast candidates to add him here.</div>';
+   return;
+ }
+ const targets=futureTargetsRead();
+ const defaultBudget=localStorage.getItem(FUTURE_BUDGET_KEY)||"25";
+ list.innerHTML=names.map(name=>{
+   const p=futureCandidate(name);
+   const t=targets[name];
+   const id=futureId(name);
+   return `<div class="future-row" id="future-${id}">
+     <div class="future-head">
+       <div><div class="future-name">${futureEsc(name)}</div><div class="future-meta">${p.firstYear?"First-year eligible · résumé-based watch":`${p.current.toFixed(1)}% current vote · ${p.trend>=0?"+":""}${p.trend.toFixed(1)} point trend`}</div></div>
+       <button class="ghost" onclick="toggleWatch('${name.replace(/'/g,"\\'")}')">REMOVE</button>
+     </div>
+     <div class="future-budget">
+       <div><label>MAX DELIVERED PRICE</label><div class="money"><span>$</span><input id="budget-${id}" inputmode="decimal" value="${futureEsc(defaultBudget)}"></div></div>
+       <button class="secondary" onclick="findFutureTarget('${name.replace(/'/g,"\\'")}')">🔎 FIND A TARGET</button>
+     </div>
+     <div class="future-status" id="status-${id}"></div>
+     <div class="future-result" id="result-${id}" hidden></div>
+     ${t?`<div class="future-target">🎯 FUTURE TARGET: ${futureEsc(t.label)}</div>`:""}
+   </div>`;
+ }).join("");
+}
+function futureId(name){return String(name).replace(/[^a-z0-9]+/gi,"-")}
+async function findFutureTarget(name,isRetry=false){
+ const id=futureId(name);
+ const status=document.getElementById("status-"+id);
+ const result=document.getElementById("result-"+id);
+ const budget=Number(document.getElementById("budget-"+id)?.value);
+ if(!Number.isFinite(budget)||budget<1){
+   status.className="future-status bad";status.textContent="Enter a budget of at least $1.";return;
+ }
+ localStorage.setItem(FUTURE_BUDGET_KEY,String(budget));
+ const c=await futureDurableConnection();
+ if(!c.endpoint||!c.accessKey){
+   status.className="future-status bad";status.textContent="Scout connection not found on this device.";return;
+ }
+ status.className="future-status";
+ status.textContent=isRetry?"Scout is looking for another listing…":"Scout is checking live eBay listings, condition and seller trust…";
+ result.hidden=true;
+ try{
+   const sellers=await futurePreferredSellers(c);
+   const res=await fetch(c.endpoint+"/find-target",{
+     method:"POST",
+     headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
+     body:JSON.stringify({
+       player:name,budget,mode:"need",currentCard:null,searchHint:"",
+       excludeIds:futureExcluded[name]||[],preferredSellers:sellers
+     })
+   });
+   const data=await res.json().catch(()=>({}));
+   if(!res.ok||!data.ok)throw new Error(data.message||data.error||("Scout returned "+res.status));
+   if(!data.suggestion){
+     status.className="future-status";
+     status.textContent=data.message||"No qualifying target found under this budget.";
+     return;
+   }
+   const s=data.suggestion;
+   futureSuggestions[name]=s;
+   status.className="future-status ok";
+   status.textContent="✓ Scout found a Future HOF target candidate.";
+   const seller=s.seller||{}, st=s.sellerTrust||{};
+   const warning=(s.traits?.rookieClaimed&&!s.traits?.rookieVerified)
+     ? '<div class="future-warning">⚠ Seller claims “Rookie/RC” — not verified by Scout.</div>' : '';
+   const sellerBits=[];
+   if(seller.username)sellerBits.push(seller.username);
+   if(Number.isFinite(Number(seller.positivePct)))sellerBits.push(Number(seller.positivePct).toFixed(1).replace(/\.0$/,"")+"% positive");
+   if(Number.isFinite(Number(seller.reviews)))sellerBits.push(Number(seller.reviews).toLocaleString()+" feedback");
+   const safeLink=String(s.link||"").replace(/'/g,"%27");
+   result.innerHTML=`<div class="future-result-title">${futureEsc(s.title||name)}</div>
+     ${warning}
+     <div class="future-price-grid">
+       <div class="future-stat"><div class="k">YEAR</div><div class="v">${futureEsc(s.year||"—")}</div></div>
+       <div class="future-stat"><div class="k">LIST</div><div class="v">${futureMoney(s.price)}</div></div>
+       <div class="future-stat"><div class="k">DELIVERED</div><div class="v">${futureMoney(s.delivered)}</div></div>
+     </div>
+     <div class="future-why">${futureEsc(s.why||"")}</div>
+     <div class="future-seller"><b>SELLER CONFIDENCE · ${futureEsc(st.label||"TRUSTED")}</b><br>${futureEsc(sellerBits.join(" · ")||"Seller passed Scout’s trust gate.")}</div>
+     <div class="future-actions">
+       <button onclick="window.open('${safeLink}','_blank','noopener')">VIEW LISTING →</button>
+       <button class="secondary" onclick="saveFutureTarget('${name.replace(/'/g,"\\'")}')">🎯 MAKE THIS MY FUTURE TARGET</button>
+       <button class="ghost" onclick="retryFutureTarget('${name.replace(/'/g,"\\'")}')">↻ TRY ANOTHER</button>
+     </div>`;
+   result.hidden=false;
+ }catch(err){
+   status.className="future-status bad";
+   status.textContent=err.message||"Scout could not complete the search.";
+ }
+}
+function retryFutureTarget(name){
+ const s=futureSuggestions[name];
+ if(s){
+   const listingId=String(s.id||s.productId||"");
+   if(listingId){
+     futureExcluded[name]=futureExcluded[name]||[];
+     if(!futureExcluded[name].includes(listingId))futureExcluded[name].push(listingId);
+   }
+ }
+ findFutureTarget(name,true);
+}
+function saveFutureTarget(name){
+ const s=futureSuggestions[name];if(!s)return;
+ const parts=[s.year,s.set,s.cardNum?"#"+s.cardNum:""].filter(Boolean);
+ const label=parts.join(" ")||s.title||name;
+ const targets=futureTargetsRead();
+ targets[name]={label,year:s.year||null,set:s.set||"",cardNum:s.cardNum||"",title:s.title||"",savedAt:new Date().toISOString()};
+ futureTargetsWrite(targets);
+ renderWatch();
 }
 function previewTarget(name){
- alert("Next integration step: "+name+" will be allowed to use the same Find a Target engine as Hall of Famers, without adding him to the official HOF roster until he is actually elected.");
+ if(!watched.has(name)){
+   watched.add(name);
+   localStorage.setItem("hofScoutForecastLabWatch",JSON.stringify([...watched]));
+   renderForecast();
+ }
+ setTimeout(()=>document.getElementById("future-"+futureId(name))?.scrollIntoView({behavior:"smooth",block:"center"}),50);
 }
 renderClass();renderForecast();
 </script>
