@@ -281,9 +281,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .hunt-actions button{min-height:40px;padding:8px 11px;font-size:11px}
 .hunt-empty{text-align:center;padding:28px 14px;color:var(--muted)}
 
-/* v4.9.1 — Find a Target */
+/* v4.9.2 — Find a Target */
 
-/* v4.9.1 — Scout's Monthly Pick */
+/* v4.9.2 — Scout's Monthly Pick */
 .monthly-pick-card{position:relative;overflow:hidden;border:1px solid rgba(230,189,99,.48);background:linear-gradient(145deg,rgba(230,189,99,.12),rgba(30,91,71,.13));border-radius:20px;padding:15px;margin:0 0 16px}
 .monthly-pick-card:after{content:"⚾";position:absolute;right:-8px;top:-18px;font-size:76px;opacity:.06;transform:rotate(18deg);pointer-events:none}
 .monthly-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
@@ -870,7 +870,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.9.1</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.9.2</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -963,7 +963,7 @@ async function cloudSaveNow(forceTimestamp=false){
       method:"POST",
       headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
       body:JSON.stringify({
-        appVersion:"4.9.1",
+        appVersion:"4.9.2",
         clientUpdatedAt,
         playerUpdates:edits,
         monthlyPick:monthlyReadState()
@@ -1526,7 +1526,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"4.9.1",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"4.9.2",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -1749,13 +1749,13 @@ function applyFastMode(on){
 
 let phase3bActiveTargetPlayer=null;
 
-/* v4.9.1 — Find a Target */
+/* v4.9.2 — Find a Target */
 const FIND_TARGET_BUDGET_KEY="hofScoutFindTargetBudgetV1";
 let findTargetSuggestion=null;
 let findTargetExcludedIds=[];
 let findTargetPlayerName="";
 
-/* v4.9.1 — Monthly Pick */
+/* v4.9.2 — Monthly Pick */
 const MONTHLY_BUDGET_KEY="hofScoutMonthlyBudgetV1";
 const MONTHLY_STATE_KEY="hofScoutMonthlyPickV1";
 const MONTHLY_LAB_STATE_KEY="hofScoutMonthlyPickLabV2";
@@ -1763,7 +1763,14 @@ let monthlyState=null;
 let monthlyPlayer=null;
 
 
-/* v4.9.1 — recommendation listing price check */
+/* v4.9.2 — recommendation listing price check */
+const SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION=2;
+function scoutRecommendationMarketCheckNeedsRefresh(m){
+  if(!m)return true;
+  if(Number(m.version||0)<SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION)return true;
+  if(!m.pricingIdentity)return true;
+  return false;
+}
 function scoutDealClamp(v,min,max){return Math.max(min,Math.min(max,v))}
 function scoutDealStep(v){
   if(v<10)return .25;
@@ -1896,11 +1903,13 @@ async function scoutRecommendationMarketCheck(playerName,s){
   const card=scoutRecommendationPricingCard(playerName,s);
 
   if(!c.endpoint||!c.accessKey){
-    return {rated:false,tier:"market_check",label:"MARKET CHECK",reason:"Scout's live pricing connection is not configured on this device."};
+    return {version:SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION,rated:false,tier:"market_check",label:"MARKET CHECK",reason:"Scout's live pricing connection is not configured on this device."};
   }
   if(!Number.isInteger(card.year)||!card.set||!Number.isFinite(card.shopPrice)){
     return {
+      version:SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION,
       rated:false,tier:"market_check",label:"MARKET CHECK",
+      pricingIdentity:{year:card.year,set:card.set,player:playerName,cardNum:card.cardNum},
       reason:"Scout likes the target, but the card identity is not specific enough for a trustworthy sold-comps price check."
     };
   }
@@ -1920,6 +1929,7 @@ async function scoutRecommendationMarketCheck(playerName,s){
 
     if(used<2||confidence==="insufficient"||!Number.isFinite(median)||median<=0){
       return {
+        version:SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION,
         rated:false,tier:"market_check",label:"MARKET CHECK",
         delivered:card.shopPrice,used,confidence,
         confidenceScore:Number(v.confidenceScore||0),
@@ -1934,6 +1944,7 @@ async function scoutRecommendationMarketCheck(playerName,s){
     const targets=scoutSmartBuyTargets(v);
     const verdict=scoutRecommendationVerdict(card.shopPrice,targets);
     return {
+      version:SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION,
       rated:true,...verdict,
       delivered:card.shopPrice,
       median:Number(v.median),
@@ -1950,6 +1961,7 @@ async function scoutRecommendationMarketCheck(playerName,s){
     };
   }catch(err){
     return {
+      version:SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION,
       rated:false,tier:"market_check",label:"MARKET CHECK",
       delivered:card.shopPrice,
       pricingIdentity:{year:card.year,set:card.set,player:playerName,cardNum:card.cardNum},
@@ -2168,10 +2180,10 @@ function monthlyInit(){
     monthlyRenderSuggestion(monthlyState.suggestion);
     $("monthlyStatus").className="monthly-status ok";
     $("monthlyStatus").textContent="✓ Monthly recommendation is locked. Refreshing will not run another search.";
-    if(!monthlyState.suggestion.marketCheck){
+    if(scoutRecommendationMarketCheckNeedsRefresh(monthlyState.suggestion.marketCheck)){
       (async()=>{
         $("monthlyStatus").className="monthly-status";
-        $("monthlyStatus").textContent="Monthly pick is locked. Scout is adding the sold-market price check…";
+        $("monthlyStatus").textContent="Monthly pick is locked. Scout is refreshing the exact-card sold-market price check…";
         monthlyState.suggestion.marketCheck=await scoutRecommendationMarketCheck(monthlyPlayer.name,monthlyState.suggestion);
         monthlyWriteState(true);
         monthlyRenderSuggestion(monthlyState.suggestion);
