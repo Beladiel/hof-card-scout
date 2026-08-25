@@ -431,7 +431,17 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
             </div>
             <div class="field"><label for="managePricePaid">Price paid</label><input id="managePricePaid" inputmode="decimal" placeholder="24.99"></div>
             <div class="field"><label for="managePurchaseDate">Purchase date</label><input id="managePurchaseDate" type="date"></div>
-            <div class="field full"><label for="manageSource">Where bought</label><input id="manageSource" placeholder="eBay, card shop, card show, trade…"></div>
+            <div class="field full"><label for="manageSource">Where bought</label>
+              <select id="manageSource">
+                <option value="">Not recorded</option>
+                <option>Card shop</option>
+                <option>Card show</option>
+                <option>eBay</option>
+                <option>Trade</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="field full" id="manageSourceDetailWrap" hidden></div>
             <div class="field full"><label for="manageNotes">Notes</label><textarea id="manageNotes" placeholder="Corner wear, rookie, favorite card, etc."></textarea></div>
           </div>
           <button class="primary" id="manageSaveBtn" type="submit" style="width:100%;margin-top:14px">SAVE CARD</button>
@@ -548,7 +558,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.3.1</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.4.0</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -740,6 +750,65 @@ function buildDescriptionFromForm(){
   if(notes) bits.push(notes);
   return bits.join(" · ");
 }
+
+function parsePurchaseSource(value){
+  const raw=String(value||"").trim();
+  if(!raw)return {source:"",detail:""};
+
+  let m=raw.match(/^eBay\s*[:\-]\s*(.+)$/i);
+  if(m)return {source:"eBay",detail:m[1].trim()};
+
+  m=raw.match(/^eBay[-\s]*seller\s*[:\-]?\s*(.+)$/i);
+  if(m)return {source:"eBay",detail:m[1].trim()};
+
+  m=raw.match(/^Card shop\s*[:\-]\s*(.+)$/i);
+  if(m)return {source:"Card shop",detail:m[1].trim()};
+
+  m=raw.match(/^Card show\s*[:\-]\s*(.+)$/i);
+  if(m)return {source:"Card show",detail:m[1].trim()};
+
+  if(/^eBay$/i.test(raw))return {source:"eBay",detail:""};
+  if(/^Card shop$/i.test(raw))return {source:"Card shop",detail:""};
+  if(/^Card show$/i.test(raw))return {source:"Card show",detail:""};
+  if(/^Trade$/i.test(raw))return {source:"Trade",detail:""};
+  if(/^Other$/i.test(raw))return {source:"Other",detail:""};
+
+  return {source:"Other",detail:raw};
+}
+
+function manageSourceDetailHtml(source){
+  if(source==="Card shop")return '<label for="manageSourceDetail">Shop name</label><input id="manageSourceDetail" placeholder="Example: Duke City Sports Cards">';
+  if(source==="Card show")return '<label for="manageSourceDetail">Show / location</label><input id="manageSourceDetail" placeholder="Example: Albuquerque Sports Card Show">';
+  if(source==="eBay")return '<label for="manageSourceDetail">eBay seller</label><input id="manageSourceDetail" placeholder="Example: seller_username">';
+  if(source==="Trade")return '<label for="manageSourceDetail">Trade details (optional)</label><input id="manageSourceDetail" placeholder="Who / where you traded">';
+  if(source==="Other")return '<label for="manageSourceDetail">Source details (optional)</label><input id="manageSourceDetail" placeholder="Where you got the card">';
+  return "";
+}
+
+function updateManageSourceDetail(detail="",applyDefaults=false){
+  const source=$("manageSource").value;
+  const wrap=$("manageSourceDetailWrap");
+  const markup=manageSourceDetailHtml(source);
+  wrap.hidden=!markup;
+  wrap.innerHTML=markup;
+  if(markup&&$("manageSourceDetail"))$("manageSourceDetail").value=detail||"";
+
+  if(applyDefaults){
+    if(source==="eBay")$("manageIncoming").checked=true;
+    if(source==="Card shop"||source==="Card show")$("manageIncoming").checked=false;
+  }
+}
+
+function managedPurchaseSourceValue(){
+  const source=$("manageSource").value;
+  const detail=$("manageSourceDetail")?.value.trim()||"";
+  if((source==="Card shop"||source==="Card show"||source==="eBay")&&!detail){
+    const label=source==="Card shop"?"shop name":source==="Card show"?"show / location":"eBay seller";
+    throw new Error("Enter the "+label+" so Scout can remember exactly where the card came from.");
+  }
+  return detail?`${source}: ${detail}`:source;
+}
+
 function openManage(mode){
   if(!currentPlayer)return;
   manageMode=mode;
@@ -757,7 +826,9 @@ function openManage(mode){
   $("manageIncoming").checked=keepExisting?!!p.incoming:false;
   $("managePricePaid").value=keepExisting&&p.pricePaid!==null&&p.pricePaid!==undefined?(p.pricePaid||""):"";
   $("managePurchaseDate").value=keepExisting?(p.purchaseDate||""):"";
-  $("manageSource").value=keepExisting?(p.purchaseSource||""):"";
+  const sourceParts=parsePurchaseSource(keepExisting?(p.purchaseSource||""):"");
+  $("manageSource").value=sourceParts.source;
+  updateManageSourceDetail(sourceParts.detail,false);
   $("manageNotes").value=keepExisting?(p.userNotes||p.description||""):"";
   if(mode==="add"){
     $("manageTitle").textContent="Add Card to Collection";
@@ -783,11 +854,14 @@ function saveManagedCard(e){
   const rawPrice=$("managePricePaid").value.trim();
   const pricePaid=rawPrice===""?null:Number(rawPrice);
   if(rawPrice!==""&&(!Number.isFinite(pricePaid)||pricePaid<0)){toast("Price paid needs to be a valid amount.");return}
+  let purchaseSource="";
+  try{purchaseSource=managedPurchaseSourceValue()}
+  catch(err){toast(err.message);return}
   const p=currentPlayer,wasOwned=p.owned,oldYear=p.cardYear;
   p.owned=true;p.cardYear=year;p.set=set;p.cardNum=$("manageNum").value.trim();
   p.grader=$("manageGrader").value;p.gradeCondition=$("manageGradeCond").value.trim();p.serial=$("manageSerial").value.trim();
   p.autograph=$("manageAuto").checked;p.relic=$("manageRelic").checked;p.incoming=$("manageIncoming").checked;
-  p.pricePaid=pricePaid;p.purchaseDate=$("managePurchaseDate").value;p.purchaseSource=$("manageSource").value.trim();
+  p.pricePaid=pricePaid;p.purchaseDate=$("managePurchaseDate").value;p.purchaseSource=purchaseSource;
   p.userNotes=$("manageNotes").value.trim();
   p.description=buildDescriptionFromForm();
   // A new representative card needs a fresh valuation later.
@@ -840,7 +914,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"4.3.1",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"4.4.0",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -1823,6 +1897,7 @@ $("receivedBtn").addEventListener("click",markReceived);
 $("removeCardBtn").addEventListener("click",removeCurrentCard);
 $("undoRemoveBtn").addEventListener("click",undoRemove);
 $("manageForm").addEventListener("submit",saveManagedCard);
+$("manageSource").addEventListener("change",()=>updateManageSourceDetail("",true));
 $("exportBtn").addEventListener("click",exportUpdates);
 $("importBtn").addEventListener("click",()=>$("importFile").click());
 $("importFile").addEventListener("change",e=>importUpdatesFile(e.target.files&&e.target.files[0]));
