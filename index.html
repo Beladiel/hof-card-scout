@@ -86,6 +86,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .mark{font-size:20px;font-weight:950;text-align:center}
 .mark.owned{color:var(--green)}
 .mark.need{color:var(--red)}
+.mark.future{color:#9cc7f0}
+.future-target-inline-tag{display:inline-flex;align-items:center;margin-left:6px;padding:3px 6px;border-radius:999px;font-size:8px;font-weight:950;background:rgba(117,174,233,.14);color:#b7d8f5;border:1px solid rgba(117,174,233,.28)}
+.hunt-badge.future{background:rgba(117,174,233,.14);color:#b7d8f5}
 .pname{font-weight:850;font-size:15px}
 .psub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chev{color:var(--muted);font-size:22px}
@@ -281,9 +284,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .hunt-actions button{min-height:40px;padding:8px 11px;font-size:11px}
 .hunt-empty{text-align:center;padding:28px 14px;color:var(--muted)}
 
-/* v5.0.1 — Find a Target */
+/* v5.0.2 — Find a Target */
 
-/* v5.0.1 — Scout's Monthly Pick */
+/* v5.0.2 — Scout's Monthly Pick */
 .monthly-pick-card{position:relative;overflow:hidden;border:1px solid rgba(230,189,99,.48);background:linear-gradient(145deg,rgba(230,189,99,.12),rgba(30,91,71,.13));border-radius:20px;padding:15px;margin:0 0 16px}
 .monthly-pick-card:after{content:"⚾";position:absolute;right:-8px;top:-18px;font-size:76px;opacity:.06;transform:rotate(18deg);pointer-events:none}
 .monthly-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
@@ -406,7 +409,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .hunt-actions button{flex:1}
 }
 
-/* v5.0.1 — Hall of Fame Forecast */
+/* v5.0.2 — Hall of Fame Forecast */
 .forecast-wrap{max-width:980px;margin:0 auto}
 .forecast-hero{position:relative;overflow:hidden;border:1px solid rgba(230,189,99,.44);background:linear-gradient(145deg,rgba(230,189,99,.10),rgba(30,91,71,.11));border-radius:20px;padding:16px;margin-bottom:14px}
 .forecast-hero:after{content:"🏛️";position:absolute;right:-6px;top:-15px;font-size:82px;opacity:.06;pointer-events:none}
@@ -970,7 +973,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.0.1</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.0.2</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -1073,7 +1076,7 @@ async function cloudSaveNow(forceTimestamp=false){
       method:"POST",
       headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
       body:JSON.stringify({
-        appVersion:"5.0.1",
+        appVersion:"5.0.2",
         clientUpdatedAt,
         playerUpdates:edits,
         monthlyPick:monthlyReadState(),
@@ -1294,17 +1297,58 @@ function selectLetter(l){
   document.querySelectorAll(".chip").forEach(c=>c.classList.toggle("active",c.dataset.filter==="all"));
   renderList();
 }
+function futureHofActiveTargetEntries(){
+  const state=futureHofGetState();
+  return Object.entries(state.targets||{})
+    .filter(([name,target])=>{
+      if(!name||!target||target.promotedAt)return false;
+      // Once an early purchase is recorded, it is no longer an active hunt.
+      if(state.purchases?.[name])return false;
+      // If an annual update has already added/elected this player and the target
+      // has been promoted to the official roster, don't show a duplicate.
+      const official=PLAYERS.find(p=>p.name.toLowerCase()===String(name).toLowerCase());
+      if(official?.induction&&official.target)return false;
+      return true;
+    })
+    .map(([name,target])=>({
+      name,
+      last:String(name).trim().split(/\s+/).slice(-1)[0]||name,
+      futureHofTarget:true,
+      target:String(target.label||target.title||"Saved Future Target"),
+      targetNotes:"Future HOF Watchlist · Not yet in the Hall",
+      listingUrl:String(target.listingUrl||""),
+      priceVerdict:String(target.priceVerdict||""),
+      savedFutureTarget:target
+    }));
+}
+function openFutureHofTargetFromList(name){
+  showScreen("forecastScreen");
+  renderHallForecast();
+  setTimeout(()=>$("futureRow-"+futureHofSlug(name))?.scrollIntoView({behavior:"smooth",block:"center"}),80);
+}
+function futureHofTargetSearchText(p){
+  return [p.name,p.target,p.targetNotes,p.priceVerdict].filter(Boolean).join(" ").toLowerCase();
+}
+
 function filteredPlayers(){
   const q=$("playerSearch").value.trim().toLowerCase();
   let list=PLAYERS.slice();
   if(q) list=list.filter(p=>p.name.toLowerCase().includes(q));
   else if(activeLetter) list=list.filter(p=>lastInitial(p)===activeLetter);
-  // With no letter selected, the collection filters should still work across the entire Hall.
+
   if(activeFilter==="owned") list=list.filter(p=>p.owned);
   if(activeFilter==="need") list=list.filter(p=>!p.owned&&!p.incoming);
-  if(activeFilter==="target") list=list.filter(p=>p.target);
+
+  if(activeFilter==="target"){
+    list=list.filter(p=>p.target);
+    let future=futureHofActiveTargetEntries();
+    if(q)future=future.filter(p=>futureHofTargetSearchText(p).includes(q));
+    else if(activeLetter)future=future.filter(p=>lastInitial(p)===activeLetter);
+    list=list.concat(future);
+  }
+
   if(!q&&!activeLetter&&activeFilter==="all") list=[];
-  return list.sort((a,b)=>a.last.localeCompare(b.last)||a.name.localeCompare(b.name));
+  return list.sort((a,b)=>String(a.last||a.name).localeCompare(String(b.last||b.name))||a.name.localeCompare(b.name));
 }
 function renderList(){
   const q=$("playerSearch").value.trim();
@@ -1320,16 +1364,26 @@ function renderList(){
   if(!list.length){box.innerHTML='<div class="empty">Nothing here. Scout checked twice.</div>';return}
   list.forEach(p=>{
     const row=document.createElement("button");row.type="button";row.className="player-row";
-    row.innerHTML='<span class="mark '+(p.owned?'owned':'need')+'">'+(p.owned?'✓':'✕')+'</span>'+
-      '<span><span class="pname">'+escapeHtml(p.name)+(p.incoming?' <span class="incoming-tag">📦 Incoming</span>':'')+'</span><span class="psub">'+escapeHtml(cardLabel(p))+(p.target?' · 🎯 '+escapeHtml(p.target):'')+'</span></span><span class="chev">›</span>';
-    row.addEventListener("click",()=>openPlayer(p));box.appendChild(row);
+
+    if(p.futureHofTarget){
+      const price=p.priceVerdict?" · "+escapeHtml(p.priceVerdict):"";
+      row.innerHTML='<span class="mark future">🔮</span>'+
+        '<span><span class="pname">'+escapeHtml(p.name)+' <span class="future-target-inline-tag">NOT YET IN HALL</span></span>'+
+        '<span class="psub">👁 Future HOF Watchlist · 🎯 '+escapeHtml(p.target)+price+'</span></span><span class="chev">›</span>';
+      row.addEventListener("click",()=>openFutureHofTargetFromList(p.name));
+    }else{
+      row.innerHTML='<span class="mark '+(p.owned?'owned':'need')+'">'+(p.owned?'✓':'✕')+'</span>'+
+        '<span><span class="pname">'+escapeHtml(p.name)+(p.incoming?' <span class="incoming-tag">📦 Incoming</span>':'')+'</span><span class="psub">'+escapeHtml(cardLabel(p))+(p.target?' · 🎯 '+escapeHtml(p.target):'')+'</span></span><span class="chev">›</span>';
+      row.addEventListener("click",()=>openPlayer(p));
+    }
+    box.appendChild(row);
   });
 }
 
 let huntFilter="need";
 
 function huntNeedPlayers(){return PLAYERS.filter(p=>!p.owned&&!p.incoming)}
-function huntTargetPlayers(){return PLAYERS.filter(p=>!!p.target)}
+function huntTargetPlayers(){return PLAYERS.filter(p=>!!p.target).concat(futureHofActiveTargetEntries())}
 function huntIncomingPlayers(){return PLAYERS.filter(p=>!!p.incoming)}
 function huntMatchesFilter(p){
   if(huntFilter==="need")return !p.owned&&!p.incoming;
@@ -1376,28 +1430,62 @@ function huntActions(p){
 }
 function renderHuntList(){
   if(!$("huntList"))return;
+
+  const futureTargets=futureHofActiveTargetEntries();
   $("huntNeedCount").textContent=huntNeedPlayers().length;
-  $("huntTargetCount").textContent=huntTargetPlayers().length;
+  $("huntTargetCount").textContent=PLAYERS.filter(p=>!!p.target).length+futureTargets.length;
   $("huntIncomingCount").textContent=huntIncomingPlayers().length;
-  $("huntSectionLabel").textContent=huntSectionName();
+  $("huntSectionLabel").textContent=huntFilter==="target"
+    ?"SAVED TARGET CARDS · HALL + FUTURE HOF"
+    :huntSectionName();
 
   const q=$("huntSearch").value.trim().toLowerCase();
-  const rows=PLAYERS.filter(huntMatchesFilter).filter(p=>{
+  const officialRows=PLAYERS.filter(huntMatchesFilter).filter(p=>{
     if(!q)return true;
     return [p.name,p.target,p.targetNotes,cardLabel(p),purchaseSummary(p)]
       .some(v=>String(v||"").toLowerCase().includes(q));
-  }).sort((a,b)=>String(a.last||a.name).localeCompare(String(b.last||b.name))||a.name.localeCompare(b.name));
+  });
 
-  $("huntList").innerHTML=rows.length?rows.map(p=>
-    '<div class="hunt-card '+(p.incoming?"incoming":p.target?"target":"")+'">'+
+  let futureRows=(huntFilter==="target"||huntFilter==="all")?futureTargets:[];
+  if(q)futureRows=futureRows.filter(p=>futureHofTargetSearchText(p).includes(q));
+
+  const rows=officialRows.concat(futureRows)
+    .sort((a,b)=>String(a.last||a.name).localeCompare(String(b.last||b.name))||a.name.localeCompare(b.name));
+
+  $("huntList").innerHTML=rows.length?rows.map(p=>{
+    if(p.futureHofTarget){
+      const targetLine=p.target+(p.priceVerdict?" · "+p.priceVerdict:"");
+      const listingButton=p.listingUrl
+        ? '<button type="button" class="primary" data-future-hunt-action="listing" data-future-url="'+encodeURIComponent(p.listingUrl)+'">VIEW SAVED LISTING →</button>'
+        : "";
+      return '<div class="hunt-card target">'+
+        '<div class="hunt-card-top"><div><div class="hunt-player">'+escapeHtml(p.name)+'</div>'+
+        '<div class="hunt-cardline">🔮 Future HOF Watchlist · '+escapeHtml(targetLine)+'</div></div>'+
+        '<div class="hunt-badges"><span class="hunt-badge target">🎯 TARGET</span><span class="hunt-badge future">🔮 NOT YET IN HALL</span></div></div>'+
+        '<div class="hunt-actions">'+listingButton+
+        '<button type="button" class="secondary" data-future-hunt-action="watch" data-future-name="'+escapeHtml(p.name)+'">OPEN FUTURE HOF WATCHLIST →</button></div>'+
+      '</div>';
+    }
+
+    return '<div class="hunt-card '+(p.incoming?"incoming":p.target?"target":"")+'">'+
       '<div class="hunt-card-top"><div><div class="hunt-player">'+escapeHtml(p.name)+'</div>'+
       '<div class="hunt-cardline">'+escapeHtml(huntDetail(p))+'</div></div>'+
       '<div class="hunt-badges">'+huntBadges(p)+'</div></div>'+
       '<div class="hunt-actions">'+huntActions(p)+'</div>'+
-    '</div>'
-  ).join(""):'<div class="hunt-empty">Nothing in this view.</div>';
+    '</div>';
+  }).join(""):'<div class="hunt-empty">Nothing in this view.</div>';
 
   document.querySelectorAll("[data-hunt-action]").forEach(b=>b.addEventListener("click",()=>huntAction(b.dataset.huntAction,b.dataset.player)));
+  document.querySelectorAll("[data-future-hunt-action]").forEach(b=>b.addEventListener("click",()=>{
+    if(b.dataset.futureHuntAction==="listing"){
+      const url=decodeURIComponent(b.dataset.futureUrl||"");
+      if(url)window.open(url,"_blank","noopener");
+      return;
+    }
+    if(b.dataset.futureHuntAction==="watch"){
+      openFutureHofTargetFromList(b.dataset.futureName||"");
+    }
+  }));
 }
 function setHuntFilter(f){
   huntFilter=f;
@@ -1655,7 +1743,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"5.0.1",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"5.0.2",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -1878,20 +1966,20 @@ function applyFastMode(on){
 
 let phase3bActiveTargetPlayer=null;
 
-/* v5.0.1 — Find a Target */
+/* v5.0.2 — Find a Target */
 const FIND_TARGET_BUDGET_KEY="hofScoutFindTargetBudgetV1";
 let findTargetSuggestion=null;
 let findTargetExcludedIds=[];
 let findTargetPlayerName="";
 
-/* v5.0.1 — Monthly Pick */
+/* v5.0.2 — Monthly Pick */
 const MONTHLY_BUDGET_KEY="hofScoutMonthlyBudgetV1";
 const MONTHLY_STATE_KEY="hofScoutMonthlyPickV1";
 const MONTHLY_LAB_STATE_KEY="hofScoutMonthlyPickLabV2";
 let monthlyState=null;
 let monthlyPlayer=null;
 
-/* v5.0.1 — Annual Hall update + Future HOF Forecast */
+/* v5.0.2 — Annual Hall update + Future HOF Forecast */
 const FUTURE_HOF_STATE_KEY="hofScoutFutureHofV1";
 const FUTURE_HOF_LEGACY_WATCH_KEY="hofScoutForecastLabWatch";
 const FUTURE_HOF_LEGACY_TARGET_KEY="hofScoutFutureHofTargetsV1";
@@ -1931,7 +2019,7 @@ let futureHofSuggestions={};
 let futureHofExcluded={};
 
 
-/* v5.0.1 — recommendation listing price check */
+/* v5.0.2 — recommendation listing price check */
 const SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION=4;
 function scoutRecommendationMarketCheckNeedsRefresh(m){
   if(!m)return true;
@@ -2295,6 +2383,24 @@ function futureHofMigrateLegacy(){
 function futureHofPromoteElectedPurchases(){
   const state=futureHofGetState();
   let changed=false;
+
+  // Promote saved Future Targets once an annual roster update confirms election.
+  for(const [name,target] of Object.entries(state.targets||{})){
+    if(!target||target.promotedAt)continue;
+    const p=PLAYERS.find(x=>x.name.toLowerCase()===String(name).toLowerCase());
+    if(!p||!p.induction)continue;
+
+    if(!p.target){
+      p.target=String(target.label||target.title||"").trim();
+      p.targetNotes="Promoted automatically from Scout's Future HOF Watchlist after Hall election.";
+      savePlayerEdit(p);
+    }
+    target.promotedAt=new Date().toISOString();
+    state.watch=state.watch.filter(x=>x!==name);
+    changed=true;
+  }
+
+  // Promote early purchases the same way.
   for(const [name,purchase] of Object.entries(state.purchases||{})){
     if(!purchase||purchase.promotedAt)continue;
     const p=PLAYERS.find(x=>x.name.toLowerCase()===String(name).toLowerCase());
@@ -2610,8 +2716,10 @@ function futureHofSaveTarget(name){
     savedAt:new Date().toISOString()
   };
   futureHofWrite(state,true);
-  toast("🎯 Future target saved for "+name+".");
+  toast("🎯 Future target saved for "+name+". It is now visible in your main Targets list.");
   renderHallForecast();
+  renderList();
+  renderHuntList();
 }
 function futureHofOpenPurchase(name){
   const s=futureHofSuggestions[name];
