@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e2b22">
-<title>Scout's Monthly Pick — Lab v0.2.1</title>
+<title>Scout's Monthly Pick — Lab v0.2.2</title>
 <style>
 :root{--bg:#071c16;--bg2:#0d2b22;--panel:#12372c;--text:#f7f4ea;--muted:#b9c9c2;--line:#2a5045;--green:#56c58a;--red:#ef6c6c;--gold:#e6bd63;--cream:#fff8e9;--ink:#102019}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% -10%,rgba(230,189,99,.14),transparent 35%),linear-gradient(180deg,var(--bg2),var(--bg) 420px);color:var(--text);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
@@ -38,7 +38,7 @@ button{border:0;border-radius:13px;min-height:46px;padding:9px 13px;font-weight:
   <div class="top">
     <div class="ball">⚾</div>
     <div class="brand"><h1>Scout's Monthly Pick</h1><p>One player. One recommendation. Once a month.</p></div>
-    <div class="version">LAB v0.2.1</div>
+    <div class="version">LAB v0.2.2</div>
   </div>
 
   <div class="hero">
@@ -106,7 +106,7 @@ button{border:0;border-radius:13px;min-height:46px;padding:9px 13px;font-weight:
         <input id="buySet" placeholder="Confirm or edit the set name">
       </div>
       <div>
-        <label>PRICE PAID</label>
+        <label>PRICE PAID (PREFILLED FROM DELIVERED PRICE)</label>
         <input id="buyPaid" inputmode="decimal">
       </div>
       <div>
@@ -229,13 +229,13 @@ function priorEbaySellers(){
 }
 
 function guessSet(title,year){
-  let s=String(title||"");
-  if(year)s=s.replace(new RegExp("\\\\b"+String(year)+"\\\\b")," ");
-  const makers=["Topps","Fleer","Bowman","Donruss","Upper Deck","Score","Leaf","Panini","Goudey","Play Ball","SP","Finest","Heritage","Archives","Chrome"];
-  for(const maker of makers){
-    if(new RegExp("\\\\b"+maker.replace(" ","\\\\s+")+"\\\\b","i").test(s))return maker;
-  }
-  return "";
+  const raw=String(title||"");
+  const makers=[
+    "Topps","Fleer","Bowman","Donruss","Upper Deck","Score","Leaf",
+    "Panini","Goudey","Play Ball","Finest","Heritage","Archives","Chrome"
+  ];
+  const hit=makers.find(m=>raw.toLowerCase().includes(m.toLowerCase()));
+  return hit||"";
 }
 function localDate(){
   const d=new Date(),off=d.getTimezoneOffset()*60000;
@@ -401,7 +401,9 @@ function renderSuggestion(s){
   if(Number.isFinite(Number(seller.positivePct)))sellerBits.push(Number(seller.positivePct).toFixed(1).replace(/\.0$/,"")+"% positive");
   if(Number.isFinite(Number(seller.reviews)))sellerBits.push(Number(seller.reviews).toLocaleString()+" feedback");
   $("sellerMain").textContent=(st.previousSeller?"★ PREVIOUS SELLER · ":"")+(st.label||"TRUSTED");
-  $("sellerSub").textContent=(sellerBits.length?sellerBits.join(" · "):"Seller details unavailable")+(st.reason?" · "+st.reason:"");
+  let sellerDetail=sellerBits.length?sellerBits.join(" · "):"Seller details unavailable";
+  if(st.previousSeller&&st.reason)sellerDetail+=" · "+st.reason;
+  $("sellerSub").textContent=sellerDetail;
 
   $("retryNote").textContent=state.retryCount
     ?`Replacement searches used this month: ${state.retryCount}`
@@ -491,7 +493,7 @@ async function savePurchase(){
       method:"POST",
       headers:{"Content-Type":"application/json","X-Scout-Key":accessKey},
       body:JSON.stringify({
-        appVersion:"phase6-monthly-pick-lab-v0.2",
+        appVersion:"phase6-monthly-pick-lab-v0.2.2",
         clientUpdatedAt:new Date().toISOString(),
         playerUpdates:cloudEdits
       })
