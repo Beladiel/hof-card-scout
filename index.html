@@ -281,9 +281,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .hunt-actions button{min-height:40px;padding:8px 11px;font-size:11px}
 .hunt-empty{text-align:center;padding:28px 14px;color:var(--muted)}
 
-/* v4.9.0 — Find a Target */
+/* v4.9.1 — Find a Target */
 
-/* v4.9.0 — Scout's Monthly Pick */
+/* v4.9.1 — Scout's Monthly Pick */
 .monthly-pick-card{position:relative;overflow:hidden;border:1px solid rgba(230,189,99,.48);background:linear-gradient(145deg,rgba(230,189,99,.12),rgba(30,91,71,.13));border-radius:20px;padding:15px;margin:0 0 16px}
 .monthly-pick-card:after{content:"⚾";position:absolute;right:-8px;top:-18px;font-size:76px;opacity:.06;transform:rotate(18deg);pointer-events:none}
 .monthly-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
@@ -870,7 +870,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.9.0</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.9.1</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -963,7 +963,7 @@ async function cloudSaveNow(forceTimestamp=false){
       method:"POST",
       headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
       body:JSON.stringify({
-        appVersion:"4.9.0",
+        appVersion:"4.9.1",
         clientUpdatedAt,
         playerUpdates:edits,
         monthlyPick:monthlyReadState()
@@ -1526,7 +1526,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"4.9.0",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"4.9.1",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -1749,13 +1749,13 @@ function applyFastMode(on){
 
 let phase3bActiveTargetPlayer=null;
 
-/* v4.9.0 — Find a Target */
+/* v4.9.1 — Find a Target */
 const FIND_TARGET_BUDGET_KEY="hofScoutFindTargetBudgetV1";
 let findTargetSuggestion=null;
 let findTargetExcludedIds=[];
 let findTargetPlayerName="";
 
-/* v4.9.0 — Monthly Pick */
+/* v4.9.1 — Monthly Pick */
 const MONTHLY_BUDGET_KEY="hofScoutMonthlyBudgetV1";
 const MONTHLY_STATE_KEY="hofScoutMonthlyPickV1";
 const MONTHLY_LAB_STATE_KEY="hofScoutMonthlyPickLabV2";
@@ -1763,7 +1763,7 @@ let monthlyState=null;
 let monthlyPlayer=null;
 
 
-/* v4.9.0 — recommendation listing price check */
+/* v4.9.1 — recommendation listing price check */
 function scoutDealClamp(v,min,max){return Math.max(min,Math.min(max,v))}
 function scoutDealStep(v){
   if(v<10)return .25;
@@ -1823,10 +1823,56 @@ function scoutRecommendationVerdict(delivered,t){
   if(p<=t.walkAway)return {tier:"negotiate",label:"NEGOTIATE",reason:"Scout likes the card, but would try for a lower price."};
   return {tier:"pass",label:"PASS",reason:"Good target, bad price. Scout would wait for another copy."};
 }
+
+function scoutRecommendationSetFromTitle(title){
+  const raw=String(title||"");
+
+  const specific=[
+    {rx:/\btopps\b[\s\-–—:]*\ballen\s*(?:&|and)\s*ginter(?:'s)?\b/i,set:"Topps Allen & Ginter"},
+    {rx:/\ballen\s*(?:&|and)\s*ginter(?:'s)?\b/i,set:"Topps Allen & Ginter"},
+    {rx:/\btopps\b[\s\-–—:]*\bopening\s+day\b/i,set:"Topps Opening Day"},
+    {rx:/\btopps\b[\s\-–—:]*\bheritage\b/i,set:"Topps Heritage"},
+    {rx:/\btopps\b[\s\-–—:]*\bchrome\b/i,set:"Topps Chrome"},
+    {rx:/\btopps\b[\s\-–—:]*\bupdate\b/i,set:"Topps Update"},
+    {rx:/\bbowman\b[\s\-–—:]*\bchrome\b[\s\-–—:]*\bdraft\b/i,set:"Bowman Chrome Draft"},
+    {rx:/\bbowman\b[\s\-–—:]*\bdraft\b/i,set:"Bowman Draft"},
+    {rx:/\bbowman\b[\s\-–—:]*\bchrome\b/i,set:"Bowman Chrome"},
+    {rx:/\bbowman\b[\s\-–—:]*\bplatinum\b/i,set:"Bowman Platinum"},
+    {rx:/\btristar\b[\s\-–—:]*\bprospects?\s+plus\b/i,set:"TriStar Prospects Plus"},
+    {rx:/\btopps\b[\s\-–—:]*\b206\b/i,set:"Topps 206"},
+    {rx:/\btopps\b[\s\-–—:]*\bnational\s+chicle\b/i,set:"Topps National Chicle"},
+  ];
+  const hit=specific.find(x=>x.rx.test(raw));
+  if(hit)return hit.set;
+
+  const known=[
+    "Topps","Fleer","Bowman","Donruss","Upper Deck","Score","Leaf",
+    "Panini","Goudey","Play Ball","Finest","Heritage","Chrome","TriStar","TCMA"
+  ];
+  return known.find(x=>new RegExp("\\b"+x.replace(/\s+/g,"\\s+")+"\\b","i").test(raw))||"";
+}
+function scoutRecommendationCardNumFromTitle(title){
+  const raw=String(title||"");
+  const patterns=[
+    /(?:^|\s)#\s*([A-Za-z0-9.-]{1,12})(?=\s|$|\)|\()/,
+    /\bcard\s*(?:no\.?|number|#)\s*([A-Za-z0-9.-]{1,12})\b/i,
+    /\bno\.?\s*([A-Za-z0-9.-]{1,12})\b/i
+  ];
+  for(const rx of patterns){
+    const m=raw.match(rx);
+    if(m?.[1])return m[1].replace(/[.,;:]+$/,"");
+  }
+  return "";
+}
+
 function scoutRecommendationCanonicalSet(s){
   const verified=String(s?.traits?.rookieVerification?.set||"").trim();
   if(verified)return verified;
-  return String(s?.set||"").trim();
+
+  const structured=String(s?.set||"").trim();
+  if(structured)return structured;
+
+  return scoutRecommendationSetFromTitle(s?.title||"");
 }
 function scoutRecommendationPricingCard(playerName,s){
   const gradeInfo=s?.gradeInfo||{};
@@ -1834,7 +1880,7 @@ function scoutRecommendationPricingCard(playerName,s){
     year:Number(s?.year),
     set:scoutRecommendationCanonicalSet(s),
     player:playerName,
-    cardNum:String(s?.cardNum||""),
+    cardNum:String(s?.cardNum||scoutRecommendationCardNumFromTitle(s?.title||"")||""),
     grader:gradeInfo?.grader||"Raw",
     grade:gradeInfo?.grade??"",
     autograph:!!s?.traits?.autograph,
@@ -1942,12 +1988,16 @@ function scoutDealHtml(m){
     }
   }
 
+  const identity=m?.pricingIdentity;
+  const identityText=identity
+    ? [identity.year,identity.set,identity.player,identity.cardNum?"#"+identity.cardNum:""].filter(Boolean).join(" ")
+    : "";
   return `<div class="scout-deal-top">
     <div><div class="section-eyebrow">💰 LISTING PRICE CHECK</div><div class="scout-deal-label ${escapeHtml(tier)}">${escapeHtml(m.label||"MARKET CHECK")}</div></div>
     <div class="scout-deal-confidence">${escapeHtml(confidenceText)}</div>
   </div>
   ${metrics}
-  <div class="scout-deal-message">${escapeHtml(m.reason||"")}</div>`;
+  <div class="scout-deal-message">${escapeHtml(m.reason||"")}${identityText?`<br><b>Priced as:</b> ${escapeHtml(identityText)}`:""}</div>`;
 }
 function scoutRenderDealBox(id,m){
   const el=$(id);
