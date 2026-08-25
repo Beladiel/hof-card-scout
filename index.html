@@ -281,9 +281,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .hunt-actions button{min-height:40px;padding:8px 11px;font-size:11px}
 .hunt-empty{text-align:center;padding:28px 14px;color:var(--muted)}
 
-/* v4.9.3 — Find a Target */
+/* v4.9.4 — Find a Target */
 
-/* v4.9.3 — Scout's Monthly Pick */
+/* v4.9.4 — Scout's Monthly Pick */
 .monthly-pick-card{position:relative;overflow:hidden;border:1px solid rgba(230,189,99,.48);background:linear-gradient(145deg,rgba(230,189,99,.12),rgba(30,91,71,.13));border-radius:20px;padding:15px;margin:0 0 16px}
 .monthly-pick-card:after{content:"⚾";position:absolute;right:-8px;top:-18px;font-size:76px;opacity:.06;transform:rotate(18deg);pointer-events:none}
 .monthly-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
@@ -870,7 +870,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.9.3</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v4.9.4</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -963,7 +963,7 @@ async function cloudSaveNow(forceTimestamp=false){
       method:"POST",
       headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
       body:JSON.stringify({
-        appVersion:"4.9.3",
+        appVersion:"4.9.4",
         clientUpdatedAt,
         playerUpdates:edits,
         monthlyPick:monthlyReadState()
@@ -1526,7 +1526,7 @@ function undoRemove(){
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
   if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"4.9.3",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const payload={app:"HOF Card Scout",version:"4.9.4",exportedAt:new Date().toISOString(),playerUpdates:edits};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
@@ -1749,13 +1749,13 @@ function applyFastMode(on){
 
 let phase3bActiveTargetPlayer=null;
 
-/* v4.9.3 — Find a Target */
+/* v4.9.4 — Find a Target */
 const FIND_TARGET_BUDGET_KEY="hofScoutFindTargetBudgetV1";
 let findTargetSuggestion=null;
 let findTargetExcludedIds=[];
 let findTargetPlayerName="";
 
-/* v4.9.3 — Monthly Pick */
+/* v4.9.4 — Monthly Pick */
 const MONTHLY_BUDGET_KEY="hofScoutMonthlyBudgetV1";
 const MONTHLY_STATE_KEY="hofScoutMonthlyPickV1";
 const MONTHLY_LAB_STATE_KEY="hofScoutMonthlyPickLabV2";
@@ -1763,8 +1763,8 @@ let monthlyState=null;
 let monthlyPlayer=null;
 
 
-/* v4.9.3 — recommendation listing price check */
-const SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION=3;
+/* v4.9.4 — recommendation listing price check */
+const SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION=4;
 function scoutRecommendationMarketCheckNeedsRefresh(m){
   if(!m)return true;
   if(Number(m.version||0)<SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION)return true;
@@ -1960,11 +1960,13 @@ async function scoutRecommendationMarketCheck(playerName,s){
       reason:verdict.reason
     };
   }catch(err){
+    const detail=String(err?.message||err||"Unknown pricing error");
     return {
       version:SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION,
       rated:false,tier:"market_check",label:"MARKET CHECK",
       delivered:card.shopPrice,
       pricingIdentity:{year:card.year,set:card.set,player:playerName,cardNum:card.cardNum},
+      diagnostic:detail,
       reason:"Scout found the target, but the sold-comps price check could not be completed for this listing."
     };
   }
@@ -2004,12 +2006,13 @@ function scoutDealHtml(m){
   const identityText=identity
     ? [identity.year,identity.set,identity.player,identity.cardNum?"#"+identity.cardNum:""].filter(Boolean).join(" ")
     : "";
+  const diagnostic=String(m?.diagnostic||"").trim();
   return `<div class="scout-deal-top">
     <div><div class="section-eyebrow">💰 LISTING PRICE CHECK</div><div class="scout-deal-label ${escapeHtml(tier)}">${escapeHtml(m.label||"MARKET CHECK")}</div></div>
     <div class="scout-deal-confidence">${escapeHtml(confidenceText)}</div>
   </div>
   ${metrics}
-  <div class="scout-deal-message">${escapeHtml(m.reason||"")}${identityText?`<br><b>Priced as:</b> ${escapeHtml(identityText)}`:""}</div>`;
+  <div class="scout-deal-message">${escapeHtml(m.reason||"")}${identityText?`<br><b>Priced as:</b> ${escapeHtml(identityText)}`:""}${diagnostic?`<br><b>Diagnostic:</b> ${escapeHtml(diagnostic)}`:""}</div>`;
 }
 function scoutRenderDealBox(id,m){
   const el=$(id);
