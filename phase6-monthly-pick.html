@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e2b22">
-<title>Scout's Monthly Pick — Lab v0.1</title>
+<title>Scout's Monthly Pick — Lab v0.2.1</title>
 <style>
 :root{--bg:#071c16;--bg2:#0d2b22;--panel:#12372c;--text:#f7f4ea;--muted:#b9c9c2;--line:#2a5045;--green:#56c58a;--red:#ef6c6c;--gold:#e6bd63;--cream:#fff8e9;--ink:#102019}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% -10%,rgba(230,189,99,.14),transparent 35%),linear-gradient(180deg,var(--bg2),var(--bg) 420px);color:var(--text);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
@@ -16,8 +16,21 @@ button{border:0;border-radius:13px;min-height:46px;padding:9px 13px;font-weight:
 .scoutbtn{width:100%;margin-top:12px}
 .result{margin-top:14px;border:1px solid rgba(86,197,138,.5);border-radius:18px;padding:14px;background:rgba(86,197,138,.045)}.result[hidden]{display:none}.resulttitle{font-size:17px;font-weight:950;line-height:1.35}.badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.badge{font-size:8px;font-weight:950;border-radius:999px;padding:5px 7px;border:1px solid var(--line)}.badge.age{border-color:rgba(230,189,99,.45);color:#f4d58a}.badge.good{border-color:rgba(86,197,138,.45);color:#8be2b0}
 .pricegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:11px}.price{border:1px solid var(--line);border-radius:11px;padding:8px}.price .k{font-size:8px;color:var(--muted);font-weight:900}.price .v{font-size:17px;font-weight:950;margin-top:3px}.reason{font-size:12px;line-height:1.5;color:var(--muted);margin-top:11px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.retry{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}.retry p{font-size:10px;color:var(--muted);margin:0 0 8px;line-height:1.4}.retry button{width:100%}.tiny{font-size:9px;color:var(--muted);margin-top:7px;text-align:center}
+.sellerbox{margin-top:11px;border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(255,255,255,.025)}
+.sellerbox .label{font-size:8px;color:var(--muted);font-weight:950;letter-spacing:.09em}
+.sellerbox .main{font-size:13px;font-weight:900;margin-top:4px}
+.sellerbox .sub{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.4}
+.purchase{margin-top:14px;border:1px solid rgba(230,189,99,.48);background:rgba(230,189,99,.055);border-radius:18px;padding:14px}
+.purchase[hidden]{display:none}.purchase h2{margin:0;font-size:17px}.purchase .sub{font-size:11px;color:var(--muted);line-height:1.45;margin-top:5px}
+.purchasegrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}.purchasegrid .full{grid-column:1/-1}
+.purchasegrid label{display:block;font-size:9px;color:var(--muted);font-weight:950;margin-bottom:4px}
+.purchasegrid input{width:100%;min-height:44px;border-radius:11px;border:1px solid var(--line);background:var(--cream);color:var(--ink);padding:8px 10px;font-size:15px}
+.purchasebuttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.purchased{margin-top:14px;border:1px solid rgba(86,197,138,.5);background:rgba(86,197,138,.06);border-radius:17px;padding:13px}
+.purchased[hidden]{display:none}.purchased .big{font-size:17px;font-weight:950}.purchased .small{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.45}
+
 .empty{padding:20px 12px;text-align:center;color:var(--muted);font-size:12px}.footer{text-align:center;color:var(--muted);font-size:10px;margin-top:20px}
-@media(max-width:560px){.pricegrid{grid-template-columns:1fr 1fr}.pricegrid .price:last-child{grid-column:1/-1}.actions{grid-template-columns:1fr}.budgetrow{grid-template-columns:1fr}}
+@media(max-width:560px){.pricegrid{grid-template-columns:1fr 1fr}.purchasegrid{grid-template-columns:1fr}.purchasegrid .full{grid-column:auto}.purchasebuttons{grid-template-columns:1fr}.pricegrid .price:last-child{grid-column:1/-1}.actions{grid-template-columns:1fr}.budgetrow{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -25,7 +38,7 @@ button{border:0;border-radius:13px;min-height:46px;padding:9px 13px;font-weight:
   <div class="top">
     <div class="ball">⚾</div>
     <div class="brand"><h1>Scout's Monthly Pick</h1><p>One player. One recommendation. Once a month.</p></div>
-    <div class="version">LAB v0.1</div>
+    <div class="version">LAB v0.2.1</div>
   </div>
 
   <div class="hero">
@@ -59,15 +72,66 @@ button{border:0;border-radius:13px;min-height:46px;padding:9px 13px;font-weight:
       <div class="price"><div class="k">DELIVERED*</div><div class="v" id="resultDelivered">—</div></div>
     </div>
     <div class="reason" id="resultWhy"></div>
+    <div class="sellerbox">
+      <div class="label">SELLER CONFIDENCE</div>
+      <div class="main" id="sellerMain">—</div>
+      <div class="sub" id="sellerSub"></div>
+    </div>
     <div class="actions">
       <button class="primary" id="viewListing">VIEW LISTING →</button>
-      <button class="ghost" id="backToScout">OPEN HOF CARD SCOUT</button>
+      <button class="secondary" id="boughtBtn">✓ I BOUGHT IT</button>
     </div>
     <div class="retry">
       <p>If this exact listing has already sold or is no longer available, Scout can find another one. The monthly player stays locked.</p>
       <button class="dangerGhost" id="retryBtn">LISTING GONE — TRY ANOTHER</button>
       <div class="tiny" id="retryNote"></div>
     </div>
+  </div>
+
+
+  <div class="purchase" id="purchasePanel" hidden>
+    <h2>✓ I Bought It → Collection</h2>
+    <div class="sub">Scout carried the live eBay recommendation forward. Confirm the details before saving. For a Need player, this removes Need and marks the card 📦 Incoming.</div>
+    <div class="purchasegrid">
+      <div>
+        <label>CARD YEAR</label>
+        <input id="buyYear" inputmode="numeric">
+      </div>
+      <div>
+        <label>CARD #</label>
+        <input id="buyNum">
+      </div>
+      <div class="full">
+        <label>SET / ISSUE</label>
+        <input id="buySet" placeholder="Confirm or edit the set name">
+      </div>
+      <div>
+        <label>PRICE PAID</label>
+        <input id="buyPaid" inputmode="decimal">
+      </div>
+      <div>
+        <label>PURCHASE DATE</label>
+        <input id="buyDate" type="date">
+      </div>
+      <div class="full">
+        <label>EBAY SELLER</label>
+        <input id="buySeller">
+      </div>
+      <div class="full">
+        <label style="display:flex;align-items:center;gap:7px;color:var(--text)"><input id="buyIncoming" type="checkbox" checked style="width:18px;min-height:18px"> 📦 Card is still in transit</label>
+      </div>
+    </div>
+    <div class="purchasebuttons">
+      <button class="secondary" id="savePurchase">✓ SAVE TO COLLECTION</button>
+      <button class="ghost" id="cancelPurchase">CANCEL</button>
+    </div>
+    <div class="status" id="purchaseStatus"></div>
+  </div>
+
+  <div class="purchased" id="purchasedBox" hidden>
+    <div class="eyebrow">MONTHLY PICK STATUS</div>
+    <div class="big">✓ Purchased — Incoming</div>
+    <div class="small" id="purchasedText"></div>
   </div>
 
   <div class="panel" id="noResult" hidden>
@@ -79,13 +143,15 @@ button{border:0;border-radius:13px;min-height:46px;padding:9px 13px;font-weight:
 <script>
 const STORAGE_KEY="hofCardScoutEditsV1";
 const BUDGET_KEY="hofScoutMonthlyBudgetV1";
-const STATE_KEY="hofScoutMonthlyPickLabV1";
+const STATE_KEY="hofScoutMonthlyPickLabV2";
+const OLD_STATE_KEY="hofScoutMonthlyPickLabV1";
 const WORKER_URL="https://hof-card-scout-pricing.jz9j2778jh.workers.dev";
 const CONNECTION_DB="hofCardScoutConnectionV1";
 const CONNECTION_STORE="settings";
 const CONNECTION_RECORD="primary";
 
 let players=[];
+let cloudEdits={};
 let accessKey="";
 let state=null;
 let monthlyPlayer=null;
@@ -143,18 +209,68 @@ async function loadCollection(){
   if(!res.ok||!data.ok)throw new Error(data.message||"Scout Cloud could not be read.");
   if(!data.found)throw new Error("No Scout Cloud backup exists yet.");
 
-  const edits=data.playerUpdates||{};
-  players=base.map(p=>edits[p.name]?Object.assign({},p,edits[p.name]):p);
+  cloudEdits=data.playerUpdates||{};
+  // Keep this browser aligned with the cloud-backed collection.
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(cloudEdits));
+  players=base.map(p=>cloudEdits[p.name]?Object.assign({},p,cloudEdits[p.name]):p);
   $("cloudStatus").className="status ok";
   $("cloudStatus").textContent="✓ Real collection loaded from Scout Cloud.";
 }
 
+function priorEbaySellers(){
+  const out=new Set();
+  for(const p of players){
+    const src=String(p.purchaseSource||"").trim();
+    let m=src.match(/^eBay\s*:\s*(.+)$/i);
+    if(!m)m=src.match(/^eBay[-\s]+seller\s+(.+)$/i);
+    if(m&&m[1])out.add(m[1].trim());
+  }
+  return [...out];
+}
+
+function guessSet(title,year){
+  let s=String(title||"");
+  if(year)s=s.replace(new RegExp("\\\\b"+String(year)+"\\\\b")," ");
+  const makers=["Topps","Fleer","Bowman","Donruss","Upper Deck","Score","Leaf","Panini","Goudey","Play Ball","SP","Finest","Heritage","Archives","Chrome"];
+  for(const maker of makers){
+    if(new RegExp("\\\\b"+maker.replace(" ","\\\\s+")+"\\\\b","i").test(s))return maker;
+  }
+  return "";
+}
+function localDate(){
+  const d=new Date(),off=d.getTimezoneOffset()*60000;
+  return new Date(d-off).toISOString().slice(0,10);
+}
 function selectMonthlyPlayer(){
   const mk=monthKey();
   const existing=readState();
   if(existing&&existing.month===mk&&existing.player){
     state=existing;
     monthlyPlayer=players.find(p=>p.name===state.player)||null;
+  }
+
+  // v0.2 migration: preserve the v0.1 monthly player, but intentionally
+  // discard the old recommendation so seller-trust logic gets one fresh test.
+  if(!monthlyPlayer){
+    let prior=null;
+    try{prior=JSON.parse(localStorage.getItem(OLD_STATE_KEY)||"null")}catch{}
+    if(prior&&prior.month===mk&&prior.player){
+      const carried=players.find(p=>p.name===prior.player)||null;
+      if(carried){
+        monthlyPlayer=carried;
+        state={
+          month:mk,
+          player:carried.name,
+          mode:prior.mode==="upgrade"?"upgrade":"need",
+          excludedIds:[],
+          retryCount:0,
+          suggestion:null,
+          checkedAt:null,
+          migratedFromV01:true
+        };
+        writeState();
+      }
+    }
   }
 
   if(!monthlyPlayer){
@@ -183,6 +299,13 @@ function selectMonthlyPlayer(){
     :"Randomly selected from Hall of Famers you still need. Scout will keep this player for the entire month.";
 
   if(state.suggestion)renderSuggestion(state.suggestion);
+  if(state.purchase){
+    $("purchasedBox").hidden=false;
+    $("purchasedText").textContent=`${state.player} · ${state.purchase.cardYear} ${state.purchase.set||""}${state.purchase.cardNum?" #"+state.purchase.cardNum:""} · ${state.purchase.purchaseSource||"eBay"} · marked ${state.purchase.incoming?"Incoming":"Received"}.`;
+    lockMonthlySearch("✓ MONTHLY PICK PURCHASED");
+  }else if(state.suggestion){
+    lockMonthlySearch("✓ MONTHLY PICK LOCKED");
+  }
 }
 
 function currentCardPayload(){
@@ -217,7 +340,8 @@ async function scoutMonthly(isRetry=false){
         budget,
         mode:state.mode,
         currentCard:currentCardPayload(),
-        excludeIds:state.excludedIds||[]
+        excludeIds:state.excludedIds||[],
+        preferredSellers:priorEbaySellers()
       })
     });
     const data=await res.json().catch(()=>({}));
@@ -237,15 +361,21 @@ async function scoutMonthly(isRetry=false){
     state.suggestion=data.suggestion;
     writeState();
     renderSuggestion(data.suggestion);
+    lockMonthlySearch("✓ MONTHLY PICK LOCKED");
     $("cloudStatus").className="status ok";
     $("cloudStatus").textContent="✓ Monthly recommendation ready. Refreshing this page will not re-search.";
   }catch(err){
     $("cloudStatus").className="status bad";
     $("cloudStatus").textContent=err.message;
   }finally{
-    $("scoutBtn").disabled=false;
+    if(!state?.suggestion&&!state?.purchase)$("scoutBtn").disabled=false;
     $("retryBtn").disabled=false;
   }
+}
+
+function lockMonthlySearch(label="✓ MONTHLY PICK LOCKED"){
+  $("scoutBtn").disabled=true;
+  $("scoutBtn").textContent=label;
 }
 
 function renderSuggestion(s){
@@ -264,6 +394,15 @@ function renderSuggestion(s){
   if(s.traits?.autograph)badges.push('<span class="badge good">AUTOGRAPH</span>');
   if(s.traits?.shortPrint)badges.push('<span class="badge good">SHORT PRINT / #’D</span>');
   $("resultBadges").innerHTML=badges.join("");
+  const st=s.sellerTrust||{};
+  const seller=s.seller||{};
+  const sellerBits=[];
+  if(seller.username)sellerBits.push(seller.username);
+  if(Number.isFinite(Number(seller.positivePct)))sellerBits.push(Number(seller.positivePct).toFixed(1).replace(/\.0$/,"")+"% positive");
+  if(Number.isFinite(Number(seller.reviews)))sellerBits.push(Number(seller.reviews).toLocaleString()+" feedback");
+  $("sellerMain").textContent=(st.previousSeller?"★ PREVIOUS SELLER · ":"")+(st.label||"TRUSTED");
+  $("sellerSub").textContent=(sellerBits.length?sellerBits.join(" · "):"Seller details unavailable")+(st.reason?" · "+st.reason:"");
+
   $("retryNote").textContent=state.retryCount
     ?`Replacement searches used this month: ${state.retryCount}`
     :"Use Try Another only if this exact listing is gone.";
@@ -277,7 +416,111 @@ async function retryListing(){
   state.suggestion=null;
   writeState();
   $("result").hidden=true;
+  $("scoutBtn").textContent="🔎 SCOUT THIS MONTH'S PICK";
   await scoutMonthly(true);
+}
+
+function openPurchase(){
+  const s=state?.suggestion;
+  if(!s)return;
+  $("purchasePanel").hidden=false;
+  $("buyYear").value=s.year||"";
+  $("buyNum").value=s.cardNum||"";
+  $("buySet").value=guessSet(s.title,s.year);
+  $("buyPaid").value=Number.isFinite(Number(s.delivered))?Number(s.delivered).toFixed(2):"";
+  $("buyDate").value=localDate();
+  $("buySeller").value=s.seller?.username||"";
+  $("buyIncoming").checked=true;
+  $("purchaseStatus").textContent="Confirm the listing details before saving.";
+  $("purchasePanel").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+async function savePurchase(){
+  const year=Number($("buyYear").value);
+  const set=$("buySet").value.trim();
+  const cardNum=$("buyNum").value.trim();
+  const paidRaw=$("buyPaid").value.trim();
+  const paid=paidRaw===""?null:Number(paidRaw);
+  const seller=$("buySeller").value.trim();
+  const date=$("buyDate").value;
+  const incoming=$("buyIncoming").checked;
+
+  if(!Number.isFinite(year)||year<1860||year>new Date().getFullYear()+1){
+    $("purchaseStatus").className="status bad";$("purchaseStatus").textContent="Confirm a valid card year.";return;
+  }
+  if(!set){
+    $("purchaseStatus").className="status bad";$("purchaseStatus").textContent="Confirm the card set / issue.";return;
+  }
+  if(paidRaw!==""&&(!Number.isFinite(paid)||paid<0)){
+    $("purchaseStatus").className="status bad";$("purchaseStatus").textContent="Confirm a valid price paid.";return;
+  }
+  if(!seller){
+    $("purchaseStatus").className="status bad";$("purchaseStatus").textContent="Confirm the eBay seller.";return;
+  }
+
+  $("savePurchase").disabled=true;
+  $("purchaseStatus").className="status";
+  $("purchaseStatus").textContent="Saving to Scout Cloud…";
+
+  try{
+    const p=monthlyPlayer;
+    const current=cloudEdits[p.name]&&typeof cloudEdits[p.name]==="object"?cloudEdits[p.name]:{};
+    const rec={
+      ...current,
+      owned:true,
+      cardYear:year,
+      set,
+      cardNum,
+      description:state.suggestion?.title||"",
+      grader:state.suggestion?.traits?.graded?"Other graded":"Raw",
+      gradeCondition:"",
+      autograph:!!state.suggestion?.traits?.autograph,
+      serial:"",
+      relic:false,
+      incoming,
+      pricePaid:paid,
+      purchaseDate:date,
+      purchaseSource:`eBay: ${seller}`,
+      userNotes:current.userNotes||"",
+      target:current.target||"",
+      targetNotes:current.targetNotes||""
+    };
+    cloudEdits[p.name]=rec;
+
+    const save=await fetch(WORKER_URL+"/collection/save",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Scout-Key":accessKey},
+      body:JSON.stringify({
+        appVersion:"phase6-monthly-pick-lab-v0.2",
+        clientUpdatedAt:new Date().toISOString(),
+        playerUpdates:cloudEdits
+      })
+    });
+    const data=await save.json().catch(()=>({}));
+    if(!save.ok||!data.ok)throw new Error(data.message||"Scout Cloud save failed.");
+
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(cloudEdits));
+    Object.assign(monthlyPlayer,rec);
+    state.purchase={
+      cardYear:year,set,cardNum,pricePaid:paid,purchaseDate:date,
+      purchaseSource:`eBay: ${seller}`,incoming
+    };
+    writeState();
+
+    $("purchasePanel").hidden=true;
+    $("purchasedBox").hidden=false;
+    $("purchasedText").textContent=`${p.name} · ${year} ${set}${cardNum?" #"+cardNum:""} · eBay: ${seller}${paid!==null?" · paid "+money(paid):""} · ${incoming?"Incoming":"Received"}.`;
+    lockMonthlySearch("✓ MONTHLY PICK PURCHASED");
+    $("retryBtn").disabled=true;
+    $("boughtBtn").disabled=true;
+    $("cloudStatus").className="status ok";
+    $("cloudStatus").textContent="✓ Purchase saved to Scout Cloud. Need removed and collection updated.";
+  }catch(err){
+    $("purchaseStatus").className="status bad";
+    $("purchaseStatus").textContent=err.message;
+  }finally{
+    $("savePurchase").disabled=false;
+  }
 }
 
 $("saveBudget").onclick=()=>{
@@ -290,7 +533,9 @@ $("saveBudget").onclick=()=>{
 $("scoutBtn").onclick=()=>scoutMonthly(false);
 $("retryBtn").onclick=retryListing;
 $("viewListing").onclick=()=>{const link=$("viewListing").dataset.link;if(link)window.open(link,"_blank","noopener")};
-$("backToScout").onclick=()=>window.open("index.html","_blank");
+$("boughtBtn").onclick=openPurchase;
+$("savePurchase").onclick=savePurchase;
+$("cancelPurchase").onclick=()=>{$("purchasePanel").hidden=true};
 
 (async function init(){
   $("monthLabel").textContent=monthName();
