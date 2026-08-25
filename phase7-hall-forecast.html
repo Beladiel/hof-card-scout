@@ -75,7 +75,7 @@ button{border:0;border-radius:12px;padding:12px 15px;font-weight:950;cursor:poin
 </style>
 </head>
 <body><div class="wrap">
-<header><div><h1>🏛️ Hall of Fame Forecast</h1><div class="sub">Annual roster check + Scout's early-buy watchlist</div></div><div class="lab">LAB v0.4</div></header>
+<header><div><h1>🏛️ Hall of Fame Forecast</h1><div class="sub">Annual roster check + Scout's early-buy watchlist</div></div><div class="lab">LAB v0.5</div></header>
 
 <section class="card">
 <div class="eyebrow">ANNUAL HALL UPDATE</div><h2>Class of 2026 roster audit</h2>
@@ -227,12 +227,158 @@ function renderWatch(){
 }
 function futureId(name){return String(name).replace(/[^a-z0-9]+/gi,"-")}
 
+
+function futureClamp(v,min,max){return Math.max(min,Math.min(max,v))}
+function futureDealStep(v){
+ if(v<10)return .25;
+ if(v<25)return .50;
+ if(v<100)return 1;
+ if(v<250)return 2;
+ if(v<1000)return 5;
+ return 10;
+}
+function futureDealRound(v){
+ if(!Number.isFinite(v))return null;
+ const step=futureDealStep(v);
+ return Math.round(v/step)*step;
+}
+function futureSmartBuyTargets(v){
+ const median=Number(v?.median);
+ if(!Number.isFinite(median)||median<=0)return null;
+ const market=v?.confidenceLab?.market||{};
+ const score=Number.isFinite(Number(market.score))?Number(market.score):Number(v?.confidenceScore||50);
+ const conf=futureClamp(score/100,0,1);
+ const spreadRaw=Number(market?.components?.priceConsistency?.iqrToMedian);
+ const low=Number(v?.low), high=Number(v?.high);
+ const fallbackSpread=Number.isFinite(low)&&Number.isFinite(high)&&median>0?(high-low)/median:.60;
+ const spread=futureClamp(Number.isFinite(spreadRaw)?spreadRaw:fallbackSpread,0,1.5);
+ const spreadForBuffer=Math.min(spread,1);
+
+ const greatDiscount=futureClamp(.12+.12*(1-conf)+.08*spreadForBuffer,.14,.32);
+ const ceilingDiscount=futureClamp(.02+.08*(1-conf)+.05*spreadForBuffer,.04,.18);
+ const walkPremium=futureClamp(.08*conf-.05*spreadForBuffer,-.03,.06);
+
+ let greatRaw=median*(1-greatDiscount);
+ if(Number.isFinite(low)&&low>0&&low<greatRaw){
+   const softenedLow=low*1.02;
+   greatRaw=(greatRaw*.75)+(softenedLow*.25);
+ }
+ greatRaw=Math.max(greatRaw,median*.68);
+
+ const ceilingRaw=median*(1-ceilingDiscount);
+ let walkRaw=median*(1+walkPremium);
+ if(Number.isFinite(high)&&high>0)walkRaw=Math.min(walkRaw,high*1.02);
+
+ let greatBuy=futureDealRound(greatRaw);
+ let buyCeiling=futureDealRound(ceilingRaw);
+ let walkAway=futureDealRound(walkRaw);
+ if(buyCeiling<=greatBuy)buyCeiling=greatBuy+futureDealStep(greatBuy);
+ if(walkAway<=buyCeiling)walkAway=buyCeiling+futureDealStep(buyCeiling);
+
+ return {median,greatBuy,buyCeiling,walkAway,confidenceScore:score};
+}
+function futurePriceVerdict(delivered,t){
+ const p=Number(delivered);
+ if(!t||!Number.isFinite(p))return {tier:"market_check",label:"MARKET CHECK",reason:"Scout could not rate this listing price."};
+ if(p<=t.greatBuy)return {tier:"great_buy",label:"GREAT BUY",reason:"This listing is at or below Scout's Great Buy price."};
+ if(p<=t.buyCeiling)return {tier:"buy",label:"BUY",reason:"This listing is below Scout's Buy Ceiling."};
+ if(p<=t.median)return {tier:"fair",label:"FAIR PRICE",reason:"The listing is reasonable, but it is not a bargain."};
+ if(p<=t.walkAway)return {tier:"negotiate",label:"NEGOTIATE",reason:"Scout likes the card, but would try for a lower price."};
+ return {tier:"pass",label:"PASS",reason:"Good target, bad price. Scout would wait for another copy."};
+}
+function futurePricingCard(name,s){
+ const set=String(s?.traits?.rookieVerification?.set||s?.set||"").trim();
+ const gradeInfo=s?.gradeInfo||{};
+ return {
+   year:Number(s?.year),
+   set,
+   player:name,
+   cardNum:String(s?.cardNum||""),
+   grader:gradeInfo?.grader||"Raw",
+   grade:gradeInfo?.grade??"",
+   autograph:!!s?.traits?.autograph,
+   relic:false,
+   serial:"",
+   shopPrice:Number(s?.delivered),
+   notes:"",
+   fastMode:true
+ };
+}
+async function futureSeparateMarketCheck(name,s,c){
+ const card=futurePricingCard(name,s);
+ if(!Number.isInteger(card.year)||!card.set||!Number.isFinite(card.shopPrice)){
+   return s.marketCheck||{
+     rated:false,tier:"market_check",label:"MARKET CHECK",
+     reason:"Scout could not build a specific enough card identity for the price check."
+   };
+ }
+
+ try{
+   const res=await fetch(c.endpoint+"/value",{
+     method:"POST",
+     headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
+     body:JSON.stringify(card)
+   });
+   const v=await res.json().catch(()=>({}));
+   if(!res.ok||!v.ok)throw new Error(v.message||v.error||("Pricing returned "+res.status));
+
+   const used=Number(v.used||0);
+   const confidence=String(v.confidence||"insufficient");
+   const median=Number(v.median);
+   if(used<2||confidence==="insufficient"||!Number.isFinite(median)||median<=0){
+     return {
+       rated:false,tier:"market_check",label:"MARKET CHECK",
+       delivered:card.shopPrice,
+       used,
+       confidence,
+       confidenceScore:Number(v.confidenceScore||0),
+       median:Number.isFinite(median)?median:null,
+       low:Number.isFinite(Number(v.low))?Number(v.low):null,
+       high:Number.isFinite(Number(v.high))?Number(v.high):null,
+       pricingIdentity:{year:card.year,set:card.set,player:name,cardNum:card.cardNum},
+       reason:"Scout found the target, but there are not enough reliable sold comps to confidently rate this listing price."
+     };
+   }
+
+   const targets=futureSmartBuyTargets(v);
+   const verdict=futurePriceVerdict(card.shopPrice,targets);
+   return {
+     rated:true,
+     ...verdict,
+     delivered:card.shopPrice,
+     median:Number(v.median),
+     low:Number(v.low),
+     high:Number(v.high),
+     used,
+     confidence,
+     confidenceScore:Number(v.confidenceScore||0),
+     greatBuy:targets.greatBuy,
+     buyCeiling:targets.buyCeiling,
+     walkAway:targets.walkAway,
+     provider:v.provider||"",
+     pricingIdentity:{year:card.year,set:card.set,player:name,cardNum:card.cardNum},
+     reason:verdict.reason
+   };
+ }catch(err){
+   return {
+     rated:false,tier:"market_check",label:"MARKET CHECK",
+     delivered:card.shopPrice,
+     pricingIdentity:{year:card.year,set:card.set,player:name,cardNum:card.cardNum},
+     reason:"The separate sold-comps check could not be completed: "+String(err?.message||err||"unknown error")
+   };
+ }
+}
+
 function futureMarketCheckHtml(m){
  if(!m)return "";
  const tier=String(m.tier||"market_check");
  const confidence=String(m.confidence||"").toUpperCase();
  const score=Number(m.confidenceScore);
  const used=Number(m.used||0);
+ const identity=m?.pricingIdentity;
+ const identityText=identity
+   ? [identity.year,identity.set,identity.player,identity.cardNum?"#"+identity.cardNum:""].filter(Boolean).join(" ")
+   : "";
  const confidenceText=m.rated
   ? `${confidence||"UNKNOWN"} CONFIDENCE${Number.isFinite(score)?` · ${Math.round(score)}/100`:""} · ${used} COMPS`
   : `PRICE EVIDENCE LIMITED${used?` · ${used} COMPS`:""}`;
@@ -255,7 +401,7 @@ function futureMarketCheckHtml(m){
    <div class="deal-confidence">${futureEsc(confidenceText)}</div>
   </div>
   ${metrics}
-  <div class="deal-message">${futureEsc(m.reason||"")}</div>
+  <div class="deal-message">${futureEsc(m.reason||"")}${identityText?`<br><b>Priced as:</b> ${futureEsc(identityText)}`:""}</div>
  </div>`;
 }
 
@@ -293,9 +439,14 @@ async function findFutureTarget(name,isRetry=false){
      return;
    }
    const s=data.suggestion;
+   status.className="future-status";
+   status.textContent="✓ Target found. Scout is running a separate exact-card sold-comps price check…";
+   s.marketCheck=await futureSeparateMarketCheck(name,s,c);
    futureSuggestions[name]=s;
    status.className="future-status ok";
-   status.textContent="✓ Scout found a Future HOF target candidate.";
+   status.textContent=s.marketCheck?.rated
+     ?"✓ Scout found the target and completed the listing price check."
+     :"✓ Scout found the target. Pricing evidence is limited.";
    const seller=s.seller||{}, st=s.sellerTrust||{};
    const warning=(s.traits?.rookieClaimed&&!s.traits?.rookieVerified)
      ? '<div class="future-warning">⚠ Seller claims “Rookie/RC” — not verified by Scout.</div>' : '';
