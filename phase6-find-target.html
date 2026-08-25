@@ -9,7 +9,7 @@
 *{box-sizing:border-box}body{margin:0;background:linear-gradient(145deg,#123821 0,#03261f 38%,#02231d 100%);color:var(--text);font-family:Arial,Helvetica,sans-serif}
 .wrap{max-width:920px;margin:0 auto;padding:18px}.header{display:flex;align-items:center;gap:14px;margin-bottom:16px}.ball{width:58px;height:58px;border-radius:17px;background:var(--cream);display:grid;place-items:center;font-size:31px}.header h1{margin:0;font-size:25px}.header p{margin:3px 0 0;color:var(--muted);font-size:12px}.labtag{margin-left:auto;border:1px solid var(--line);border-radius:999px;padding:7px 10px;font-size:10px}
 .panel{border:1px solid var(--line);background:rgba(13,54,44,.82);border-radius:19px;padding:16px;margin-bottom:14px}.eyebrow{font-size:9px;letter-spacing:.13em;color:var(--gold);font-weight:950}.title{font-size:26px;font-weight:950;margin:7px 0}.status{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.45}.ok{color:#65e7a8}.bad{color:#ff9c9c}.badge{display:inline-block;font-size:9px;font-weight:950;padding:5px 8px;border-radius:999px;margin-right:5px;background:#624337}.owned{background:#215843;color:#9ff0c4}.need{background:#5a3834;color:#ffaaa2}
-.controls{display:grid;grid-template-columns:1.4fr .6fr;gap:10px}.field label{display:block;font-size:9px;color:var(--muted);font-weight:900;margin-bottom:5px}.field select,.field input{width:100%;min-height:46px;border-radius:12px;border:1px solid var(--line);background:var(--cream);color:var(--ink);padding:9px 11px;font-size:15px}.current{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:12px;background:rgba(255,255,255,.025)}.current .label{font-size:8px;color:var(--muted);font-weight:950}.current .value{font-size:14px;font-weight:900;margin-top:4px}.current .sub{font-size:10px;color:var(--muted);margin-top:4px}
+.controls{display:grid;grid-template-columns:1.4fr .6fr;gap:10px}.field label{display:block;font-size:9px;color:var(--muted);font-weight:900;margin-bottom:5px}.field input{width:100%;min-height:46px;border-radius:12px;border:1px solid var(--line);background:var(--cream);color:var(--ink);padding:9px 11px;font-size:15px}.current{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:12px;background:rgba(255,255,255,.025)}.current .label{font-size:8px;color:var(--muted);font-weight:950}.current .value{font-size:14px;font-weight:900;margin-top:4px}.current .sub{font-size:10px;color:var(--muted);margin-top:4px}
 button{border:0;border-radius:13px;min-height:48px;padding:10px 13px;font-size:15px;font-weight:950;cursor:pointer}.primary{background:var(--gold);color:#161b17}.secondary{background:var(--green);color:#062b21}.ghost{background:#183b33;color:var(--text);border:1px solid var(--line)}.danger{background:#172c27;color:#ff9b9b;border:1px solid #79493f}button:disabled{opacity:.55;cursor:not-allowed}.find{width:100%;margin-top:13px}
 .result{border-color:#31845f;background:rgba(4,39,31,.9)}.result[hidden],.empty[hidden]{display:none}.recTitle{font-size:18px;font-weight:950;margin:4px 0 8px}.pricegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}.stat{border:1px solid var(--line);border-radius:13px;padding:11px}.stat .k{font-size:8px;color:var(--muted);font-weight:950}.stat .v{font-size:17px;font-weight:950;margin-top:4px}.why{font-size:11px;color:var(--muted);line-height:1.55;margin-top:12px}.seller{border:1px solid var(--line);border-radius:13px;padding:10px;margin-top:11px}.seller .main{font-size:13px;font-weight:950}.seller .sub{font-size:10px;color:var(--muted);margin-top:4px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.actions3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:9px}.saved{margin-top:11px;color:#71e9ac;font-size:11px;font-weight:900}.empty{text-align:center}.footer{text-align:center;color:var(--muted);font-size:9px;margin-top:13px}.spinner{display:inline-block;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
 @media(max-width:650px){.controls,.pricegrid,.actions,.actions3{grid-template-columns:1fr}.labtag{display:none}.header h1{font-size:21px}}
@@ -20,13 +20,17 @@ button{border:0;border-radius:13px;min-height:48px;padding:10px 13px;font-size:1
   <div class="header">
     <div class="ball">🔎</div>
     <div><h1>Find a Target</h1><p>Any Hall of Famer. Need card or meaningful upgrade.</p></div>
-    <div class="labtag">LAB v0.1</div>
+    <div class="labtag">LAB v0.1.1</div>
   </div>
 
   <div class="panel">
     <div class="eyebrow">CHOOSE A PLAYER</div>
     <div class="controls" style="margin-top:10px">
-      <div class="field"><label>HALL OF FAMER</label><select id="playerSelect"></select></div>
+      <div class="field">
+        <label>HALL OF FAMER</label>
+        <input id="playerSelect" list="playerList" autocomplete="off" placeholder="Type a player name">
+        <datalist id="playerList"></datalist>
+      </div>
       <div class="field"><label>MAX DELIVERED PRICE</label><input id="budget" inputmode="decimal" placeholder="Enter budget"></div>
     </div>
     <div class="current" id="playerContext"></div>
@@ -148,20 +152,27 @@ async function loadCollection(){
   players=base.map(p=>cloudEdits[p.name]?Object.assign({},p,cloudEdits[p.name]):p);
 }
 function populatePlayers(){
-  const sel=$("playerSelect");
-  sel.innerHTML=players
+  const list=$("playerList");
+  list.innerHTML=players
     .slice()
     .sort((a,b)=>a.name.localeCompare(b.name))
-    .map(p=>`<option value="${esc(p.name)}">${esc(p.name)} — ${p.owned?"Owned":"Need"}</option>`).join("");
+    .map(p=>`<option value="${esc(p.name)}">${p.owned?"Owned":"Need"}</option>`).join("");
   const rickey=players.find(p=>p.name==="Rickey Henderson");
-  sel.value=(rickey||players[0])?.name||"";
+  $("playerSelect").value=(rickey||players[0])?.name||"";
   selectPlayer();
 }
 function selectPlayer(){
-  selected=players.find(p=>p.name===$("playerSelect").value)||null;
+  const raw=$("playerSelect").value.trim().toLowerCase();
+  selected=players.find(p=>p.name.toLowerCase()===raw)||null;
   suggestion=null;excludedIds=[];
   $("result").hidden=true;$("empty").hidden=true;$("saveStatus").textContent="";
-  renderContext();
+  if(selected){
+    renderContext();
+    $("findBtn").disabled=false;
+  }else{
+    $("playerContext").innerHTML='<div class="label">PLAYER SEARCH</div><div class="value">Type a Hall of Famer name and choose the matching suggestion.</div>';
+    $("findBtn").disabled=true;
+  }
 }
 function renderContext(){
   if(!selected)return;
@@ -251,7 +262,7 @@ async function makeTarget(){
     else if(suggestion.why)noteBits.push(suggestion.why.split(" Seller check:")[0]);
     const updated={...existing,target:label,targetNotes:noteBits.join(" · ")};
     cloudEdits[selected.name]=updated;
-    const r=await fetch(WORKER_URL+"/collection/save",{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":accessKey},body:JSON.stringify({appVersion:"phase6-find-target-lab-v0.1",clientUpdatedAt:new Date().toISOString(),playerUpdates:cloudEdits})});
+    const r=await fetch(WORKER_URL+"/collection/save",{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":accessKey},body:JSON.stringify({appVersion:"phase6-find-target-lab-v0.1.1",clientUpdatedAt:new Date().toISOString(),playerUpdates:cloudEdits})});
     const data=await r.json().catch(()=>({}));
     if(!r.ok||!data.ok)throw new Error(data.message||"Scout Cloud save failed.");
     localStorage.setItem(STORAGE_KEY,JSON.stringify(cloudEdits));
@@ -269,6 +280,7 @@ async function retry(){
   suggestion=null;$("result").hidden=true;await findTarget();
 }
 
+$("playerSelect").oninput=selectPlayer;
 $("playerSelect").onchange=selectPlayer;
 $("findBtn").onclick=findTarget;
 $("retryBtn").onclick=retry;
