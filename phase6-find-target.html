@@ -20,7 +20,7 @@ button{border:0;border-radius:13px;min-height:48px;padding:10px 13px;font-size:1
   <div class="header">
     <div class="ball">🔎</div>
     <div><h1>Find a Target</h1><p>Any Hall of Famer. Need card or meaningful upgrade.</p></div>
-    <div class="labtag">LAB v0.1.1</div>
+    <div class="labtag">LAB v0.1.2</div>
   </div>
 
   <div class="panel">
@@ -136,7 +136,7 @@ async function getAccessKey(){
 }
 async function loadBaseRoster(){
   const html=await fetch("index.html?v="+Date.now()).then(r=>r.text());
-  const m=html.match(/let players=(\[[\s\S]*?\]);\s*const STORAGE_KEY/);
+  const m=html.match(/const\s+PLAYERS\s*=\s*(\[[\s\S]*?\]);/);
   if(!m)throw new Error("Could not read the Hall of Fame roster from index.html.");
   return Function('"use strict";return ('+m[1]+')')();
 }
@@ -262,7 +262,7 @@ async function makeTarget(){
     else if(suggestion.why)noteBits.push(suggestion.why.split(" Seller check:")[0]);
     const updated={...existing,target:label,targetNotes:noteBits.join(" · ")};
     cloudEdits[selected.name]=updated;
-    const r=await fetch(WORKER_URL+"/collection/save",{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":accessKey},body:JSON.stringify({appVersion:"phase6-find-target-lab-v0.1.1",clientUpdatedAt:new Date().toISOString(),playerUpdates:cloudEdits})});
+    const r=await fetch(WORKER_URL+"/collection/save",{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":accessKey},body:JSON.stringify({appVersion:"phase6-find-target-lab-v0.1.2",clientUpdatedAt:new Date().toISOString(),playerUpdates:cloudEdits})});
     const data=await r.json().catch(()=>({}));
     if(!r.ok||!data.ok)throw new Error(data.message||"Scout Cloud save failed.");
     localStorage.setItem(STORAGE_KEY,JSON.stringify(cloudEdits));
