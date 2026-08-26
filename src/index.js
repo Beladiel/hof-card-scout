@@ -1,4 +1,4 @@
-const VERSION = "3.23.3";
+const VERSION = "3.23.4";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const VALUATION_CACHE_FRESH_SECONDS = 6 * 60 * 60;
@@ -3600,7 +3600,9 @@ function looksLikeLot(t){
 }
 function isExplicitTeamCardListing(title) {
   const text = String(title || "");
-  return /\bteam[\s-]+(?:photo[\s-]+)?cards?\b|\bteam[\s-]+checklists?\b/i.test(text);
+  const labeledTeamCard = /\bteam\b[\s:./\-–—]+(?:photo[\s:./\-–—]+)?(?:cards?|checklists?)\b/i;
+  const numberedTeamCard = /\bteam\b[\s:./\-–—]*(?:#\s*)?\d{1,3}\b/i;
+  return labeledTeamCard.test(text) || numberedTeamCard.test(text);
 }
 function isObviousNonTradingCardListing(title) {
   const text = String(title || "");
