@@ -141,8 +141,8 @@ async function test(name, fn) {
 }
 
 (async () => {
-  await test("Worker version is 3.23.10", () => {
-    assert.equal(api.VERSION, "3.23.10");
+  await test("Worker version is 3.24.0", () => {
+    assert.equal(api.VERSION, "3.24.0");
   });
 
   await test("target exact and broad async searches start concurrently", async () => {

@@ -1994,6 +1994,7 @@ const FIND_TARGET_BUDGET_KEY="hofScoutFindTargetBudgetV1";
 let findTargetSuggestion=null;
 let findTargetExcludedIds=[];
 let findTargetPlayerName="";
+let findTargetPreviousSummary=null;
 
 /* v5.0.3 — Monthly Pick */
 const MONTHLY_BUDGET_KEY="hofScoutMonthlyBudgetV1";
@@ -3366,6 +3367,7 @@ function findTargetMoney(v){
 function findTargetResetResult(){
   findTargetSuggestion=null;
   findTargetExcludedIds=[];
+  findTargetPreviousSummary=null;
   $("findTargetResult").hidden=true;
   $("findTargetStatus").textContent="";
   $("findTargetStatus").className="find-target-status";
@@ -3383,8 +3385,8 @@ function openFindTarget(){
   panel.hidden=false;
   $("findTargetTitle").textContent=currentPlayer.owned?"Find an Upgrade Target":"Find a Target";
   $("findTargetSub").textContent=currentPlayer.owned
-    ?"Scout will look for a meaningful upgrade. Older comes first; higher grade on the same card also counts."
-    :"Scout will look for the oldest trustworthy representative card it can find within your budget.";
+    ?"Scout favors older cards, but may choose a one-year-newer card when it is clearly the better collectible or value."
+    :"Scout favors older cards, but may choose a one-year-newer card when it is clearly the better collectible or value.";
   if(!$("findTargetBudget").value)$("findTargetBudget").value=localStorage.getItem(FIND_TARGET_BUDGET_KEY)||"";
   panel.scrollIntoView({behavior:"smooth",block:"nearest"});
   setTimeout(()=>$("findTargetBudget")?.focus(),150);
@@ -3398,7 +3400,7 @@ function renderFindTargetSuggestion(s){
   $("findTargetResult").hidden=false;
   $("findTargetEyebrow").textContent=p.owned?"SCOUT'S UPGRADE RECOMMENDATION":"SCOUT'S TARGET RECOMMENDATION";
   $("findTargetRecTitle").textContent=s.title||"";
-  const badges=["OLDEST FIRST"];
+  const badges=[s.selectionBadge||"OLDEST BEST FIT"];
   if(s.gradeInfo?.grader&&s.gradeInfo.grader!=="Raw")badges.push(s.gradeInfo.label||s.gradeInfo.grader);
   if(s.traits?.rookieVerified)badges.push("VERIFIED ROOKIE");
   if(s.traits?.autograph)badges.push("AUTO");
@@ -3409,7 +3411,7 @@ function renderFindTargetSuggestion(s){
   $("findTargetYear").textContent=s.year||"—";
   $("findTargetPrice").textContent=findTargetMoney(s.price);
   $("findTargetDelivered").textContent=findTargetMoney(s.delivered);
-  $("findTargetWhy").textContent=s.why||"";
+  $("findTargetWhy").textContent=[s.why,s.tryAnotherComparison].filter(Boolean).join(" ");
 
   const st=s.sellerTrust||{}, seller=s.seller||{};
   $("findTargetSellerMain").textContent=(st.previousSeller?"★ PREVIOUS SELLER · ":"SELLER CONFIDENCE · ")+(st.label||"TRUSTED");
@@ -3498,6 +3500,44 @@ async function runFindTargetDeepPriceCheck(){
     status.textContent=err?.safe?err.message:"Scout could not complete the Deep Price Check. Try again later.";
   }
 }
+function findTargetSanitizedSummary(s){
+  if(!s)return null;
+  const number=v=>Number.isFinite(Number(v))?Number(v):null;
+  return {
+    year:number(s.year),
+    conditionLabel:String(s.conditionInfo?.label||"").slice(0,60),
+    conditionScore:number(s.conditionInfo?.score),
+    representation:["individual","shared","unknown"].includes(s.representation?.type)?s.representation.type:"unknown",
+    sellerLabel:String(s.sellerTrust?.label||"").slice(0,40),
+    sellerScore:number(s.ranking?.components?.sellerTrust),
+    delivered:number(s.delivered),
+    marketVerdict:String(s.marketCheck?.label||"").slice(0,40)
+  };
+}
+function findTargetComparison(previous,current){
+  if(!previous||!current)return "";
+  const now=findTargetSanitizedSummary(current),parts=[];
+  if(previous.year!==null&&now.year!==null&&previous.year!==now.year){
+    const gap=Math.abs(now.year-previous.year);
+    parts.push(gap+" year"+(gap===1?"":"s")+" "+(now.year>previous.year?"newer":"older"));
+  }
+  if(previous.conditionScore!==null&&now.conditionScore!==null&&Math.abs(now.conditionScore-previous.conditionScore)>=8){
+    parts.push(now.conditionScore>previous.conditionScore?"cleaner condition":"rougher condition");
+  }
+  if(previous.representation!==now.representation&&previous.representation!=="unknown"&&now.representation!=="unknown"){
+    parts.push(now.representation+" rather than "+previous.representation+" representation");
+  }
+  if(previous.sellerScore!==null&&now.sellerScore!==null&&Math.abs(now.sellerScore-previous.sellerScore)>=10){
+    parts.push(now.sellerScore>previous.sellerScore?"stronger seller confidence":"lower seller confidence");
+  }
+  if(previous.delivered!==null&&now.delivered!==null&&Math.abs(now.delivered-previous.delivered)>=.01){
+    parts.push("$"+Math.abs(now.delivered-previous.delivered).toFixed(2)+" "+(now.delivered<previous.delivered?"less":"more")+" delivered");
+  }
+  if(previous.marketVerdict&&now.marketVerdict&&previous.marketVerdict!==now.marketVerdict){
+    parts.push(now.marketVerdict+" versus "+previous.marketVerdict);
+  }
+  return parts.length?"Compared with your last option: "+parts.slice(0,4).join(", ")+".":"";
+}
 async function searchFindTarget(){
   if(!currentPlayer)return;
   const budget=Number($("findTargetBudget").value);
@@ -3549,6 +3589,8 @@ async function searchFindTarget(){
     if(!data.suggestion.marketCheck){
       data.suggestion.marketCheck=await scoutRecommendationMarketCheck(p.name,data.suggestion);
     }
+    data.suggestion.tryAnotherComparison=findTargetComparison(findTargetPreviousSummary,data.suggestion);
+    findTargetPreviousSummary=null;
     renderFindTargetSuggestion(data.suggestion);
     $("findTargetStatus").className="find-target-status ok";
     if(data.suggestion.marketCheck?.rated){
@@ -3570,6 +3612,7 @@ async function searchFindTarget(){
 }
 async function retryFindTarget(){
   if(findTargetSuggestion){
+    findTargetPreviousSummary=findTargetSanitizedSummary(findTargetSuggestion);
     const id=findTargetSuggestion.id||findTargetSuggestion.productId;
     if(id&&!findTargetExcludedIds.includes(String(id)))findTargetExcludedIds.push(String(id));
   }

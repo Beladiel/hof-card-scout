@@ -1,6 +1,7 @@
-const VERSION = "3.23.10";
+const VERSION = "3.24.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
+const TARGET_RANKING_VERSION = 1;
 const VALUATION_CACHE_FRESH_SECONDS = 6 * 60 * 60;
 const VALUATION_CACHE_RETENTION_SECONDS = 48 * 60 * 60;
 const SERP_TIMEOUT_MS = 8000;
@@ -403,7 +404,24 @@ export default {
           futureHof
         });
         if (result?.suggestion) {
-          result.suggestion.marketCheck = await targetRecommendationMarketCheck(result.suggestion, player, env);
+          const shortlist = Array.isArray(result._targetShortlist) && result._targetShortlist.length
+            ? result._targetShortlist.slice(0, 3)
+            : [result.suggestion];
+          delete result._targetShortlist;
+          const preliminary = shortlist[0];
+          preliminary.marketCheck = await targetRecommendationMarketCheck(preliminary, player, env);
+          let selected = preliminary;
+          let checksPerformed = 1;
+          const alternative = targetRankingAlternative(preliminary, shortlist.slice(1));
+          if (alternative && targetShouldMarketCheckAlternative(preliminary, alternative)) {
+            alternative.marketCheck = await targetRecommendationMarketCheck(alternative, player, env);
+            checksPerformed++;
+            selected = targetChooseRecommendation(preliminary, alternative);
+          }
+          targetFinalizeSelection(selected, preliminary, checksPerformed);
+          result.suggestion = selected;
+        } else {
+          delete result._targetShortlist;
         }
         return json({
           ok: true,
@@ -2736,6 +2754,159 @@ function monthlyPickTraitScore(traits) {
     (traits.shortPrint ? 2 : 0);
 }
 
+function monthlyPickRepresentationInfo(title, player) {
+  const raw = String(title || "");
+  const normalized = normalizeText(raw);
+  const requested = normalizeText(player);
+  if (/\b(?:league\s+leaders?|leaders?|duo|trio|southpaws?|multi[\s-]*player|combo|battery mates?)\b/i.test(raw)) {
+    return { type: "shared", label: "Shared player card", score: 84 };
+  }
+  const withoutPlayer = requested
+    ? raw.replace(new RegExp(escapeRegExp(String(player || "").trim()), "ig"), " ")
+    : raw;
+  const stop = new Set([
+    "topps","bowman","fleer","donruss","leaf","score","upper","deck","panini","goudey","play","ball",
+    "vintage","baseball","card","hof","rookie","rc","graded","raw","excellent","mint","near","good","very",
+    "los","angeles","new","york","san","francisco","dodgers","yankees","giants","cardinals","cubs","mets",
+    "braves","reds","red","sox","white","tigers","orioles","pirates","phillies","athletics","indians","guardians"
+  ]);
+  const tokens = withoutPlayer.match(/\b[A-Z][a-z][A-Za-z'.-]*\b/g) || [];
+  let run = 0;
+  for (const token of tokens) {
+    if (stop.has(token.toLowerCase())) run = 0;
+    else if (++run >= 2) return { type: "shared", label: "Shared player card", score: 84 };
+  }
+  if (requested && normalized.includes(requested)) return { type: "individual", label: "Individual player card", score: 100 };
+  return { type: "unknown", label: "Representation unclear", score: 92 };
+}
+
+function targetClampScore(value) {
+  return Math.round(Math.max(0, Math.min(100, Number(value) || 0)) * 10) / 10;
+}
+
+function targetRankingInfo(candidate, oldestYear, budget, mode) {
+  const yearGap = Math.max(0, Number(candidate.year) - Number(oldestYear));
+  const traits = candidate.traits || {};
+  const verifiedCount = [traits.rookieVerified, traits.graded, traits.autograph, traits.shortPrint].filter(Boolean).length;
+  const components = {
+    age: yearGap === 0 ? 100 : 82,
+    upgradeStrength: targetClampScore(mode === "upgrade" ? Number(candidate.upgrade?.strength || 0) / 2.5 : 0),
+    representation: targetClampScore(candidate.representationInfo?.score || 92),
+    condition: targetClampScore(candidate.conditionInfo?.score || 0),
+    sellerTrust: targetClampScore(candidate.sellerTrust?.score || 0),
+    verifiedTraits: targetClampScore(verifiedCount * 25),
+    deliveredPriceEfficiency: targetClampScore((1 - Number(candidate.delivered) / Number(budget)) * 100),
+  };
+  const total = targetClampScore(
+    components.age * .20 + components.upgradeStrength * .05 + components.representation * .16 +
+    components.condition * .28 + components.sellerTrust * .15 + components.verifiedTraits * .06 +
+    components.deliveredPriceEfficiency * .10
+  );
+  return { oldestYear, yearGap, components, total };
+}
+
+function targetCandidateQualitySort(a, b) {
+  return (b.ranking.total - a.ranking.total) ||
+    ((b.conditionInfo?.score || 0) - (a.conditionInfo?.score || 0)) ||
+    ((b.sellerTrust?.score || 0) - (a.sellerTrust?.score || 0)) ||
+    (a.delivered - b.delivered);
+}
+
+function targetBuildCandidateShortlist(candidates, budget, mode, player) {
+  if (!candidates.length) return [];
+  const oldestYear = Math.min(...candidates.map(x => Number(x.year)));
+  const cohort = candidates.filter(x => Number(x.year) <= oldestYear + 1);
+  for (const candidate of cohort) {
+    candidate.representationInfo = monthlyPickRepresentationInfo(candidate.title, player);
+    candidate.ranking = targetRankingInfo(candidate, oldestYear, budget, mode);
+  }
+  const oldest = cohort.filter(x => Number(x.year) === oldestYear).sort(targetCandidateQualitySort);
+  const near = cohort.filter(x => Number(x.year) === oldestYear + 1).sort(targetCandidateQualitySort);
+  const preliminary = oldest[0] || near[0];
+  const remainder = cohort.filter(x => x !== preliminary).sort((a, b) =>
+    (a.year - b.year) || targetCandidateQualitySort(a, b)
+  );
+  return [preliminary, ...remainder].filter(Boolean).slice(0, 3);
+}
+
+function targetMarketVerdictRank(marketCheck) {
+  const label = String(marketCheck?.label || "").toUpperCase();
+  if (label.includes("GREAT BUY")) return 4;
+  if (label === "BUY" || label.includes(" BUY")) return 3;
+  if (label.includes("FAIR") || label.includes("NEGOTIATE")) return 2;
+  if (label.includes("PASS")) return 0;
+  return 1;
+}
+
+function targetRankingAlternative(primary, alternatives) {
+  const eligible = alternatives.filter(x => Number(x.year) - Number(primary.year) <= 1);
+  if (!eligible.length) return null;
+  const sameYear = eligible.filter(x => Number(x.year) === Number(primary.year)).sort(targetCandidateQualitySort)[0];
+  const newer = eligible.filter(x => Number(x.year) === Number(primary.year) + 1).sort(targetCandidateQualitySort)[0];
+  if (sameYear && sameYear.ranking.total >= primary.ranking.total - 12) return sameYear;
+  return newer || sameYear || null;
+}
+
+function targetShouldMarketCheckAlternative(primary, alternative) {
+  if (!primary || !alternative || Number(alternative.year) - Number(primary.year) > 1) return false;
+  const condition = Number(primary.conditionInfo?.score || 0);
+  const altCondition = Number(alternative.conditionInfo?.score || 0);
+  const verdict = targetMarketVerdictRank(primary.marketCheck);
+  const trustedCleanIndividual = condition >= 68 && Number(primary.sellerTrust?.score || 0) >= 70 &&
+    primary.representation?.type === "individual" && verdict >= 2;
+  if (trustedCleanIndividual) return false;
+  if (Number(alternative.year) === Number(primary.year) && alternative.ranking.total >= primary.ranking.total - 12) return true;
+  if (condition < 45 || verdict === 0) return true;
+  if (primary.representation?.type === "shared" && alternative.representation?.type === "individual" && altCondition >= condition) return true;
+  const savings = Number(primary.delivered) - Number(alternative.delivered);
+  return savings >= Math.max(10, Number(primary.delivered) * .25);
+}
+
+function targetChooseRecommendation(primary, alternative) {
+  if (!alternative) return primary;
+  const yearGap = Number(alternative.year) - Number(primary.year);
+  if (yearGap < 0 || yearGap > 1) return primary;
+  const pCondition = Number(primary.conditionInfo?.score || 0);
+  const aCondition = Number(alternative.conditionInfo?.score || 0);
+  const pVerdict = targetMarketVerdictRank(primary.marketCheck);
+  const aVerdict = targetMarketVerdictRank(alternative.marketCheck);
+  if (yearGap === 0) {
+    if (aVerdict >= pVerdict + 2 && aCondition >= pCondition - 10) {
+      alternative.selectionMode = "same_year_best_value";
+      alternative.selectionBadge = "BEST VALUE";
+      alternative.selectionReason = `${alternative.marketCheck?.label || "Stronger market value"} beat the same-year alternative while collectible quality remained comparable.`;
+      return alternative;
+    }
+    return primary;
+  }
+  const lowGradeUpgrade = pCondition < 45 && aCondition >= 45 && aCondition >= pCondition + 15;
+  const passUpgrade = pVerdict === 0 && aVerdict >= 2 && aCondition >= pCondition - 5;
+  const representationUpgrade = primary.representation?.type === "shared" && alternative.representation?.type === "individual" &&
+    aCondition >= pCondition && aVerdict >= pVerdict;
+  if (lowGradeUpgrade || passUpgrade || representationUpgrade) {
+    alternative.selectionMode = "one_year_quality_upgrade";
+    alternative.selectionBadge = "SMARTER PICK";
+    alternative.selectionReason = lowGradeUpgrade
+      ? "Scout chose the cleaner one-year-newer card over an oldest-year option below its 45-point condition standard."
+      : passUpgrade
+        ? `Scout chose the one-year-newer card because the oldest option was a market PASS and this card rated ${alternative.marketCheck?.label || "better"}.`
+        : "Scout chose the individual one-year-newer card over a shared oldest-year card with no loss in condition or market verdict.";
+    return alternative;
+  }
+  return primary;
+}
+
+function targetFinalizeSelection(selected, preliminary, checksPerformed) {
+  selected.rankingVersion = TARGET_RANKING_VERSION;
+  selected.marketChecksPerformed = Math.min(2, Number(checksPerformed) || 0);
+  if (!selected.selectionMode) selected.selectionMode = "oldest_best_fit";
+  if (!selected.selectionBadge) selected.selectionBadge = "OLDEST BEST FIT";
+  if (!selected.selectionReason) {
+    selected.selectionReason = "Scout kept the oldest qualifying year because no one-year-newer alternative showed a clear enough collectible or market advantage.";
+  }
+  selected.why = `${selected.why || ""} ${selected.selectionReason}`.trim();
+}
+
 function monthlyPickWhy(suggestion, mode, currentCard, budget, purpose = "monthly") {
   const traits = suggestion.traits || {};
   const extras = [];
@@ -2894,19 +3065,22 @@ async function searchMonthlyPickListing({ player, budget, mode, currentCard, exc
   // Dedupe across multiple discovery queries.
   const uniqueAccepted = dedupe(accepted);
 
-  // Condition and seller risk are gates first. Among eligible listings:
-  // 1) oldest year, 2) upgrade strength for owned players,
-  // 3) better condition, 4) seller quality/history, 5) collectible traits, 6) delivered price.
-  uniqueAccepted.sort((a, b) =>
-    (a.year - b.year) ||
-    (mode === "upgrade" ? ((b.upgrade?.strength || 0) - (a.upgrade?.strength || 0)) : 0) ||
-    ((b.conditionInfo?.score || 0) - (a.conditionInfo?.score || 0)) ||
-    ((b.sellerTrust?.score || 0) - (a.sellerTrust?.score || 0)) ||
-    (b.traitScore - a.traitScore) ||
-    (a.delivered - b.delivered)
-  );
+  let targetCandidates = [];
+  if (purpose === "target") {
+    targetCandidates = targetBuildCandidateShortlist(uniqueAccepted, budget, mode, player);
+  } else {
+    // Monthly Pick deliberately keeps its established oldest-first ordering.
+    uniqueAccepted.sort((a, b) =>
+      (a.year - b.year) ||
+      (mode === "upgrade" ? ((b.upgrade?.strength || 0) - (a.upgrade?.strength || 0)) : 0) ||
+      ((b.conditionInfo?.score || 0) - (a.conditionInfo?.score || 0)) ||
+      ((b.sellerTrust?.score || 0) - (a.sellerTrust?.score || 0)) ||
+      (b.traitScore - a.traitScore) ||
+      (a.delivered - b.delivered)
+    );
+  }
 
-  const best = uniqueAccepted[0] || null;
+  const best = purpose === "target" ? (targetCandidates[0] || null) : (uniqueAccepted[0] || null);
   if (!best) {
     return {
       query: usedQueries.join(" | "),
@@ -2922,35 +3096,47 @@ async function searchMonthlyPickListing({ player, budget, mode, currentCard, exc
     };
   }
 
-  const lowConditionFallback = (Number(best.conditionInfo?.score) || 0) < 45;
-  const suggestion = {
-    id: best.id,
-    productId: best.productId,
-    title: best.title,
-    year: best.year,
-    set: best.set,
-    cardNum: best.cardNum,
-    gradeInfo: best.gradeInfo,
-    upgrade: best.upgrade,
-    price: best.price,
-    shipping: best.shipping,
-    delivered: best.delivered,
-    condition: best.condition,
-    link: best.link,
-    thumbnail: best.thumbnail,
-    seller: best.seller,
-    sellerTrust: best.sellerTrust,
-    conditionInfo: best.conditionInfo,
-    acceptsOffers: best.acceptsOffers,
-    traits: best.traits,
-    eraInfo: best.eraInfo || null,
-    discoveryQuery: best.discoveryQuery,
+  const buildSuggestion = candidate => {
+    const lowConditionFallback = (Number(candidate.conditionInfo?.score) || 0) < 45;
+    const suggestion = {
+    id: candidate.id,
+    productId: candidate.productId,
+    title: candidate.title,
+    year: candidate.year,
+    set: candidate.set,
+    cardNum: candidate.cardNum,
+    gradeInfo: candidate.gradeInfo,
+    upgrade: candidate.upgrade,
+    price: candidate.price,
+    shipping: candidate.shipping,
+    delivered: candidate.delivered,
+    condition: candidate.condition,
+    link: candidate.link,
+    thumbnail: candidate.thumbnail,
+    seller: candidate.seller,
+    sellerTrust: candidate.sellerTrust,
+    conditionInfo: candidate.conditionInfo,
+    acceptsOffers: candidate.acceptsOffers,
+    traits: candidate.traits,
+    eraInfo: candidate.eraInfo || null,
+    discoveryQuery: candidate.discoveryQuery,
     lowConditionFallback,
+    ...(purpose === "target" ? {
+      rankingVersion: TARGET_RANKING_VERSION,
+      ranking: candidate.ranking,
+      representation: candidate.representationInfo,
+      selectionMode: "oldest_best_fit",
+      selectionBadge: "OLDEST BEST FIT"
+    } : {})
   };
-  suggestion.why = monthlyPickWhy(suggestion, mode, currentCard, budget, purpose);
-  if (lowConditionFallback) {
-    suggestion.why += " Condition warning: this is a lower-condition fallback. Scout checked its available focused searches and did not find a cleaner qualifying option within the current budget.";
-  }
+    suggestion.why = monthlyPickWhy(suggestion, mode, currentCard, budget, purpose);
+    if (lowConditionFallback) {
+      suggestion.why += " Condition warning: this is a lower-condition fallback. Scout checked its available focused searches and did not find a cleaner qualifying option within the current budget.";
+    }
+    return suggestion;
+  };
+  const suggestion = buildSuggestion(best);
+  const targetShortlist = purpose === "target" ? targetCandidates.map(buildSuggestion) : [];
 
   return {
     query: usedQueries.join(" | "),
@@ -2958,6 +3144,7 @@ async function searchMonthlyPickListing({ player, budget, mode, currentCard, exc
     searched: rawCount,
     eligible: uniqueAccepted.length,
     suggestion,
+    ...(purpose === "target" ? { _targetShortlist: targetShortlist } : {}),
     alternatesAvailable: Math.max(0, uniqueAccepted.length - 1),
     checkedAt: new Date().toISOString(),
     shippingDestinationZip: ACTIVE_EBAY_SHIP_TO_ZIP,
