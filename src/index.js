@@ -1,4 +1,4 @@
-const VERSION = "3.23.8";
+const VERSION = "3.23.9";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const VALUATION_CACHE_FRESH_SECONDS = 6 * 60 * 60;
@@ -419,6 +419,52 @@ export default {
           error: err?.code || "find_target_failed",
           message: err?.message || "Scout could not find a target recommendation."
         }, status, cors);
+      }
+    }
+
+    if (url.pathname === "/deep-price-check" && request.method === "POST") {
+      const supplied = request.headers.get("X-Scout-Key") || "";
+      if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
+        return json({ ok: false, error: "unauthorized", message: "Scout access key rejected." }, 401, cors);
+      }
+      if (!env.APIFY_TOKEN) {
+        return json({
+          ok: false,
+          error: "apify_not_configured",
+          message: "Scout's Deep Price Check is not configured in Cloudflare."
+        }, 503, cors);
+      }
+
+      let body;
+      try { body = await request.json(); }
+      catch { return json({ ok: false, error: "bad_json" }, 400, cors); }
+
+      const card = body?.card || body;
+      const valid = validateCard(card);
+      if (!valid.ok) return json({ ok: false, error: "invalid_card", message: valid.message }, 400, cors);
+
+      try {
+        const result = await deepPriceCheck(card, env);
+        return json({
+          ok: true,
+          version: VERSION,
+          cachePolicy: "on-demand Deep Price Check; not persisted to the normal valuation cache",
+          ...result,
+        }, 200, cors);
+      } catch (err) {
+        if (isApifyAuthenticationError(err)) {
+          return json({
+            ok: false,
+            error: "apify_auth_invalid",
+            message: "Scout's Deep Price Check needs its Apify connection refreshed."
+          }, 502, cors);
+        }
+        console.error("Deep Price Check failed without exposing provider details.");
+        return json({
+          ok: false,
+          error: "deep_price_check_failed",
+          message: "Scout could not complete the Deep Price Check. Try again later."
+        }, 502, cors);
       }
     }
 
@@ -3342,6 +3388,85 @@ async function searchSerpApi(card, query, apiKey, fastMode=false, options={}) {
   };
 }
 
+function isApifyAuthenticationError(error) {
+  const status = Number(error?.status);
+  const code = String(error?.code || "").toLowerCase();
+  const message = String(error?.message || error || "");
+  return status === 401 || status === 403 || code === "apify_auth_invalid" ||
+    /user was not found|authentication token is not valid|invalid authentication token|invalid apify token|unauthori[sz]ed/i.test(message);
+}
+
+async function deepPriceCheck(card, env) {
+  const baselineEntry = await readValuationCache(card, true);
+  const baseline = baselineEntry?.result
+    ? withCurrentShopVerdict(baselineEntry.result, card, true)
+    : null;
+  const baselineComps = Array.isArray(baseline?.comps) ? baseline.comps : [];
+  const baselineUsed = valuationEvidenceCount(baseline);
+
+  const apify = await searchApify(
+    card,
+    buildQuery(card),
+    env.APIFY_TOKEN,
+    false,
+    env.CARD_API_KEY || ""
+  );
+
+  // Cache entries contain comps that already passed Scout's identity rules,
+  // but re-run the current rules after combining them with on-demand evidence.
+  const combinedRows = dedupeSoldComps([
+    ...baselineComps,
+    ...(Array.isArray(apify?.matchedItems) ? apify.matchedItems : []),
+  ]);
+  const combinedEvaluation = evaluateComparableResults(combinedRows, card);
+  const provider = baseline
+    ? `${baseline.provider || "cached verified eBay sold results"} + Apify`
+    : "eBay sold results via Apify";
+  const searchMode = [baseline?.searchMode, apify?.searchMode]
+    .filter(Boolean)
+    .join(" + ");
+  const candidateRaw = finalizeValuation(card, buildQuery(card), combinedEvaluation.matchedItems, {
+    provider,
+    searchMode,
+    matchMode: combinedEvaluation.matchMode,
+    searched: Number(baseline?.searched || 0) + Number(apify?.searched || 0),
+    matched: combinedEvaluation.matchedItems.length,
+    providerDiagnostics: baseline?.providerDiagnostics || {},
+    notes: uniqueStrings([
+      ...(Array.isArray(baseline?.notes) ? baseline.notes : []),
+      ...(Array.isArray(apify?.notes) ? apify.notes : []),
+      "Deep Price Check was requested explicitly and was not written to Scout's normal valuation cache.",
+    ]),
+    mode: "deep-price-check",
+    bestOfferRecovered: Number(baseline?.bestOfferRecovered || 0) + Number(apify?.bestOfferRecovered || 0),
+    bestOfferRecoveryAttempted: Number(baseline?.bestOfferRecoveryAttempted || 0) + Number(apify?.bestOfferRecoveryAttempted || 0),
+  });
+  const candidate = {
+    ...withCurrentShopVerdict(candidateRaw, card, false),
+    cachePolicy: "on-demand Deep Price Check; not persisted to the normal valuation cache",
+  };
+  const improved = baseline
+    ? isValuationEvidenceStronger(candidate, baseline)
+    : valuationEvidenceCount(candidate) > 0;
+  const valuation = improved || !baseline ? candidate : baseline;
+  const uniqueCompsAdded = improved
+    ? Math.max(0, valuationEvidenceCount(candidate) - baselineUsed)
+    : 0;
+  const diagnostics = {
+    baselineComps: baselineUsed,
+    baselineCacheStatus: baselineEntry ? (baselineEntry.fresh ? "fresh" : "retained") : "not_available",
+    apifyRowsSearched: pricingDiagnosticCount(apify?.searched),
+    apifyExactMatches: pricingDiagnosticCount(apify?.matchedItems?.length),
+    uniqueCompsAdded,
+    finalCompsUsed: valuationEvidenceCount(valuation),
+    bestOfferPricesRecovered: pricingDiagnosticCount(apify?.bestOfferRecovered),
+    improved,
+    status: "completed",
+  };
+
+  return { valuation, diagnostics };
+}
+
 async function searchApify(card, query, token, fastMode=false, cardApiKey="") {
   const count = fastMode ? APIFY_FAST_COUNT : APIFY_DEEP_COUNT;
   const timeoutSeconds = fastMode ? APIFY_FAST_TIMEOUT_SECONDS : APIFY_DEEP_TIMEOUT_SECONDS;
@@ -3377,7 +3502,13 @@ async function searchApify(card, query, token, fastMode=false, cardApiKey="") {
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const msg = data?.error?.message || data?.message || `Apify returned HTTP ${res.status}.`;
-    throw new Error(msg);
+    const error = new Error(msg);
+    error.status = res.status;
+    if (isApifyAuthenticationError(error)) {
+      error.code = "apify_auth_invalid";
+      error.message = "Apify authentication is invalid.";
+    }
+    throw error;
   }
   if (!Array.isArray(data)) throw new Error("Apify returned an unexpected response.");
 

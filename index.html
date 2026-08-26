@@ -384,6 +384,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .scout-pricing-evidence-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;margin-top:8px;font-size:9px;color:var(--muted);line-height:1.4}
 .scout-pricing-evidence-grid b{color:var(--text)}
 .scout-pricing-evidence-notes{margin:7px 0 0;padding-left:17px;color:var(--muted);font-size:9px;line-height:1.45}
+.scout-deep-price-check{margin-top:9px;border-top:1px solid rgba(230,189,99,.24);padding-top:9px}
+.scout-deep-price-check button{width:100%}
+.scout-deep-price-status{margin-top:7px;color:var(--muted);font-size:9px;line-height:1.45}
+.scout-deep-price-status.ok{color:var(--green)}
+.scout-deep-price-status.bad{color:var(--red)}
 .scout-deal-box[hidden]{display:none}
 @media(max-width:620px){.scout-deal-metrics,.scout-pricing-evidence-grid{grid-template-columns:1fr 1fr}}
 
@@ -2232,6 +2237,49 @@ function scoutPricingEvidenceFromValue(v={},targetEnrichmentAttempted=false,extr
     notes
   };
 }
+function scoutRecommendationMarketCheckFromValue(playerName,s,v,pricingEvidence){
+  const card=scoutRecommendationPricingCard(playerName,s);
+  const used=Number(v?.used||0);
+  const confidence=String(v?.confidence||"insufficient");
+  const median=Number(v?.median);
+  const evidence=pricingEvidence||scoutPricingEvidenceFromValue(v,false);
+
+  if(used<2||confidence==="insufficient"||!Number.isFinite(median)||median<=0){
+    return {
+      version:SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION,
+      rated:false,tier:"market_check",label:"MARKET CHECK",
+      delivered:card.shopPrice,used,confidence,
+      confidenceScore:Number(v?.confidenceScore||0),
+      median:Number.isFinite(median)&&median>0?median:null,
+      low:Number.isFinite(Number(v?.low))&&Number(v.low)>0?Number(v.low):null,
+      high:Number.isFinite(Number(v?.high))&&Number(v.high)>0?Number(v.high):null,
+      provider:v?.provider||"",
+      pricingIdentity:{year:card.year,set:card.set,player:playerName,cardNum:card.cardNum},
+      pricingEvidence:evidence,
+      reason:"Scout likes the target, but there are not enough reliable sold comps to confidently rate this listing price."
+    };
+  }
+
+  const targets=scoutSmartBuyTargets(v);
+  const verdict=scoutRecommendationVerdict(card.shopPrice,targets);
+  return {
+    version:SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION,
+    rated:true,...verdict,
+    delivered:card.shopPrice,
+    median:Number(v.median),
+    low:Number(v.low),
+    high:Number(v.high),
+    used,confidence,
+    confidenceScore:Number(v.confidenceScore||0),
+    greatBuy:targets.greatBuy,
+    buyCeiling:targets.buyCeiling,
+    walkAway:targets.walkAway,
+    provider:v.provider||"",
+    pricingIdentity:{year:card.year,set:card.set,player:playerName,cardNum:card.cardNum},
+    pricingEvidence:evidence,
+    reason:verdict.reason
+  };
+}
 async function scoutRecommendationMarketCheck(playerName,s){
   const c=pricingConfig();
   const card=scoutRecommendationPricingCard(playerName,s);
@@ -2263,45 +2311,7 @@ async function scoutRecommendationMarketCheck(playerName,s){
     const v=await res.json().catch(()=>({}));
     if(!res.ok||!v.ok)throw new Error(v.message||v.error||("Pricing returned "+res.status));
 
-    const used=Number(v.used||0);
-    const confidence=String(v.confidence||"insufficient");
-    const median=Number(v.median);
-    const pricingEvidence=scoutPricingEvidenceFromValue(v,false);
-
-    if(used<2||confidence==="insufficient"||!Number.isFinite(median)||median<=0){
-      return {
-        version:SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION,
-        rated:false,tier:"market_check",label:"MARKET CHECK",
-        delivered:card.shopPrice,used,confidence,
-        confidenceScore:Number(v.confidenceScore||0),
-        median:Number.isFinite(median)&&median>0?median:null,
-        low:Number.isFinite(Number(v.low))&&Number(v.low)>0?Number(v.low):null,
-        high:Number.isFinite(Number(v.high))&&Number(v.high)>0?Number(v.high):null,
-        pricingIdentity:{year:card.year,set:card.set,player:playerName,cardNum:card.cardNum},
-        pricingEvidence,
-        reason:"Scout likes the target, but there are not enough reliable sold comps to confidently rate this listing price."
-      };
-    }
-
-    const targets=scoutSmartBuyTargets(v);
-    const verdict=scoutRecommendationVerdict(card.shopPrice,targets);
-    return {
-      version:SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION,
-      rated:true,...verdict,
-      delivered:card.shopPrice,
-      median:Number(v.median),
-      low:Number(v.low),
-      high:Number(v.high),
-      used,confidence,
-      confidenceScore:Number(v.confidenceScore||0),
-      greatBuy:targets.greatBuy,
-      buyCeiling:targets.buyCeiling,
-      walkAway:targets.walkAway,
-      provider:v.provider||"",
-      pricingIdentity:{year:card.year,set:card.set,player:playerName,cardNum:card.cardNum},
-      pricingEvidence,
-      reason:verdict.reason
-    };
+    return scoutRecommendationMarketCheckFromValue(playerName,s,v,scoutPricingEvidenceFromValue(v,false));
   }catch(err){
     const detail=scoutPricingDiagnosticText(err?.message||err||"Unknown pricing error");
     return {
@@ -2340,6 +2350,7 @@ function scoutPricingEvidenceHtml(m){
   const serpExact=providerDetails?.serpApi?.exact;
   const serpBroad=providerDetails?.serpApi?.broad;
   const cardApiTotal=providerDetails?.cardApi?.total;
+  const deep=evidence?.deepPriceCheck;
   const statusLabel=detail=>String(detail?.status||"unknown").replaceAll("_"," ");
   return `<details class="scout-pricing-evidence">
     <summary>PRICING EVIDENCE DETAILS</summary>
@@ -2354,9 +2365,25 @@ function scoutPricingEvidenceHtml(m){
       ${serpExact?`<div><b>SerpApi exact rows:</b> ${serpExact.rows}</div><div><b>SerpApi exact matches:</b> ${serpExact.matches} · ${escapeHtml(statusLabel(serpExact))}</div>`:""}
       ${serpBroad?`<div><b>SerpApi broad rows:</b> ${serpBroad.rows}</div><div><b>SerpApi broad matches:</b> ${serpBroad.matches} · ${escapeHtml(statusLabel(serpBroad))}</div>`:""}
       ${cardApiTotal?`<div><b>Card API returned:</b> ${cardApiTotal.rows}</div><div><b>Card API matches:</b> ${cardApiTotal.matches} · ${escapeHtml(statusLabel(cardApiTotal))}</div>`:""}
+      ${deep?`<div><b>Deep baseline comps:</b> ${scoutPricingEvidenceCount(deep.baselineComps)}</div><div><b>Apify rows searched:</b> ${scoutPricingEvidenceCount(deep.apifyRowsSearched)}</div><div><b>Apify exact matches:</b> ${scoutPricingEvidenceCount(deep.apifyExactMatches)}</div><div><b>Unique comps added:</b> ${scoutPricingEvidenceCount(deep.uniqueCompsAdded)}</div><div><b>Deep final comps:</b> ${scoutPricingEvidenceCount(deep.finalCompsUsed)}</div><div><b>Best Offer prices recovered:</b> ${scoutPricingEvidenceCount(deep.bestOfferPricesRecovered)}</div><div><b>Deep evidence improved:</b> ${deep.improved?"yes":"no"}</div>`:""}
     </div>
     ${notes.length?`<ul class="scout-pricing-evidence-notes">${notes.map(note=>`<li>${escapeHtml(note)}</li>`).join("")}</ul>`:""}
   </details>`;
+}
+function scoutDeepPriceCheckEligible(m){
+  if(!m||m.deepPriceChecked)return false;
+  const used=Number(m.used||m?.pricingEvidence?.soldCompsUsed||0);
+  const confidence=String(m.confidence||"").toLowerCase();
+  return used<4||confidence==="low"||confidence==="insufficient";
+}
+function scoutDeepPriceCheckHtml(m){
+  const eligible=scoutDeepPriceCheckEligible(m);
+  const status=scoutPricingDiagnosticText(m?.deepPriceStatus||"");
+  if(!eligible&&!status)return "";
+  return `<div class="scout-deep-price-check">
+    ${eligible?`<button type="button" class="ghost" id="findTargetDeepPriceCheckBtn">🔎 CHECK MORE SALES</button>`:""}
+    <div class="scout-deep-price-status ${m?.deepPriceStatusState==="bad"?"bad":status?"ok":""}" id="findTargetDeepPriceCheckStatus">${escapeHtml(status)}</div>
+  </div>`;
 }
 function scoutDealHtml(m,showPricingEvidence=false){
   if(!m)return "";
@@ -2396,7 +2423,7 @@ function scoutDealHtml(m,showPricingEvidence=false){
   </div>
   ${metrics}
   <div class="scout-deal-message">${escapeHtml(m.reason||"")}${identityText?`<br><b>Priced as:</b> ${escapeHtml(identityText)}`:""}${diagnostic?`<br><b>Diagnostic:</b> ${escapeHtml(diagnostic)}`:""}</div>
-  ${showPricingEvidence?scoutPricingEvidenceHtml(m):""}`;
+  ${showPricingEvidence?scoutPricingEvidenceHtml(m)+scoutDeepPriceCheckHtml(m):""}`;
 }
 function scoutRenderDealBox(id,m){
   const el=$(id);
@@ -2404,6 +2431,7 @@ function scoutRenderDealBox(id,m){
   if(!m){el.hidden=true;el.innerHTML="";return}
   el.innerHTML=scoutDealHtml(m,id==="findTargetDealCheck");
   el.hidden=false;
+  if(id==="findTargetDealCheck")$("findTargetDeepPriceCheckBtn")?.addEventListener("click",runFindTargetDeepPriceCheck);
 }
 
 
@@ -3396,6 +3424,79 @@ function renderFindTargetSuggestion(s){
   const match=findTargetMatchesSaved(s,p);
   $("findTargetSaveBtn").disabled=match;
   $("findTargetSaveBtn").textContent=match?"✓ MATCHES YOUR SAVED TARGET":"🎯 MAKE THIS MY TARGET";
+}
+function scoutDeepPriceDiagnostics(value={}){
+  return {
+    baselineComps:scoutPricingEvidenceCount(value?.baselineComps),
+    baselineCacheStatus:scoutPricingDiagnosticText(value?.baselineCacheStatus||"not_available",40),
+    apifyRowsSearched:scoutPricingEvidenceCount(value?.apifyRowsSearched),
+    apifyExactMatches:scoutPricingEvidenceCount(value?.apifyExactMatches),
+    uniqueCompsAdded:scoutPricingEvidenceCount(value?.uniqueCompsAdded),
+    finalCompsUsed:scoutPricingEvidenceCount(value?.finalCompsUsed),
+    bestOfferPricesRecovered:scoutPricingEvidenceCount(value?.bestOfferPricesRecovered),
+    improved:value?.improved===true,
+    status:scoutPricingDiagnosticText(value?.status||"completed",40)
+  };
+}
+async function runFindTargetDeepPriceCheck(){
+  const s=findTargetSuggestion,p=currentPlayer,m=s?.marketCheck;
+  const button=$("findTargetDeepPriceCheckBtn");
+  const status=$("findTargetDeepPriceCheckStatus");
+  if(!s||!p||!m||!button||!status)return;
+
+  const c=pricingConfig();
+  if(!c.endpoint||!c.accessKey){
+    status.className="scout-deep-price-status bad";
+    status.textContent="Scout's live connection is not configured on this device.";
+    return;
+  }
+
+  button.disabled=true;
+  status.className="scout-deep-price-status";
+  status.textContent="Scout is digging through more sold listings… this can take about 30–35 seconds.";
+
+  try{
+    const card=scoutRecommendationPricingCard(p.name,s);
+    const res=await fetch(c.endpoint+"/deep-price-check",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},
+      body:JSON.stringify({card})
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok){
+      if(data?.error==="apify_auth_invalid"){
+        throw Object.assign(new Error("Deep Price Check is ready, but Scout's Apify connection needs to be refreshed in Cloudflare."),{safe:true});
+      }
+      if(data?.error==="apify_not_configured"){
+        throw Object.assign(new Error("Deep Price Check needs Apify configured in Cloudflare."),{safe:true});
+      }
+      throw new Error("Scout could not complete the Deep Price Check. Try again later.");
+    }
+
+    const diagnostics=scoutDeepPriceDiagnostics(data.diagnostics);
+    const oldEvidence=m.pricingEvidence||{};
+    let next;
+    if(diagnostics.improved&&data.valuation){
+      const evidence=scoutPricingEvidenceFromValue(
+        data.valuation,
+        oldEvidence.targetEnrichmentAttempted===true
+      );
+      evidence.deepPriceCheck=diagnostics;
+      next=scoutRecommendationMarketCheckFromValue(p.name,s,data.valuation,evidence);
+      next.deepPriceStatus=`✓ Deep Price Check added ${diagnostics.uniqueCompsAdded} verified comp${diagnostics.uniqueCompsAdded===1?"":"s"} and refreshed the market check.`;
+    }else{
+      next={...m,pricingEvidence:{...oldEvidence,deepPriceCheck:diagnostics}};
+      next.deepPriceStatus="No additional stronger verified evidence was found. Scout kept the original valuation.";
+    }
+    next.deepPriceChecked=true;
+    next.deepPriceStatusState="ok";
+    s.marketCheck=next;
+    renderFindTargetSuggestion(s);
+  }catch(err){
+    button.disabled=false;
+    status.className="scout-deep-price-status bad";
+    status.textContent=err?.safe?err.message:"Scout could not complete the Deep Price Check. Try again later.";
+  }
 }
 async function searchFindTarget(){
   if(!currentPlayer)return;
