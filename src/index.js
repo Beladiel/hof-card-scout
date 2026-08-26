@@ -1,4 +1,4 @@
-const VERSION = "3.23.0";
+const VERSION = "3.23.1";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const CACHE_TTL_SECONDS = 6 * 60 * 60;
 const SERP_TIMEOUT_MS = 8000;
@@ -1852,7 +1852,7 @@ function activeDealMismatchReason(item, card) {
     return "Multi-card / bonus-card listing — Scout is hunting one exact card.";
   }
   if (looksLikeLot(rawTitle)) return "Multi-card lot / set / You Pick listing.";
-  if (/\b(digital|nft|photo|poster|magazine|wrapper|empty box|unopened pack|wax pack)\b/i.test(rawTitle)) {
+  if (isObviousNonTradingCardListing(rawTitle)) {
     return "Listing is not the single physical card Scout is hunting.";
   }
 
@@ -2346,7 +2346,7 @@ function monthlyPickRejectReason(item, player, budget, mode, currentCard, prefer
   if (!Number.isFinite(item.shipping) || !Number.isFinite(item.delivered)) return { reason: "Shipping was unclear." };
   if (item.delivered > budget) return { reason: "Over budget." };
   if (looksLikeLot(raw) || /\b(set|team set|complete set|you pick|choose|lot of|collection)\b/i.test(raw)) return { reason: "Multi-card / set listing." };
-  if (/\b(digital|nft|photo|poster|magazine|wrapper|empty box|unopened pack|wax pack)\b/i.test(raw)) return { reason: "Not a single physical card." };
+  if (isObviousNonTradingCardListing(raw)) return { reason: "Not a single physical card." };
   if (/\b(reprint|replica|facsimile|custom card|reissue|archives)\b/i.test(raw)) return { reason: "Reprint / replica / archive issue." };
 
   const year = monthlyPickYear(raw);
@@ -3430,7 +3430,7 @@ function isComparable(item, card, relaxed=false) {
   if (denom && !new RegExp(`\\/\\s*${escapeRegExp(denom)}\\b`).test(rawTitle)) return false;
 
   if (looksLikeLot(rawTitle)) return false;
-  if (/\b(digital|nft|photo|poster|magazine|wrapper|empty box|unopened pack|wax pack)\b/i.test(rawTitle)) return false;
+  if (isObviousNonTradingCardListing(rawTitle)) return false;
 
   const setText = String(card.set||"").toLowerCase();
   const allowReprint = /archives|reprint/.test(setText) || /reprint/i.test(String(card.notes||""));
@@ -3493,6 +3493,13 @@ function gradeMatches(title, grade, grader, relaxed=false){
 function serialDenominator(s){ const m=String(s||"").match(/\/\s*(\d+)/); return m?m[1]:""; }
 function looksLikeLot(t){
   return /\blot\s+of\s+\d+\b|\b\d+\s*card\s+lot\b|\bcard\s+lot\b|\bcomplete\s+(?:baseball\s+)?set\b|\bteam\s+set\b|\byou\s+pick\b|\bpick\s+your\s+card\b|\bmultiple\s+cards?\b/i.test(t);
+}
+function isObviousNonTradingCardListing(title) {
+  const text = String(title || "");
+  const nonCardTerms = /\b(?:digital|nfts?|photos?|photographs?|photographic|pictures?|portraits?|postcards?|lithographs?|posters?|magazines?|wrappers?|empty\s+box(?:es)?|unopened\s+packs?|wax\s+packs?)\b/i;
+  const photoPrintWording = /\b(?:glossy|matte)\s+(?:photo\s+)?(?:re)?prints?\b|\b(?:re)?prints?\s+on\s+(?:photo|photographic)\s+paper\b/i;
+  const displayDimensions = /(?:^|[^\d.])(?:4\s*[x×]\s*6|5\s*[x×]\s*7|8\s*[x×]\s*10|8\s*\.\s*5\s*[x×]\s*11|11\s*[x×]\s*14|16\s*[x×]\s*20)(?:[^\d]|$)/i;
+  return nonCardTerms.test(text) || photoPrintWording.test(text) || displayDimensions.test(text);
 }
 function isReasonableSoldDate(v, requireDate=false){
   if(!v)return !requireDate;
