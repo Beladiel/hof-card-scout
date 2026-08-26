@@ -1,4 +1,4 @@
-const VERSION = "3.23.4";
+const VERSION = "3.23.5";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const VALUATION_CACHE_FRESH_SECONDS = 6 * 60 * 60;
@@ -12,6 +12,8 @@ const SERP_SOLD_STRICT_TIMEOUT_MS = 10000;
 // This avoids holding one slow HTTP connection open until eBay finishes rendering.
 const SERP_ASYNC_POLL_INTERVAL_MS = 1800;
 const SERP_ASYNC_MAX_WAIT_MS = 30000;
+const TARGET_EVIDENCE_GOAL = 4;
+const TARGET_ENRICHMENT_WAIT_MS = 11000;
 const APIFY_FAST_COUNT = 12;
 const APIFY_DEEP_COUNT = 15;
 const APIFY_FAST_TIMEOUT_SECONDS = 20;
@@ -20,7 +22,9 @@ const PSA_TIMEOUT_MS = 8000;
 const PSA_CACHE_TTL_SECONDS = 24 * 60 * 60;
 const CARD_API_TIMEOUT_MS = 7000;
 const CARD_API_PER_PLATFORM_LIMIT = 5;
-const CARD_API_EBAY_SOLD_LIMIT = 20;
+const CARD_API_EBAY_SOLD_LIMIT = 45;
+const CARD_API_EBAY_FALLBACK_LIMIT = 25;
+const CARD_API_TARGET_ROW_LIMIT = 70;
 const CARD_API_BEST_OFFER_LIMIT = 15;
 const BEST_OFFER_BRIDGE_APIFY_COUNT = 12;
 const BEST_OFFER_BRIDGE_MAX_CANDIDATES = 3;
@@ -842,18 +846,42 @@ function buildCardApiEbaySoldQuery(card) {
   return parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
 }
 
-async function searchCardApiEbaySold(card, apiKey) {
-  const query = buildCardApiEbaySoldQuery(card);
+function buildCardApiEbayFallbackQuery(card) {
+  const playerTokens = normalizeText(card.player).split(" ").filter(Boolean);
+  const lastName = playerTokens[playerTokens.length - 1] || "";
+  return [
+    card.year,
+    String(card.set || "").trim(),
+    lastName,
+    card.cardNum ? String(card.cardNum).replace(/^#/, "").trim() : "",
+  ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+}
+
+function applyCardApiGradingFilters(params, card) {
+  const grader = canonicalGrader(card.grader);
+  const grade = normalizeGrade(card.grade, grader);
+  if (grader === "Raw") {
+    params.set("graded", "false");
+  } else if (grader) {
+    params.set("graded", "true");
+    params.set("grader", grader);
+    if (grade) params.set("grade", grade);
+  }
+}
+
+async function fetchCardApiEbaySoldRows(card, query, apiKey, limit, label) {
   const params = new URLSearchParams({
     q: query,
     platform: "ebay",
-    limit: String(CARD_API_EBAY_SOLD_LIMIT),
+    sort: "date_desc",
+    limit: String(limit),
   });
+  applyCardApiGradingFilters(params, card);
   const response = await fetchWithTimeout(
     `https://thecardapi.com/api/v1/market/sales?${params.toString()}`,
     { method: "GET", headers: { "x-market-api-key": apiKey, "Accept": "application/json" } },
     CARD_API_TIMEOUT_MS,
-    "The Card API eBay sold search timed out"
+    `${label} timed out`
   );
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -862,13 +890,57 @@ async function searchCardApiEbaySold(card, apiKey) {
     err.code = response.status === 429 ? "cardapi_rate_limit" : "cardapi_http_error";
     throw err;
   }
+  return Array.isArray(payload?.data) ? payload.data : [];
+}
 
-  const rows = Array.isArray(payload?.data) ? payload.data : [];
-  const normalized = rows
+async function searchCardApiEbaySold(card, apiKey, options={}) {
+  const targetEnrichment = options?.targetEnrichment === true;
+  const evidenceGoal = targetEnrichment ? Math.max(TARGET_EVIDENCE_GOAL, Number(options?.evidenceGoal) || 0) : 0;
+  const query = buildCardApiEbaySoldQuery(card);
+  const initialRows = await fetchCardApiEbaySoldRows(
+    card,
+    query,
+    apiKey,
+    CARD_API_EBAY_SOLD_LIMIT,
+    "The Card API eBay sold search"
+  );
+
+  let rows = [...initialRows];
+  let normalized = rows
     .map(normalizeCardApiResult)
     .filter(Boolean)
     .filter(item => normalizeText(item.platform) === "ebay");
-  const evaluation = evaluateComparableResults(normalized, card);
+  let evaluation = evaluateComparableResults(normalized, card, isProductionCardApiComparable);
+  let fallbackQuery = "";
+  let fallbackError = "";
+
+  if (targetEnrichment && evaluation.cleaned.length < evidenceGoal) {
+    fallbackQuery = buildCardApiEbayFallbackQuery(card);
+    if (fallbackQuery && normalizeText(fallbackQuery) !== normalizeText(query)) {
+      const remainingRowBudget = Math.max(0, CARD_API_TARGET_ROW_LIMIT - CARD_API_EBAY_SOLD_LIMIT);
+      const fallbackLimit = Math.min(CARD_API_EBAY_FALLBACK_LIMIT, remainingRowBudget);
+      if (fallbackLimit > 0) {
+        try {
+          const fallbackRows = await fetchCardApiEbaySoldRows(
+            card,
+            fallbackQuery,
+            apiKey,
+            fallbackLimit,
+            "The Card API target fallback search"
+          );
+          rows = [...initialRows, ...fallbackRows];
+          normalized = dedupeSoldComps(rows
+            .map(normalizeCardApiResult)
+            .filter(Boolean)
+            .filter(item => normalizeText(item.platform) === "ebay"));
+          evaluation = evaluateComparableResults(normalized, card, isProductionCardApiComparable);
+        } catch (err) {
+          fallbackError = err?.message || "The Card API target fallback failed.";
+        }
+      }
+    }
+  }
+
   const notes = buildNotes(card, rows.length, evaluation.matchedItems.length, evaluation.cleaned.length, evaluation.confidence);
   const unconfirmed = rows.filter(row => row?.price_confirmed === false).length;
   if (unconfirmed) {
@@ -877,13 +949,17 @@ async function searchCardApiEbaySold(card, apiKey) {
   if (evaluation.matchMode === "relaxed") {
     notes.push("Scout used a controlled relaxed title match on The Card API results because marketplace titles format grades/card numbers inconsistently.");
   }
+  if (fallbackQuery) {
+    notes.unshift("The Card API exact-title search remained below the target evidence goal, so Scout tried one last-name/card-number discovery query and reapplied every exact-card rule.");
+  }
+  if (fallbackError) notes.push(`The Card API target fallback was unavailable: ${fallbackError} Scout kept the verified initial-query evidence.`);
 
   return {
     ...evaluation,
     searched: rows.length,
     matched: evaluation.matchedItems.length,
-    searchMode: "The Card API eBay sold sales",
-    discoveryQuery: query,
+    searchMode: fallbackQuery ? "The Card API eBay sold sales + target fallback" : "The Card API eBay sold sales",
+    discoveryQuery: fallbackQuery ? `${query} | ${fallbackQuery}` : query,
     notes,
   };
 }
@@ -1025,7 +1101,7 @@ function normalizeCardApiResult(r) {
   };
 }
 
-function isCardApiComparable(item, card) {
+function isCardApiComparable(item, card, relaxed=false) {
   const structuredBits = [
     item.year,
     item.cardSet,
@@ -1037,7 +1113,11 @@ function isCardApiComparable(item, card) {
   ].filter(Boolean).join(" ");
 
   const comparisonItem = { ...item, title: `${item.title} ${structuredBits}`.trim() };
-  return isComparable(comparisonItem, card, false);
+  return isComparable(comparisonItem, card, relaxed);
+}
+
+function isProductionCardApiComparable(item, card, relaxed=false) {
+  return isComparable(item, card, relaxed) && isCardApiComparable(item, card, relaxed);
 }
 
 function dedupeCardApiSales(items) {
@@ -1489,7 +1569,24 @@ async function testBestOfferRecoveryBridge(card, apifyToken, cardApiKey) {
   };
 }
 
-async function valueCard(card, env, fastMode=false) {
+function normalizeValuationProfile(options={}) {
+  const targetEnrichment = options?.targetEnrichment === true;
+  return {
+    targetEnrichment,
+    evidenceGoal: targetEnrichment
+      ? Math.max(TARGET_EVIDENCE_GOAL, Number(options?.evidenceGoal) || 0)
+      : 0,
+    extraWaitMs: targetEnrichment
+      ? Math.min(12000, Math.max(10000, Number(options?.extraWaitMs) || TARGET_ENRICHMENT_WAIT_MS))
+      : 0,
+    fallbackEvidenceCount: targetEnrichment
+      ? Math.max(0, Number(options?.fallbackEvidenceCount) || 0)
+      : 0,
+  };
+}
+
+async function valueCard(card, env, fastMode=false, options={}) {
+  const profile = normalizeValuationProfile(options);
   const query = buildQuery(card);
   const sourceNotes = [];
   let serp = null;
@@ -1505,13 +1602,13 @@ async function valueCard(card, env, fastMode=false) {
   if (env.SERPAPI_KEY) {
     primarySearches.push({
       key: "serp",
-      promise: searchSerpApi(card, query, env.SERPAPI_KEY, fastMode),
+      promise: searchSerpApi(card, query, env.SERPAPI_KEY, fastMode, profile),
     });
   }
   if (env.CARD_API_KEY) {
     primarySearches.push({
       key: "cardApi",
-      promise: searchCardApiEbaySold(card, env.CARD_API_KEY),
+      promise: searchCardApiEbaySold(card, env.CARD_API_KEY, profile),
     });
   }
 
@@ -1536,12 +1633,15 @@ async function valueCard(card, env, fastMode=false) {
   const primaryResults = [serp, cardApi].filter(Boolean);
   const primaryItems = dedupeSoldComps(primaryResults.flatMap(result => result.matchedItems || []));
   const primaryEvaluation = evaluateComparableResults(primaryItems, card);
+  const evidenceAvailableBeforeApify = profile.targetEnrichment
+    ? Math.max(primaryEvaluation.cleaned.length, profile.fallbackEvidenceCount)
+    : primaryEvaluation.cleaned.length;
 
   // Fast Mode can stop with two clean exact-card comps across the primary
   // sources. Deep mode keeps the stronger four-comp threshold before Apify.
   const needsApify = Boolean(env.APIFY_TOKEN) && (
     fastMode
-      ? (primaryEvaluation.cleaned.length < 2 || primaryEvaluation.confidence === "insufficient")
+      ? (evidenceAvailableBeforeApify < 2 || (primaryEvaluation.confidence === "insufficient" && profile.fallbackEvidenceCount < 2))
       : (primaryEvaluation.cleaned.length < 4 || primaryEvaluation.confidence === "low" || primaryEvaluation.confidence === "insufficient")
   );
 
@@ -1576,8 +1676,11 @@ async function valueCard(card, env, fastMode=false) {
     ...availableResults.flatMap(result => result.notes || []),
     ...sourceNotes,
     needsApify && apify ? "Scout used Apify only as a tertiary backup because the combined primary-source evidence was still weak." : "",
-    fastMode && !needsApify && combinedEvaluation.cleaned.length < 4
+    fastMode && !profile.targetEnrichment && !needsApify && combinedEvaluation.cleaned.length < 4
       ? "Fast Mode returned after the primary sources produced at least two clean exact-card comps; Deep Mode can seek more evidence."
+      : "",
+    profile.targetEnrichment && combinedEvaluation.cleaned.length < profile.evidenceGoal
+      ? `Target enrichment finished with ${combinedEvaluation.cleaned.length} clean exact-card comp${combinedEvaluation.cleaned.length === 1 ? "" : "s"}; Scout kept the existing confidence standard.`
       : "",
   ]);
   const searchModes = availableResults.map(result => result.searchMode).filter(Boolean).join(" + ");
@@ -1700,7 +1803,11 @@ async function targetRecommendationMarketCheck(suggestion,player,env){
   };
 
   try{
-    const live=await getValuationWithCache(card,env,true);
+    const live=await getValuationWithCache(card,env,true,null,{
+      evidenceGoal:TARGET_EVIDENCE_GOAL,
+      targetEnrichment:true,
+      extraWaitMs:TARGET_ENRICHMENT_WAIT_MS
+    });
 
     const used=Number(live?.used||0);
     const confidence=String(live?.confidence||"insufficient");
@@ -2840,13 +2947,16 @@ async function searchActiveEbayDeals(card, targets, apiKey) {
 }
 
 
-async function searchSerpApi(card, query, apiKey, fastMode=false) {
+async function searchSerpApi(card, query, apiKey, fastMode=false, options={}) {
+  const profile = normalizeValuationProfile(options);
   const broadQuery = buildBroadSoldQuery(card);
   const attempts = [];
   let data = null;
   let emptyData = null;
   let searchMode = "";
   let usedQuery = query;
+  let targetBroadAttempted = false;
+  let targetBroadAdded = false;
 
   async function syncAttempt(q, mode, timeoutMs, label) {
     try {
@@ -2860,9 +2970,9 @@ async function searchSerpApi(card, query, apiKey, fastMode=false) {
     }
   }
 
-  async function asyncAttempt(q, mode, label) {
+  async function asyncAttempt(q, mode, label, maxWaitMs=SERP_ASYNC_MAX_WAIT_MS, totalBudget=false) {
     try {
-      const result = await runEbaySearchAsync(q, apiKey, mode, SERP_ASYNC_MAX_WAIT_MS);
+      const result = await runEbaySearchAsync(q, apiKey, mode, maxWaitMs, totalBudget);
       const count = Array.isArray(result?.organic_results) ? result.organic_results.length : 0;
       attempts.push(`${label}: ${count} result${count === 1 ? "" : "s"} (async)`);
       return { ok: true, data: result, count };
@@ -2880,7 +2990,38 @@ async function searchSerpApi(card, query, apiKey, fastMode=false) {
     "Strict Sold"
   );
 
-  if (strictSold.ok) {
+  if (profile.targetEnrichment) {
+    const strictRaw = strictSold.ok && Array.isArray(strictSold.data?.organic_results)
+      ? strictSold.data.organic_results
+      : [];
+    const strictEvaluation = evaluateComparableResults(strictRaw.map(normalizeResult).filter(Boolean), card);
+    let combinedRaw = [...strictRaw];
+    let broadSold = null;
+
+    if (strictEvaluation.cleaned.length < profile.evidenceGoal) {
+      targetBroadAttempted = true;
+      broadSold = await asyncAttempt(
+        broadQuery,
+        "Sold",
+        "Bounded Broad Sold",
+        profile.extraWaitMs,
+        true
+      );
+      if (broadSold.ok) {
+        combinedRaw.push(...(Array.isArray(broadSold.data?.organic_results) ? broadSold.data.organic_results : []));
+        targetBroadAdded = broadSold.count > 0;
+      }
+    }
+
+    if (strictSold.ok || broadSold?.ok) {
+      data = {
+        ...(strictSold.ok ? strictSold.data : broadSold.data),
+        organic_results: combinedRaw,
+      };
+      searchMode = targetBroadAdded ? "Sold-target-bounded-broad" : "Sold-target-strict";
+      usedQuery = targetBroadAdded ? `${query} | ${broadQuery}` : query;
+    }
+  } else if (strictSold.ok) {
     if (strictSold.count > 0) {
       data = strictSold.data;
       searchMode = "Sold";
@@ -2959,6 +3100,11 @@ async function searchSerpApi(card, query, apiKey, fastMode=false) {
   }
   if (evaluation.matchMode === "relaxed") {
     notes.push("Scout used a controlled relaxed title match because eBay sellers format grades/card numbers inconsistently.");
+  }
+  if (targetBroadAttempted) {
+    notes.unshift(targetBroadAdded
+      ? "The strict sold response remained below four clean exact-card comps, so Scout added one bounded broad Sold-only search and reapplied every matching and outlier rule."
+      : "The bounded broad Sold-only enrichment did not finish with additional evidence; Scout kept the verified strict-search comps.");
   }
 
   return {
@@ -3047,15 +3193,15 @@ async function searchApify(card, query, token, fastMode=false, cardApiKey="") {
   };
 }
 
-function evaluateComparableResults(normalized, card) {
+function evaluateComparableResults(normalized, card, comparable=isComparable) {
   let matchedItems = dedupe(
-    normalized.filter(item => isReasonableSoldDate(item.soldDate, false) && isComparable(item, card, false))
+    normalized.filter(item => isReasonableSoldDate(item.soldDate, false) && comparable(item, card, false))
   );
   let matchMode = "strict";
 
   if (matchedItems.length < 2 && normalized.length) {
     const relaxed = dedupe(
-      normalized.filter(item => isReasonableSoldDate(item.soldDate, false) && isComparable(item, card, true))
+      normalized.filter(item => isReasonableSoldDate(item.soldDate, false) && comparable(item, card, true))
     );
     if (relaxed.length > matchedItems.length) {
       matchedItems = relaxed;
@@ -3107,7 +3253,8 @@ function finalizeValuation(card, query, items, meta) {
   };
 }
 
-async function runEbaySearchAsync(query, apiKey, showOnly, maxWaitMs=SERP_ASYNC_MAX_WAIT_MS) {
+async function runEbaySearchAsync(query, apiKey, showOnly, maxWaitMs=SERP_ASYNC_MAX_WAIT_MS, totalBudget=false) {
+  const budgetStarted = Date.now();
   const params = new URLSearchParams({
     engine: "ebay",
     ebay_domain: "ebay.com",
@@ -3124,7 +3271,7 @@ async function runEbaySearchAsync(query, apiKey, showOnly, maxWaitMs=SERP_ASYNC_
   const submitRes = await fetchWithTimeout(
     submitUrl,
     { headers: { "Accept": "application/json" } },
-    8000,
+    totalBudget ? Math.max(1, Math.min(8000, maxWaitMs)) : 8000,
     "SerpApi async submission timed out"
   );
   const submitData = await submitRes.json().catch(() => ({}));
@@ -3139,17 +3286,21 @@ async function runEbaySearchAsync(query, apiKey, showOnly, maxWaitMs=SERP_ASYNC_
     throw new Error("SerpApi async submission did not return a search ID.");
   }
 
-  const started = Date.now();
+  const pollStarted = Date.now();
+  const deadlineStarted = totalBudget ? budgetStarted : pollStarted;
   let lastStatus = String(submitData?.search_metadata?.status || "Queued");
 
-  while ((Date.now() - started) < maxWaitMs) {
-    await new Promise(resolve => setTimeout(resolve, SERP_ASYNC_POLL_INTERVAL_MS));
+  while ((Date.now() - deadlineStarted) < maxWaitMs) {
+    const beforeWaitRemaining = maxWaitMs - (Date.now() - deadlineStarted);
+    await new Promise(resolve => setTimeout(resolve, Math.min(SERP_ASYNC_POLL_INTERVAL_MS, beforeWaitRemaining)));
+    const pollRemaining = maxWaitMs - (Date.now() - deadlineStarted);
+    if (pollRemaining <= 0) break;
 
     const archiveUrl = `https://serpapi.com/searches/${encodeURIComponent(searchId)}.json?api_key=${encodeURIComponent(apiKey)}`;
     const pollRes = await fetchWithTimeout(
       archiveUrl,
       { headers: { "Accept": "application/json" } },
-      7000,
+      totalBudget ? Math.max(1, Math.min(7000, pollRemaining)) : 7000,
       "SerpApi Search Archive poll timed out"
     );
     const data = await pollRes.json().catch(() => ({}));
@@ -3314,6 +3465,36 @@ function cacheableValuationResult(result) {
   return cacheable;
 }
 
+function valuationEvidenceCount(result) {
+  const used = Number(result?.used);
+  return Number.isFinite(used) && used >= 0 ? used : 0;
+}
+
+function valuationConfidenceRank(result) {
+  const level = String(result?.confidence || result?.legacyConfidence || "insufficient").toLowerCase();
+  return ({ insufficient: 0, low: 1, medium: 2, high: 3 })[level] || 0;
+}
+
+function isValuationEvidenceStronger(candidate, baseline) {
+  const candidateUsed = valuationEvidenceCount(candidate);
+  const baselineUsed = valuationEvidenceCount(baseline);
+  if (candidateUsed !== baselineUsed) return candidateUsed > baselineUsed;
+  return valuationConfidenceRank(candidate) > valuationConfidenceRank(baseline);
+}
+
+function targetEnrichmentCacheFallback(cacheEntry, liveError=null) {
+  const detail = liveError?.message || String(liveError || "Live enrichment did not improve the verified evidence.");
+  return {
+    ...cacheEntry.result,
+    notes: uniqueStrings([
+      ...(cacheEntry.result.notes || []),
+      "Target enrichment did not produce stronger verified evidence, so Scout kept the existing fresh sold-comps valuation."
+    ]),
+    targetEnrichmentFallback: true,
+    liveProviderError: detail,
+  };
+}
+
 function staleValuationFallback(cacheEntry, liveError) {
   const ageHours = Math.max(0.1, Math.round((cacheEntry.ageSeconds / 3600) * 10) / 10);
   const note = `Live sold sources were temporarily unavailable. Scout is using previously verified sold comps from ${ageHours} hours ago; recheck before buying.`;
@@ -3327,12 +3508,24 @@ function staleValuationFallback(cacheEntry, liveError) {
   };
 }
 
-async function getValuationWithCache(card, env, fastMode=false, ctx=null) {
+async function getValuationWithCache(card, env, fastMode=false, ctx=null, options={}) {
+  const profile = normalizeValuationProfile(options);
   const cached = await readValuationCache(card, fastMode);
-  if (cached?.fresh) return withCurrentShopVerdict(cached.result, card, true);
+  if (cached?.fresh && (
+    !profile.targetEnrichment ||
+    valuationEvidenceCount(cached.result) >= profile.evidenceGoal
+  )) {
+    return withCurrentShopVerdict(cached.result, card, true);
+  }
 
   try {
-    const raw = await valueCard(card, env, fastMode);
+    const raw = await valueCard(card, env, fastMode, {
+      ...profile,
+      fallbackEvidenceCount: cached?.fresh ? valuationEvidenceCount(cached.result) : 0,
+    });
+    if (cached?.fresh && profile.targetEnrichment && !isValuationEvidenceStronger(raw, cached.result)) {
+      return withCurrentShopVerdict(targetEnrichmentCacheFallback(cached), card, true);
+    }
     const cacheable = cacheableValuationResult(raw);
     if (Number(cacheable.used) > 0 && Number(cacheable.bestOfferRecovered || 0) === 0) {
       const put = writeValuationCache(card, fastMode, cacheable);
@@ -3341,6 +3534,9 @@ async function getValuationWithCache(card, env, fastMode=false, ctx=null) {
     }
     return withCurrentShopVerdict(cacheable, card, false);
   } catch (err) {
+    if (cached?.fresh && profile.targetEnrichment) {
+      return withCurrentShopVerdict(targetEnrichmentCacheFallback(cached, err), card, true);
+    }
     if (cached?.stale) {
       return withCurrentShopVerdict(staleValuationFallback(cached, err), card, true);
     }
@@ -3534,6 +3730,7 @@ function isComparable(item, card, relaxed=false) {
   if (denom && !new RegExp(`\\/\\s*${escapeRegExp(denom)}\\b`).test(rawTitle)) return false;
 
   if (looksLikeLot(rawTitle)) return false;
+  if (isExplicitTeamCardListing(rawTitle)) return false;
   if (isObviousNonTradingCardListing(rawTitle)) return false;
 
   const setText = String(card.set||"").toLowerCase();
