@@ -126,6 +126,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .scout-says .title{font-size:10px;color:var(--gold);letter-spacing:.13em;font-weight:950}
 .scout-says .line{font-size:15px;font-weight:850;margin-top:2px;line-height:1.3}
 .card-manage-row,.action-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}
+.action-row[hidden]{display:none}
 .card-secondary-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
 .form-panel{background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:18px;padding:14px}
 .form-title{font-size:24px;font-weight:950;margin:0}
@@ -765,7 +766,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       </div>
 
       <div class="action-row" id="targetScoutRow" hidden>
-        <button class="primary" id="scoutTargetBtn" style="grid-column:1/-1">🎯 SCOUT THIS TARGET →</button>
+        <button class="primary" id="scoutTargetBtn">🎯 SCOUT THIS TARGET →</button>
+        <button class="danger" id="removeTargetBtn">REMOVE TARGET</button>
       </div>
 
       <div class="action-row">
@@ -1735,6 +1737,15 @@ function removeCurrentCard(){
   p.median=null;p.low=null;p.high=null;p.comps=null;p.confidence="";p.lastChecked="";
   savePlayerEdit(p);stats();rotateMission();buildAlphabet();renderList();openPlayer(p);
   toast("Card removed. Scout has returned "+p.name+" to the hunt.");
+}
+function removeCurrentTarget(){
+  if(!currentPlayer||!currentPlayer.target)return;
+  const p=currentPlayer;
+  const ok=window.confirm("Remove "+p.name+"’s target “"+p.target+"”? Owned/Need/Incoming status and the representative card will not change.");
+  if(!ok)return;
+  p.target="";p.targetNotes="";
+  savePlayerEdit(p);stats();rotateMission();renderList();renderHuntList();openPlayer(p,returnScreen);
+  toast("Target removed for "+p.name+".");
 }
 function undoRemove(){
   if(!lastRemovedCard||!currentPlayer||lastRemovedCard.name!==currentPlayer.name)return;
@@ -4230,6 +4241,7 @@ $("importBtn").addEventListener("click",()=>$("importFile").click());
 $("importFile").addEventListener("change",e=>importUpdatesFile(e.target.files&&e.target.files[0]));
 $("refreshValueBtn").addEventListener("click",valueRefresh);
 $("scoutTargetBtn").addEventListener("click",()=>phase3bScoutTarget(currentPlayer));
+$("removeTargetBtn").addEventListener("click",removeCurrentTarget);
 $("findTargetBtn").addEventListener("click",openFindTarget);
 $("findTargetSearchBtn").addEventListener("click",searchFindTarget);
 $("findTargetRetryBtn").addEventListener("click",retryFindTarget);
