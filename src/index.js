@@ -1,6 +1,8 @@
-const VERSION = "3.23.1";
+const VERSION = "3.23.2";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
-const CACHE_TTL_SECONDS = 6 * 60 * 60;
+const VALUATION_CACHE_VERSION = 1;
+const VALUATION_CACHE_FRESH_SECONDS = 6 * 60 * 60;
+const VALUATION_CACHE_RETENTION_SECONDS = 48 * 60 * 60;
 const SERP_TIMEOUT_MS = 8000;
 const SERP_COMPLETED_FAST_TIMEOUT_MS = 5000;
 // Target/value sold-comps discovery gets its own request, so it can afford
@@ -18,6 +20,7 @@ const PSA_TIMEOUT_MS = 8000;
 const PSA_CACHE_TTL_SECONDS = 24 * 60 * 60;
 const CARD_API_TIMEOUT_MS = 7000;
 const CARD_API_PER_PLATFORM_LIMIT = 5;
+const CARD_API_EBAY_SOLD_LIMIT = 20;
 const CARD_API_BEST_OFFER_LIMIT = 15;
 const BEST_OFFER_BRIDGE_APIFY_COUNT = 12;
 const BEST_OFFER_BRIDGE_MAX_CANDIDATES = 3;
@@ -216,7 +219,7 @@ export default {
       if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
         return json({ ok: false, error: "unauthorized", message: "Scout access key rejected." }, 401, cors);
       }
-      if (!env.SERPAPI_KEY && !env.APIFY_TOKEN) {
+      if (!env.SERPAPI_KEY && !env.CARD_API_KEY && !env.APIFY_TOKEN) {
         return json({ ok: false, error: "provider_not_configured", message: "No sold-comps provider is configured." }, 503, cors);
       }
 
@@ -233,7 +236,8 @@ export default {
         // six-hour cache only. The lab therefore costs zero additional
         // SerpApi, Apify, or Card API usage.
         const fastMode = Boolean(card.fastMode);
-        const cached = await readValuationCache(card, fastMode);
+        const cacheEntry = await readValuationCache(card, fastMode);
+        const cached = cacheEntry?.fresh ? cacheEntry.result : null;
         if (!cached) {
           return json({
             ok: false,
@@ -622,11 +626,11 @@ export default {
     if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
       return json({ ok: false, error: "unauthorized", message: "Scout access key rejected." }, 401, cors);
     }
-    if (!env.SERPAPI_KEY && !env.APIFY_TOKEN) {
+    if (!env.SERPAPI_KEY && !env.CARD_API_KEY && !env.APIFY_TOKEN) {
       return json({
         ok: false,
         error: "provider_not_configured",
-        message: "Neither SERPAPI_KEY nor APIFY_TOKEN is configured on the Worker."
+        message: "No SerpApi, The Card API, or Apify sold-comps provider is configured on the Worker."
       }, 503, cors);
     }
 
@@ -639,23 +643,8 @@ export default {
 
     try {
       const fastMode = Boolean(card.fastMode);
-      const cached = await readValuationCache(card, fastMode);
-      if (cached) {
-        const result = withCurrentShopVerdict(cached, card, true);
-        return json({ ok: true, version: VERSION, ...result }, 200, cors);
-      }
-
-      const result = await valueCard(card, env, fastMode);
-      const cacheable = { ...result };
-      delete cacheable.verdictTier;
-      delete cacheable.cacheHit;
-      if (Number(cacheable.used) > 0 && Number(cacheable.bestOfferRecovered || 0) === 0) {
-        const put = writeValuationCache(card, fastMode, cacheable);
-        if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(put);
-        else await put;
-      }
-      const liveResult = withCurrentShopVerdict(cacheable, card, false);
-      return json({ ok: true, version: VERSION, ...liveResult }, 200, cors);
+      const result = await getValuationWithCache(card, env, fastMode, ctx);
+      return json({ ok: true, version: VERSION, ...result }, 200, cors);
     } catch (err) {
       console.error(err);
       return json({ ok: false, error: "valuation_failed", message: err?.message || "Valuation failed." }, 502, cors);
@@ -843,6 +832,60 @@ function buildCardApiQuery(card) {
   const denom = serialDenominator(card.serial);
   if (denom) parts.push(`/${denom}`);
   return parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+}
+
+function buildCardApiEbaySoldQuery(card) {
+  const parts = [buildCardApiQuery(card)];
+  const grader = canonicalGrader(card.grader);
+  const grade = normalizeGrade(card.grade, grader);
+  if (grader && grader !== "Raw") parts.push(grader, grade);
+  return parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+}
+
+async function searchCardApiEbaySold(card, apiKey) {
+  const query = buildCardApiEbaySoldQuery(card);
+  const params = new URLSearchParams({
+    q: query,
+    platform: "ebay",
+    limit: String(CARD_API_EBAY_SOLD_LIMIT),
+  });
+  const response = await fetchWithTimeout(
+    `https://thecardapi.com/api/v1/market/sales?${params.toString()}`,
+    { method: "GET", headers: { "x-market-api-key": apiKey, "Accept": "application/json" } },
+    CARD_API_TIMEOUT_MS,
+    "The Card API eBay sold search timed out"
+  );
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const err = new Error(String(payload?.message || payload?.error || `The Card API returned HTTP ${response.status}`));
+    err.status = response.status;
+    err.code = response.status === 429 ? "cardapi_rate_limit" : "cardapi_http_error";
+    throw err;
+  }
+
+  const rows = Array.isArray(payload?.data) ? payload.data : [];
+  const normalized = rows
+    .map(normalizeCardApiResult)
+    .filter(Boolean)
+    .filter(item => normalizeText(item.platform) === "ebay");
+  const evaluation = evaluateComparableResults(normalized, card);
+  const notes = buildNotes(card, rows.length, evaluation.matchedItems.length, evaluation.cleaned.length, evaluation.confidence);
+  const unconfirmed = rows.filter(row => row?.price_confirmed === false).length;
+  if (unconfirmed) {
+    notes.push(`${unconfirmed} The Card API sale${unconfirmed === 1 ? " was" : "s were"} rejected because the transaction price was not confirmed.`);
+  }
+  if (evaluation.matchMode === "relaxed") {
+    notes.push("Scout used a controlled relaxed title match on The Card API results because marketplace titles format grades/card numbers inconsistently.");
+  }
+
+  return {
+    ...evaluation,
+    searched: rows.length,
+    matched: evaluation.matchedItems.length,
+    searchMode: "The Card API eBay sold sales",
+    discoveryQuery: query,
+    notes,
+  };
 }
 
 async function testCardApiSecondarySources(card, apiKey) {
@@ -1450,110 +1493,105 @@ async function valueCard(card, env, fastMode=false) {
   const query = buildQuery(card);
   const sourceNotes = [];
   let serp = null;
+  let cardApi = null;
+  let apify = null;
   let serpError = "";
+  let cardApiError = "";
+  let apifyError = "";
 
-  // PRIMARY: SerpApi Sold search. If eBay's Sold mode errors, retry Completed
-  // and only keep rows SerpApi explicitly marks as sold.
+  // SerpApi and The Card API are independent primary sources. Starting both
+  // together prevents one provider's latency from delaying the other.
+  const primarySearches = [];
   if (env.SERPAPI_KEY) {
-    try {
-      serp = await searchSerpApi(card, query, env.SERPAPI_KEY, fastMode);
-    } catch (err) {
-      serpError = err?.message || "SerpApi search failed.";
-      sourceNotes.push("SerpApi could not finish this lookup, so Scout tried the Apify backup.");
-    }
+    primarySearches.push({
+      key: "serp",
+      promise: searchSerpApi(card, query, env.SERPAPI_KEY, fastMode),
+    });
+  }
+  if (env.CARD_API_KEY) {
+    primarySearches.push({
+      key: "cardApi",
+      promise: searchCardApiEbaySold(card, env.CARD_API_KEY),
+    });
   }
 
-  // Fast Mode favors speed: two or more clean primary-source comps are enough
-  // to answer now, even if confidence remains low. Deep mode keeps the stricter
-  // threshold and calls Apify when SerpApi is weak.
+  const primarySettled = await Promise.allSettled(primarySearches.map(source => source.promise));
+  primarySettled.forEach((entry, index) => {
+    const key = primarySearches[index].key;
+    if (entry.status === "fulfilled") {
+      if (key === "serp") serp = entry.value;
+      else cardApi = entry.value;
+      return;
+    }
+    const message = entry.reason?.message || "search failed.";
+    if (key === "serp") {
+      serpError = message;
+      sourceNotes.push(`SerpApi was unavailable: ${message}`);
+    } else {
+      cardApiError = message;
+      sourceNotes.push(`The Card API was unavailable: ${message}`);
+    }
+  });
+
+  const primaryResults = [serp, cardApi].filter(Boolean);
+  const primaryItems = dedupeSoldComps(primaryResults.flatMap(result => result.matchedItems || []));
+  const primaryEvaluation = evaluateComparableResults(primaryItems, card);
+
+  // Fast Mode can stop with two clean exact-card comps across the primary
+  // sources. Deep mode keeps the stronger four-comp threshold before Apify.
   const needsApify = Boolean(env.APIFY_TOKEN) && (
-    !serp ||
-    (fastMode
-      ? (serp.cleaned.length < 2 || serp.confidence === "insufficient")
-      : (serp.cleaned.length < 4 || serp.confidence === "low" || serp.confidence === "insufficient"))
+    fastMode
+      ? (primaryEvaluation.cleaned.length < 2 || primaryEvaluation.confidence === "insufficient")
+      : (primaryEvaluation.cleaned.length < 4 || primaryEvaluation.confidence === "low" || primaryEvaluation.confidence === "insufficient")
   );
 
-  let apify = null;
-  let apifyError = "";
   if (needsApify) {
     try {
       apify = await searchApify(card, query, env.APIFY_TOKEN, fastMode, env.CARD_API_KEY || "");
     } catch (err) {
       apifyError = err?.message || "Apify search failed.";
-      sourceNotes.push("Apify backup was unavailable; Scout kept any usable SerpApi evidence instead of treating the backup failure as the market result.");
+      sourceNotes.push(`Apify tertiary backup was unavailable: ${apifyError} Scout kept usable primary-source evidence.`);
     }
   }
 
-  if (!serp && !apify) {
+  const availableResults = [serp, cardApi, apify].filter(Boolean);
+  if (!availableResults.length) {
     const parts = [];
     if (serpError) parts.push(`SerpApi: ${serpError}`);
+    if (cardApiError) parts.push(`The Card API: ${cardApiError}`);
     if (apifyError) parts.push(`Apify: ${apifyError}`);
     throw new Error(parts.length ? `All sold-comps sources failed. ${parts.join(" ")}` : "No sold-comps source is available.");
   }
 
-  // If Apify was not needed, keep the SerpApi result exactly as-is.
-  if (serp && !apify) {
-    const notes = [...serp.notes, ...sourceNotes];
-    if (fastMode && (serp.confidence === "low" || serp.cleaned.length < 4)) {
-      notes.push("Fast Mode stopped after the primary eBay search to save time. Turn Fast Mode off for a deeper backup-source check.");
-    }
-    return finalizeValuation(card, query, serp.cleaned, {
-      provider: "eBay sold results via SerpApi",
-      searchMode: serp.searchMode,
-      matchMode: serp.matchMode,
-      searched: serp.searched,
-      matched: serp.matched,
-      notes,
-      mode: fastMode ? "fast" : "deep",
-    });
-  }
+  const combinedItems = dedupeSoldComps(availableResults.flatMap(result => result.matchedItems || []));
+  const combinedEvaluation = evaluateComparableResults(combinedItems, card);
+  const providerNames = [];
+  if (serp) providerNames.push("SerpApi");
+  if (cardApi) providerNames.push("The Card API");
+  if (apify) providerNames.push("Apify");
+  let provider = `eBay sold results via ${providerNames.join(" + ")}`;
+  if (apify?.bestOfferRecovered > 0) provider += " + Best Offer recovery";
 
-  // If Apify is the only usable source, use it.
-  if (!serp && apify) {
-    return finalizeValuation(card, query, apify.cleaned, {
-      provider: apify.bestOfferRecovered > 0
-        ? "eBay sold results via Apify + Best Offer recovery"
-        : "eBay sold results via Apify",
-      searchMode: "Apify sold + completed",
-      matchMode: apify.matchMode,
-      searched: apify.searched,
-      matched: apify.matched,
-      notes: [...apify.notes, ...sourceNotes],
-      mode: fastMode ? "fast" : "deep",
-      bestOfferRecovered: apify.bestOfferRecovered || 0,
-      bestOfferRecoveryAttempted: apify.bestOfferRecoveryAttempted || 0,
-    });
-  }
-
-  // SerpApi was weak enough to trigger the fallback. Merge both sources,
-  // de-duplicate by eBay item ID/link, then run the same outlier logic again.
-  const combined = removePriceOutliers(dedupe([...serp.cleaned, ...apify.cleaned]));
-  const usedSources = new Set(combined.map(x => x.source).filter(Boolean));
-  let provider =
-    usedSources.has("SerpApi") && (usedSources.has("Apify") || usedSources.has("Card API Best Offer"))
-      ? "eBay sold results via SerpApi + Apify"
-      : (usedSources.has("Apify") || usedSources.has("Card API Best Offer"))
-        ? "eBay sold results via Apify"
-        : "eBay sold results via SerpApi";
-  if (apify.bestOfferRecovered > 0) provider += " + Best Offer recovery";
-
-  const combinedNotes = [
-    ...serp.notes,
-    ...apify.notes,
+  const combinedNotes = uniqueStrings([
+    ...availableResults.flatMap(result => result.notes || []),
     ...sourceNotes,
-    "Scout used Apify as a backup because the first eBay search did not produce enough strong comps."
-  ];
+    needsApify && apify ? "Scout used Apify only as a tertiary backup because the combined primary-source evidence was still weak." : "",
+    fastMode && !needsApify && combinedEvaluation.cleaned.length < 4
+      ? "Fast Mode returned after the primary sources produced at least two clean exact-card comps; Deep Mode can seek more evidence."
+      : "",
+  ]);
+  const searchModes = availableResults.map(result => result.searchMode).filter(Boolean).join(" + ");
 
-  return finalizeValuation(card, query, combined, {
+  return finalizeValuation(card, query, combinedEvaluation.matchedItems, {
     provider,
-    searchMode: `${serp.searchMode} + Apify`,
-    matchMode: serp.matchMode === "relaxed" || apify.matchMode === "relaxed" ? "relaxed" : "strict",
-    searched: serp.searched + apify.searched,
-    matched: dedupe([...serp.matchedItems, ...apify.matchedItems]).length,
-    notes: uniqueStrings(combinedNotes),
+    searchMode: searchModes,
+    matchMode: combinedEvaluation.matchMode,
+    searched: availableResults.reduce((sum, result) => sum + Number(result.searched || 0), 0),
+    matched: combinedEvaluation.matchedItems.length,
+    notes: combinedNotes,
     mode: fastMode ? "fast" : "deep",
-    bestOfferRecovered: apify.bestOfferRecovered || 0,
-    bestOfferRecoveryAttempted: apify.bestOfferRecoveryAttempted || 0,
+    bestOfferRecovered: apify?.bestOfferRecovered || 0,
+    bestOfferRecoveryAttempted: apify?.bestOfferRecoveryAttempted || 0,
   });
 }
 
@@ -1662,20 +1700,7 @@ async function targetRecommendationMarketCheck(suggestion,player,env){
   };
 
   try{
-    const cached=await readValuationCache(card,true);
-    let live;
-    if(cached){
-      live=withCurrentShopVerdict(cached,card,true);
-    }else{
-      const raw=await valueCard(card,env,true);
-      const cacheable={...raw};
-      delete cacheable.verdictTier;
-      delete cacheable.cacheHit;
-      if(Number(cacheable.used)>0&&Number(cacheable.bestOfferRecovered||0)===0){
-        await writeValuationCache(card,true,cacheable);
-      }
-      live=withCurrentShopVerdict(cacheable,card,false);
-    }
+    const live=await getValuationWithCache(card,env,true);
 
     const used=Number(live?.used||0);
     const confidence=String(live?.confidence||"insufficient");
@@ -2864,7 +2889,19 @@ async function searchSerpApi(card, query, apiKey, fastMode=false) {
     }
   }
 
-  // 2) Slow broad discovery now uses SerpApi's async mode. Sold and Completed
+  // Fast Mode never starts the slow 30-second broad poll. The parallel Card API
+  // primary can answer from two clean exact-card comps while SerpApi stays quick.
+  if (!data && fastMode) {
+    if (emptyData) {
+      data = emptyData;
+      searchMode = "Sold-fast-no-results";
+      usedQuery = query;
+    } else {
+      throw new Error(`Fast sold search failed. ${attempts.join(" | ")}`);
+    }
+  }
+
+  // 2) Deep Mode broad discovery uses SerpApi's async mode. Sold and Completed
   // are submitted together, then each is polled through Search Archive.
   if (!data) {
     const [broadSold, broadCompleted] = await Promise.all([
@@ -2916,7 +2953,7 @@ async function searchSerpApi(card, query, apiKey, fastMode=false) {
   if (searchMode === "Complete-broad-async-sold-only") {
     notes.unshift("Scout kept only Completed entries explicitly marked sold.");
   }
-  if (searchMode === "Sold-no-results") {
+  if (searchMode === "Sold-no-results" || searchMode === "Sold-fast-no-results") {
     notes.unshift("SerpApi returned no sold listings for the available searches; Scout preserved that as a thin-market result instead of reporting a provider outage.");
   }
   if (evaluation.matchMode === "relaxed") {
@@ -3064,7 +3101,7 @@ function finalizeValuation(card, query, items, meta) {
     bestOfferRecoveryAttempted: Number(meta.bestOfferRecoveryAttempted || 0),
     cachePolicy: Number(meta.bestOfferRecovered || 0) > 0
       ? "not persisted — contains Card API negotiated-price data"
-      : "6-hour valuation cache",
+      : "fresh for 6 hours; retained up to 48 hours for provider-outage fallback",
     cacheHit: false,
   };
 }
@@ -3204,7 +3241,7 @@ function cacheKeyFor(card, fastMode) {
   const grader = canonicalGrader(card.grader);
   const grade = normalizeGrade(card.grade, grader);
   const bits = [
-    VERSION,
+    VALUATION_CACHE_VERSION,
     fastMode ? "fast" : "deep",
     Number(card.year) || "",
     normalizeText(card.set),
@@ -3225,19 +3262,39 @@ async function readValuationCache(card, fastMode) {
     const hit = await caches.default.match(cacheKeyFor(card, fastMode));
     if (!hit) return null;
     const data = await hit.json().catch(() => null);
-    return data && typeof data === "object" ? data : null;
+    return valuationCacheEntry(data);
   } catch {
     return null;
   }
 }
 
+function valuationCacheEntry(data, nowMs=Date.now()) {
+  if (!data || typeof data !== "object") return null;
+  if (Number(data.schemaVersion) !== VALUATION_CACHE_VERSION) return null;
+  if (!data.result || typeof data.result !== "object") return null;
+  const cachedAtMs = Date.parse(data.cachedAt || "");
+  if (!Number.isFinite(cachedAtMs)) return null;
+  const ageSeconds = Math.max(0, (nowMs - cachedAtMs) / 1000);
+  if (ageSeconds > VALUATION_CACHE_RETENTION_SECONDS) return null;
+  return {
+    result: data.result,
+    ageSeconds,
+    fresh: ageSeconds <= VALUATION_CACHE_FRESH_SECONDS,
+    stale: ageSeconds > VALUATION_CACHE_FRESH_SECONDS,
+  };
+}
+
 async function writeValuationCache(card, fastMode, result) {
   try {
     if (typeof caches === "undefined" || !caches.default) return;
-    const response = new Response(JSON.stringify(result), {
+    const response = new Response(JSON.stringify({
+      schemaVersion: VALUATION_CACHE_VERSION,
+      cachedAt: new Date().toISOString(),
+      result,
+    }), {
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}`,
+        "Cache-Control": `public, max-age=${VALUATION_CACHE_RETENTION_SECONDS}`,
       }
     });
     await caches.default.put(cacheKeyFor(card, fastMode), response);
@@ -3246,11 +3303,57 @@ async function writeValuationCache(card, fastMode, result) {
   }
 }
 
+function cacheableValuationResult(result) {
+  const cacheable = { ...result };
+  delete cacheable.verdictTier;
+  delete cacheable.cacheHit;
+  delete cacheable.staleCacheFallback;
+  delete cacheable.cacheAgeHours;
+  delete cacheable.liveProviderError;
+  return cacheable;
+}
+
+function staleValuationFallback(cacheEntry, liveError) {
+  const ageHours = Math.max(0.1, Math.round((cacheEntry.ageSeconds / 3600) * 10) / 10);
+  const note = `Live sold sources were temporarily unavailable. Scout is using previously verified sold comps from ${ageHours} hours ago; recheck before buying.`;
+  return {
+    ...cacheEntry.result,
+    notes: uniqueStrings([...(cacheEntry.result.notes || []), note]),
+    cachePolicy: "stale cache fallback from the 6–48-hour retention window",
+    staleCacheFallback: true,
+    cacheAgeHours: ageHours,
+    liveProviderError: liveError?.message || String(liveError || "Live sold sources unavailable."),
+  };
+}
+
+async function getValuationWithCache(card, env, fastMode=false, ctx=null) {
+  const cached = await readValuationCache(card, fastMode);
+  if (cached?.fresh) return withCurrentShopVerdict(cached.result, card, true);
+
+  try {
+    const raw = await valueCard(card, env, fastMode);
+    const cacheable = cacheableValuationResult(raw);
+    if (Number(cacheable.used) > 0 && Number(cacheable.bestOfferRecovered || 0) === 0) {
+      const put = writeValuationCache(card, fastMode, cacheable);
+      if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(put);
+      else await put;
+    }
+    return withCurrentShopVerdict(cacheable, card, false);
+  } catch (err) {
+    if (cached?.stale) {
+      return withCurrentShopVerdict(staleValuationFallback(cached, err), card, true);
+    }
+    throw err;
+  }
+}
+
 function withCurrentShopVerdict(result, card, cacheHit=false) {
   const legacyConfidence = String(result.confidence || "insufficient");
   const base = {
     ...result,
-    cachePolicy: cacheHit ? "6-hour valuation cache" : (result.cachePolicy || "6-hour valuation cache"),
+    cachePolicy: result.cachePolicy || (cacheHit
+      ? "fresh valuation cache (6 hours)"
+      : "fresh for 6 hours; retained up to 48 hours for provider-outage fallback"),
     cacheHit,
   };
 
@@ -3515,6 +3618,19 @@ function uniqueStrings(items){
 function dedupe(items){
   const seen=new Set();return items.filter(x=>{const k=x.id||`${x.title}|${x.price}`;if(seen.has(k))return false;seen.add(k);return true;});
 }
+function dedupeSoldComps(items){
+  const seen=new Set();
+  const out=[];
+  for(const item of items){
+    const ebayId=extractEbayItemId(item?.id)||extractEbayItemId(item?.link);
+    const date=String(item?.soldDate||"").slice(0,10);
+    const fallback=`${normalizeText(item?.title)}|${Number(item?.price)||""}|${date}`;
+    const key=ebayId?`ebay:${ebayId}`:fallback;
+    if(!key||seen.has(key))continue;
+    seen.add(key);out.push(item);
+  }
+  return out;
+}
 function removePriceOutliers(items){
   if(items.length<6)return items;
   const prices=items.map(x=>x.price).sort((a,b)=>a-b);
@@ -3537,7 +3653,8 @@ function sourceBucket(source) {
   const s = String(source || "").toLowerCase();
   if (s.includes("serp")) return "SerpApi";
   if (s.includes("apify")) return "Apify";
-  if (s.includes("card api")) return "Best Offer recovery";
+  if (s.includes("best offer")) return "Best Offer recovery";
+  if (s.includes("card api")) return "The Card API";
   return source ? String(source) : "Unknown";
 }
 
@@ -3599,7 +3716,7 @@ function explainExperimentalConfidence(result, card) {
     else if (gap <= .35) agreementScore = 10;
     else if (gap <= .50) agreementScore = 5;
     else agreementScore = 0;
-    agreementText = `SerpApi/Apify median gap is ${agreementGapPct ?? "?"}%.`;
+    agreementText = `The first two retrieval-source medians differ by ${agreementGapPct ?? "?"}%.`;
   } else if (corroborating.length === 1) {
     agreementScore = 8;
     agreementText = "Only one retrieval source contributed usable comps, so cross-source agreement is unknown.";
@@ -3613,7 +3730,7 @@ function explainExperimentalConfidence(result, card) {
 
   // High confidence must be earned, not merely crossed numerically.
   // Route A: 8+ comps with solid price consistency.
-  // Route B: 6+ comps with solid consistency AND strong SerpApi/Apify corroboration.
+  // Route B: 6+ comps with solid consistency AND strong cross-source corroboration.
   const highGateA = n >= 8 && consistencyScore >= 23;
   const highGateB = n >= 6 && consistencyScore >= 23 && agreementScore >= 16;
   const highGatePassed = highGateA || highGateB;
@@ -3626,7 +3743,7 @@ function explainExperimentalConfidence(result, card) {
   if (highGatePassed) {
     highGateReason = highGateA
       ? "High-confidence safeguard passed: 8+ comps with solid price consistency."
-      : "High-confidence safeguard passed: 6+ comps with solid price consistency and strong SerpApi/Apify agreement.";
+      : "High-confidence safeguard passed: 6+ comps with solid price consistency and strong retrieval-source agreement.";
   } else if (marketScore >= 78) {
     highGateReason = "Score reached the High range, but Scout held it at Medium because the High-confidence evidence safeguard was not met.";
   }
