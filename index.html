@@ -2186,6 +2186,33 @@ function scoutPricingEvidenceCount(value){
   const number=Number(value);
   return Number.isFinite(number)&&number>0?Math.floor(number):0;
 }
+function scoutPricingProviderSearchDetail(value){
+  if(!value||typeof value!=="object")return null;
+  return {
+    rows:scoutPricingEvidenceCount(value.rows),
+    matches:scoutPricingEvidenceCount(value.matches),
+    status:scoutPricingDiagnosticText(value.status||"unknown",40),
+    note:scoutPricingDiagnosticText(value.note||"")
+  };
+}
+function scoutPricingProviderDetails(v={}){
+  const raw=v?.providerDetails||v?.providerDiagnostics||{};
+  const details={};
+  if(raw?.serpApi){
+    details.serpApi={
+      exact:scoutPricingProviderSearchDetail(raw.serpApi.exact),
+      broad:scoutPricingProviderSearchDetail(raw.serpApi.broad)
+    };
+  }
+  if(raw?.cardApi){
+    details.cardApi={
+      initial:scoutPricingProviderSearchDetail(raw.cardApi.initial),
+      fallback:scoutPricingProviderSearchDetail(raw.cardApi.fallback),
+      total:scoutPricingProviderSearchDetail(raw.cardApi.total)
+    };
+  }
+  return details;
+}
 function scoutPricingEvidenceFromValue(v={},targetEnrichmentAttempted=false,extraNotes=[]){
   const notes=[...(Array.isArray(v?.notes)?v.notes:[]),...extraNotes]
     .map(note=>scoutPricingDiagnosticText(note))
@@ -2201,6 +2228,7 @@ function scoutPricingEvidenceFromValue(v={},targetEnrichmentAttempted=false,extr
     cacheHit:v?.cacheHit===true||v?.cached===true,
     staleFallback:v?.staleCacheFallback===true,
     targetEnrichmentAttempted:targetEnrichmentAttempted===true,
+    providerDetails:scoutPricingProviderDetails(v),
     notes
   };
 }
@@ -2308,6 +2336,11 @@ function scoutPricingEvidenceHtml(m){
   const notes=(Array.isArray(evidence.notes)?evidence.notes:[])
     .map(note=>scoutPricingDiagnosticText(note))
     .filter(Boolean);
+  const providerDetails=scoutPricingProviderDetails(evidence);
+  const serpExact=providerDetails?.serpApi?.exact;
+  const serpBroad=providerDetails?.serpApi?.broad;
+  const cardApiTotal=providerDetails?.cardApi?.total;
+  const statusLabel=detail=>String(detail?.status||"unknown").replaceAll("_"," ");
   return `<details class="scout-pricing-evidence">
     <summary>PRICING EVIDENCE DETAILS</summary>
     <div class="scout-pricing-evidence-grid">
@@ -2318,6 +2351,9 @@ function scoutPricingEvidenceHtml(m){
       <div><b>Sold comps used:</b> ${used}</div>
       <div><b>Cache:</b> ${escapeHtml(cacheStatus)}</div>
       <div><b>Target enrichment:</b> ${escapeHtml(enrichment)}</div>
+      ${serpExact?`<div><b>SerpApi exact rows:</b> ${serpExact.rows}</div><div><b>SerpApi exact matches:</b> ${serpExact.matches} · ${escapeHtml(statusLabel(serpExact))}</div>`:""}
+      ${serpBroad?`<div><b>SerpApi broad rows:</b> ${serpBroad.rows}</div><div><b>SerpApi broad matches:</b> ${serpBroad.matches} · ${escapeHtml(statusLabel(serpBroad))}</div>`:""}
+      ${cardApiTotal?`<div><b>Card API returned:</b> ${cardApiTotal.rows}</div><div><b>Card API matches:</b> ${cardApiTotal.matches} · ${escapeHtml(statusLabel(cardApiTotal))}</div>`:""}
     </div>
     ${notes.length?`<ul class="scout-pricing-evidence-notes">${notes.map(note=>`<li>${escapeHtml(note)}</li>`).join("")}</ul>`:""}
   </details>`;
