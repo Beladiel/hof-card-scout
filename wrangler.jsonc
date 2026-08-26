@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "hof-card-scout-pricing",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-26",
+  "keep_vars": true,
+  "observability": {
+    "enabled": true
+  },
+  "kv_namespaces": [
+    {
+      "binding": "SCOUT_DATA",
+      "id": "57127137990c45dda71f7591d7846962"
+    }
+  ]
+}
