@@ -1,4 +1,4 @@
-const VERSION = "3.23.5";
+const VERSION = "3.23.6";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const VALUATION_CACHE_FRESH_SECONDS = 6 * 60 * 60;
@@ -14,6 +14,7 @@ const SERP_ASYNC_POLL_INTERVAL_MS = 1800;
 const SERP_ASYNC_MAX_WAIT_MS = 30000;
 const TARGET_EVIDENCE_GOAL = 4;
 const TARGET_ENRICHMENT_WAIT_MS = 11000;
+const TARGET_MARKET_CHECK_VERSION = 5;
 const APIFY_FAST_COUNT = 12;
 const APIFY_DEEP_COUNT = 15;
 const APIFY_FAST_TIMEOUT_SECONDS = 20;
@@ -400,6 +401,9 @@ export default {
           searchHint,
           futureHof
         });
+        if (result?.suggestion) {
+          result.suggestion.marketCheck = await targetRecommendationMarketCheck(result.suggestion, player, env);
+        }
         return json({
           ok: true,
           version: VERSION,
@@ -1772,6 +1776,48 @@ function targetRecommendationCanonicalSet(suggestion) {
   return String(suggestion?.set || "").trim();
 }
 
+function sanitizePricingDiagnosticText(value, maxLength=280) {
+  let text = String(value || "").replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  text = text
+    .replace(/https?:\/\/[^\s)\]}]+/gi, "[redacted URL]")
+    .replace(/\bBearer\s+[^\s,;]+/gi, "Bearer [redacted]")
+    .replace(/((?:api[_\s-]?key|access[_\s-]?token|token|authorization|x-scout-key|x-market-api-key)\s*[:=]\s*)[^\s,;]+/gi, "$1[redacted]")
+    .replace(/([?&](?:api_key|access_token|token|key)=)[^&\s]+/gi, "$1[redacted]");
+  return text.slice(0, maxLength);
+}
+
+function pricingDiagnosticCount(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? Math.floor(number) : 0;
+}
+
+function targetPricingEvidenceDetails(live={}, targetEnrichmentAttempted=false) {
+  const notes = uniqueStrings((Array.isArray(live?.notes) ? live.notes : [])
+    .map(note => sanitizePricingDiagnosticText(note))
+    .filter(Boolean))
+    .slice(0, 8);
+  return {
+    providers: sanitizePricingDiagnosticText(live?.provider),
+    searchModes: sanitizePricingDiagnosticText(live?.searchMode),
+    listingsSearched: pricingDiagnosticCount(live?.searched),
+    exactMatches: pricingDiagnosticCount(live?.matched),
+    soldCompsUsed: pricingDiagnosticCount(live?.used),
+    cacheHit: live?.cacheHit === true,
+    staleFallback: live?.staleCacheFallback === true,
+    targetEnrichmentAttempted: targetEnrichmentAttempted === true,
+    notes,
+  };
+}
+
+function targetEnrichmentWasAttempted(live) {
+  const strongFreshCache = live?.cacheHit === true &&
+    live?.staleCacheFallback !== true &&
+    live?.targetEnrichmentFallback !== true &&
+    valuationEvidenceCount(live) >= TARGET_EVIDENCE_GOAL;
+  return !strongFreshCache;
+}
+
 async function targetRecommendationMarketCheck(suggestion,player,env){
   const delivered=Number(suggestion?.delivered);
   const year=Number(suggestion?.year);
@@ -1779,11 +1825,18 @@ async function targetRecommendationMarketCheck(suggestion,player,env){
   const cardNum=String(suggestion?.cardNum||"").trim();
 
   if(!Number.isFinite(delivered)||delivered<=0){
-    return {rated:false,tier:"market_check",label:"MARKET CHECK",reason:"Delivered listing price is unavailable."};
+    return {
+      version:TARGET_MARKET_CHECK_VERSION,
+      rated:false,tier:"market_check",label:"MARKET CHECK",
+      pricingEvidence:targetPricingEvidenceDetails({},false),
+      reason:"Delivered listing price is unavailable."
+    };
   }
   if(!Number.isInteger(year)||!set){
     return {
+      version:TARGET_MARKET_CHECK_VERSION,
       rated:false,tier:"market_check",label:"MARKET CHECK",delivered,
+      pricingEvidence:targetPricingEvidenceDetails({},false),
       reason:"Scout likes the target, but the listing identity is not specific enough for a trustworthy sold-comps price check."
     };
   }
@@ -1812,15 +1865,18 @@ async function targetRecommendationMarketCheck(suggestion,player,env){
     const used=Number(live?.used||0);
     const confidence=String(live?.confidence||"insufficient");
     const median=Number(live?.median);
+    const pricingEvidence=targetPricingEvidenceDetails(live,targetEnrichmentWasAttempted(live));
 
     if(used<2||confidence==="insufficient"||!Number.isFinite(median)||median<=0){
       return {
+        version:TARGET_MARKET_CHECK_VERSION,
         rated:false,tier:"market_check",label:"MARKET CHECK",delivered,used,confidence,
         confidenceScore:Number(live?.confidenceScore||0),
         median:Number.isFinite(median)?median:null,
         low:Number.isFinite(Number(live?.low))?Number(live.low):null,
         high:Number.isFinite(Number(live?.high))?Number(live.high):null,
         pricingIdentity:{year,set,player,cardNum},
+        pricingEvidence,
         reason:"Scout likes the target, but there are not enough reliable sold comps to call this listing a bargain or a pass."
       };
     }
@@ -1828,6 +1884,7 @@ async function targetRecommendationMarketCheck(suggestion,player,env){
     const targets=targetSmartBuyTargets(live);
     const verdict=targetPriceVerdict(delivered,targets);
     return {
+      version:TARGET_MARKET_CHECK_VERSION,
       rated:true,...verdict,delivered,
       median:Number(live.median),
       low:Number(live.low),
@@ -1840,15 +1897,21 @@ async function targetRecommendationMarketCheck(suggestion,player,env){
       walkAway:targets?.walkAway??null,
       provider:live.provider||"",
       pricingIdentity:{year,set,player,cardNum},
+      pricingEvidence,
       checkedAt:live.checkedAt||new Date().toISOString(),
       reason:verdict.message
     };
   }catch(err){
+    const safeError=sanitizePricingDiagnosticText(err?.message||err||"Live sold sources were unavailable.");
     return {
+      version:TARGET_MARKET_CHECK_VERSION,
       rated:false,tier:"market_check",label:"MARKET CHECK",delivered,
       pricingIdentity:{year,set,player,cardNum},
+      pricingEvidence:targetPricingEvidenceDetails({
+        notes:[safeError||"Live sold sources were unavailable."]
+      },true),
       reason:"Scout found a target, but the sold-comps price check could not be completed for this listing.",
-      error:String(err?.message||err||"")
+      error:safeError
     };
   }
 }

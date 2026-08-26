@@ -379,8 +379,13 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .scout-deal-metric .k{font-size:7px;font-weight:950;letter-spacing:.07em;color:var(--muted)}
 .scout-deal-metric .v{font-size:13px;font-weight:950;margin-top:3px}
 .scout-deal-message{font-size:9.5px;color:var(--muted);line-height:1.45;margin-top:8px}
+.scout-pricing-evidence{margin-top:9px;border-top:1px solid rgba(230,189,99,.24);padding-top:8px}
+.scout-pricing-evidence summary{cursor:pointer;color:var(--gold);font-size:8px;font-weight:950;letter-spacing:.08em}
+.scout-pricing-evidence-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;margin-top:8px;font-size:9px;color:var(--muted);line-height:1.4}
+.scout-pricing-evidence-grid b{color:var(--text)}
+.scout-pricing-evidence-notes{margin:7px 0 0;padding-left:17px;color:var(--muted);font-size:9px;line-height:1.45}
 .scout-deal-box[hidden]{display:none}
-@media(max-width:620px){.scout-deal-metrics{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.scout-deal-metrics,.scout-pricing-evidence-grid{grid-template-columns:1fr 1fr}}
 
 .find-target-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}
 .find-target-actions.secondary-actions{grid-template-columns:1fr 1fr}
@@ -2033,7 +2038,7 @@ let futureHofExcluded={};
 
 
 /* v5.0.3 — recommendation listing price check */
-const SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION=4;
+const SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION=5;
 function scoutRecommendationMarketCheckNeedsRefresh(m){
   if(!m)return true;
   if(Number(m.version||0)<SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION)return true;
@@ -2167,18 +2172,56 @@ function scoutRecommendationPricingCard(playerName,s){
     fastMode:true
   };
 }
+function scoutPricingDiagnosticText(value,maxLength=280){
+  let text=String(value||"").replace(/[\r\n\t]+/g," ").replace(/\s+/g," ").trim();
+  if(!text)return "";
+  text=text
+    .replace(/https?:\/\/[^\s)\]}]+/gi,"[redacted URL]")
+    .replace(/\bBearer\s+[^\s,;]+/gi,"Bearer [redacted]")
+    .replace(/((?:api[_\s-]?key|access[_\s-]?token|token|authorization|x-scout-key|x-market-api-key)\s*[:=]\s*)[^\s,;]+/gi,"$1[redacted]")
+    .replace(/([?&](?:api_key|access_token|token|key)=)[^&\s]+/gi,"$1[redacted]");
+  return text.slice(0,maxLength);
+}
+function scoutPricingEvidenceCount(value){
+  const number=Number(value);
+  return Number.isFinite(number)&&number>0?Math.floor(number):0;
+}
+function scoutPricingEvidenceFromValue(v={},targetEnrichmentAttempted=false,extraNotes=[]){
+  const notes=[...(Array.isArray(v?.notes)?v.notes:[]),...extraNotes]
+    .map(note=>scoutPricingDiagnosticText(note))
+    .filter(Boolean)
+    .filter((note,index,all)=>all.indexOf(note)===index)
+    .slice(0,8);
+  return {
+    providers:scoutPricingDiagnosticText(v?.provider),
+    searchModes:scoutPricingDiagnosticText(v?.searchMode),
+    listingsSearched:scoutPricingEvidenceCount(v?.searched),
+    exactMatches:scoutPricingEvidenceCount(v?.matched),
+    soldCompsUsed:scoutPricingEvidenceCount(v?.used),
+    cacheHit:v?.cacheHit===true||v?.cached===true,
+    staleFallback:v?.staleCacheFallback===true,
+    targetEnrichmentAttempted:targetEnrichmentAttempted===true,
+    notes
+  };
+}
 async function scoutRecommendationMarketCheck(playerName,s){
   const c=pricingConfig();
   const card=scoutRecommendationPricingCard(playerName,s);
 
   if(!c.endpoint||!c.accessKey){
-    return {version:SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION,rated:false,tier:"market_check",label:"MARKET CHECK",reason:"Scout's live pricing connection is not configured on this device."};
+    return {
+      version:SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION,
+      rated:false,tier:"market_check",label:"MARKET CHECK",
+      pricingEvidence:scoutPricingEvidenceFromValue({},false,["Live pricing is not configured on this device."]),
+      reason:"Scout's live pricing connection is not configured on this device."
+    };
   }
   if(!Number.isInteger(card.year)||!card.set||!Number.isFinite(card.shopPrice)){
     return {
       version:SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION,
       rated:false,tier:"market_check",label:"MARKET CHECK",
       pricingIdentity:{year:card.year,set:card.set,player:playerName,cardNum:card.cardNum},
+      pricingEvidence:scoutPricingEvidenceFromValue({},false,["The listing identity was not specific enough to search sold comps safely."]),
       reason:"Scout likes the target, but the card identity is not specific enough for a trustworthy sold-comps price check."
     };
   }
@@ -2195,6 +2238,7 @@ async function scoutRecommendationMarketCheck(playerName,s){
     const used=Number(v.used||0);
     const confidence=String(v.confidence||"insufficient");
     const median=Number(v.median);
+    const pricingEvidence=scoutPricingEvidenceFromValue(v,false);
 
     if(used<2||confidence==="insufficient"||!Number.isFinite(median)||median<=0){
       return {
@@ -2206,6 +2250,7 @@ async function scoutRecommendationMarketCheck(playerName,s){
         low:Number.isFinite(Number(v.low))&&Number(v.low)>0?Number(v.low):null,
         high:Number.isFinite(Number(v.high))&&Number(v.high)>0?Number(v.high):null,
         pricingIdentity:{year:card.year,set:card.set,player:playerName,cardNum:card.cardNum},
+        pricingEvidence,
         reason:"Scout likes the target, but there are not enough reliable sold comps to confidently rate this listing price."
       };
     }
@@ -2226,15 +2271,17 @@ async function scoutRecommendationMarketCheck(playerName,s){
       walkAway:targets.walkAway,
       provider:v.provider||"",
       pricingIdentity:{year:card.year,set:card.set,player:playerName,cardNum:card.cardNum},
+      pricingEvidence,
       reason:verdict.reason
     };
   }catch(err){
-    const detail=String(err?.message||err||"Unknown pricing error");
+    const detail=scoutPricingDiagnosticText(err?.message||err||"Unknown pricing error");
     return {
       version:SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION,
       rated:false,tier:"market_check",label:"MARKET CHECK",
       delivered:card.shopPrice,
       pricingIdentity:{year:card.year,set:card.set,player:playerName,cardNum:card.cardNum},
+      pricingEvidence:scoutPricingEvidenceFromValue({},false,[detail]),
       diagnostic:detail,
       reason:"Scout found the target, but the sold-comps price check could not be completed for this listing."
     };
@@ -2244,7 +2291,38 @@ function scoutDealMoney(v){
   const n=Number(v);
   return Number.isFinite(n)&&n>0?"$"+n.toFixed(2):"—";
 }
-function scoutDealHtml(m){
+function scoutPricingEvidenceHtml(m){
+  const evidence=m?.pricingEvidence;
+  if(!evidence)return "";
+  const providers=String(evidence.providers||m?.provider||"").trim()||"No usable sold source";
+  const searchModes=String(evidence.searchModes||"").trim();
+  const listings=scoutPricingEvidenceCount(evidence.listingsSearched);
+  const matches=scoutPricingEvidenceCount(evidence.exactMatches);
+  const used=scoutPricingEvidenceCount(evidence.soldCompsUsed??m?.used);
+  const cacheStatus=evidence.staleFallback
+    ? "hit · stale fallback"
+    : evidence.cacheHit?"hit · fresh/verified":"no hit · live lookup";
+  const enrichment=evidence.targetEnrichmentAttempted
+    ? "attempted"
+    : evidence.cacheHit&&used>=4?"not needed (strong cache)":"not attempted";
+  const notes=(Array.isArray(evidence.notes)?evidence.notes:[])
+    .map(note=>scoutPricingDiagnosticText(note))
+    .filter(Boolean);
+  return `<details class="scout-pricing-evidence">
+    <summary>PRICING EVIDENCE DETAILS</summary>
+    <div class="scout-pricing-evidence-grid">
+      <div><b>Sources:</b> ${escapeHtml(providers)}</div>
+      ${searchModes?`<div><b>Search modes:</b> ${escapeHtml(searchModes)}</div>`:""}
+      <div><b>Listings searched:</b> ${listings}</div>
+      <div><b>Exact matches:</b> ${matches}</div>
+      <div><b>Sold comps used:</b> ${used}</div>
+      <div><b>Cache:</b> ${escapeHtml(cacheStatus)}</div>
+      <div><b>Target enrichment:</b> ${escapeHtml(enrichment)}</div>
+    </div>
+    ${notes.length?`<ul class="scout-pricing-evidence-notes">${notes.map(note=>`<li>${escapeHtml(note)}</li>`).join("")}</ul>`:""}
+  </details>`;
+}
+function scoutDealHtml(m,showPricingEvidence=false){
   if(!m)return "";
   const tier=String(m.tier||"market_check");
   const confidence=String(m.confidence||"").toUpperCase();
@@ -2281,13 +2359,14 @@ function scoutDealHtml(m){
     <div class="scout-deal-confidence">${escapeHtml(confidenceText)}</div>
   </div>
   ${metrics}
-  <div class="scout-deal-message">${escapeHtml(m.reason||"")}${identityText?`<br><b>Priced as:</b> ${escapeHtml(identityText)}`:""}${diagnostic?`<br><b>Diagnostic:</b> ${escapeHtml(diagnostic)}`:""}</div>`;
+  <div class="scout-deal-message">${escapeHtml(m.reason||"")}${identityText?`<br><b>Priced as:</b> ${escapeHtml(identityText)}`:""}${diagnostic?`<br><b>Diagnostic:</b> ${escapeHtml(diagnostic)}`:""}</div>
+  ${showPricingEvidence?scoutPricingEvidenceHtml(m):""}`;
 }
 function scoutRenderDealBox(id,m){
   const el=$(id);
   if(!el)return;
   if(!m){el.hidden=true;el.innerHTML="";return}
-  el.innerHTML=scoutDealHtml(m);
+  el.innerHTML=scoutDealHtml(m,id==="findTargetDealCheck");
   el.hidden=false;
 }
 
@@ -3330,7 +3409,9 @@ async function searchFindTarget(){
     }
     $("findTargetStatus").className="find-target-status";
     $("findTargetStatus").textContent="✓ Target found. Scout is checking the exact-card sold market…";
-    data.suggestion.marketCheck=await scoutRecommendationMarketCheck(p.name,data.suggestion);
+    if(!data.suggestion.marketCheck){
+      data.suggestion.marketCheck=await scoutRecommendationMarketCheck(p.name,data.suggestion);
+    }
     renderFindTargetSuggestion(data.suggestion);
     $("findTargetStatus").className="find-target-status ok";
     if(data.suggestion.marketCheck?.rated){
