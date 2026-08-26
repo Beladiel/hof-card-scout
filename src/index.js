@@ -1,4 +1,4 @@
-const VERSION = "3.23.7";
+const VERSION = "3.23.8";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const VALUATION_CACHE_FRESH_SECONDS = 6 * 60 * 60;
@@ -1714,7 +1714,13 @@ async function valueCard(card, env, fastMode=false, options={}) {
     if (serpError) parts.push(`SerpApi: ${serpError}`);
     if (cardApiError) parts.push(`The Card API: ${cardApiError}`);
     if (apifyError) parts.push(`Apify: ${apifyError}`);
-    throw new Error(parts.length ? `All sold-comps sources failed. ${parts.join(" ")}` : "No sold-comps source is available.");
+    const error = new Error(parts.length
+      ? `All sold-comps sources failed. ${parts.join(" ")}`
+      : "No sold-comps source is available.");
+    if (Object.keys(providerDiagnostics).length) {
+      error.providerDiagnostics = providerDiagnostics;
+    }
+    throw error;
   }
 
   const combinedItems = dedupeSoldComps(availableResults.flatMap(result => result.matchedItems || []));
@@ -1854,9 +1860,13 @@ function pricingProviderSearchDetail(value) {
 }
 
 function targetPricingProviderDetails(live={}) {
-  const raw = live?.providerDiagnostics && typeof live.providerDiagnostics === "object"
+  const currentAttempt = live?.liveEnrichmentProviderDiagnostics;
+  const valuationDiagnostics = live?.providerDiagnostics && typeof live.providerDiagnostics === "object"
     ? live.providerDiagnostics
     : {};
+  const raw = currentAttempt && typeof currentAttempt === "object"
+    ? currentAttempt
+    : valuationDiagnostics;
   const details = {};
   if (raw.serpApi) {
     details.serpApi = {
@@ -1875,7 +1885,10 @@ function targetPricingProviderDetails(live={}) {
 }
 
 function targetPricingEvidenceDetails(live={}, targetEnrichmentAttempted=false) {
-  const notes = uniqueStrings((Array.isArray(live?.notes) ? live.notes : [])
+  const noteSource = live?.targetEnrichmentFallback && Array.isArray(live?.liveEnrichmentNotes)
+    ? live.liveEnrichmentNotes
+    : (Array.isArray(live?.notes) ? live.notes : []);
+  const notes = uniqueStrings(noteSource
     .map(note => sanitizePricingDiagnosticText(note))
     .filter(Boolean))
     .slice(0, 8);
@@ -3700,13 +3713,27 @@ function isValuationEvidenceStronger(candidate, baseline) {
   return valuationConfidenceRank(candidate) > valuationConfidenceRank(baseline);
 }
 
-function targetEnrichmentCacheFallback(cacheEntry, liveError=null) {
+function targetEnrichmentCacheFallback(cacheEntry, liveResult=null, liveError=null) {
   const detail = liveError?.message || String(liveError || "Live enrichment did not improve the verified evidence.");
+  const attempt = liveResult || liveError;
+  const providerDiagnostics = attempt?.providerDiagnostics && typeof attempt.providerDiagnostics === "object"
+    ? attempt.providerDiagnostics
+    : {};
+  const diagnosticNote = "Scout kept the existing verified valuation, but the provider diagnostics below describe this search's live enrichment attempt.";
+  const liveEnrichmentNotes = uniqueStrings([
+    diagnosticNote,
+    ...(Array.isArray(liveResult?.notes) ? liveResult.notes : []),
+    liveError ? detail : "",
+  ]);
   return {
     ...cacheEntry.result,
+    providerDiagnostics,
+    liveEnrichmentProviderDiagnostics: providerDiagnostics,
+    liveEnrichmentNotes,
     notes: uniqueStrings([
       ...(cacheEntry.result.notes || []),
-      "Target enrichment did not produce stronger verified evidence, so Scout kept the existing fresh sold-comps valuation."
+      "Target enrichment did not produce stronger verified evidence, so Scout kept the existing fresh sold-comps valuation.",
+      diagnosticNote,
     ]),
     targetEnrichmentFallback: true,
     liveProviderError: detail,
@@ -3742,7 +3769,7 @@ async function getValuationWithCache(card, env, fastMode=false, ctx=null, option
       fallbackEvidenceCount: cached?.fresh ? valuationEvidenceCount(cached.result) : 0,
     });
     if (cached?.fresh && profile.targetEnrichment && !isValuationEvidenceStronger(raw, cached.result)) {
-      return withCurrentShopVerdict(targetEnrichmentCacheFallback(cached), card, true);
+      return withCurrentShopVerdict(targetEnrichmentCacheFallback(cached, raw), card, true);
     }
     const cacheable = cacheableValuationResult(raw);
     if (Number(cacheable.used) > 0 && Number(cacheable.bestOfferRecovered || 0) === 0) {
@@ -3753,7 +3780,7 @@ async function getValuationWithCache(card, env, fastMode=false, ctx=null, option
     return withCurrentShopVerdict(cacheable, card, false);
   } catch (err) {
     if (cached?.fresh && profile.targetEnrichment) {
-      return withCurrentShopVerdict(targetEnrichmentCacheFallback(cached, err), card, true);
+      return withCurrentShopVerdict(targetEnrichmentCacheFallback(cached, null, err), card, true);
     }
     if (cached?.stale) {
       return withCurrentShopVerdict(staleValuationFallback(cached, err), card, true);

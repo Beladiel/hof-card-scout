@@ -75,6 +75,7 @@ const card = {
 const exactQuery = api.buildQuery(card);
 const broadQuery = api.buildBroadSoldQuery(card);
 const title = "1963 Topps #5 Sandy Koufax Bob Gibson Don Drysdale Baseball Card";
+let cachedFallbackEvidence = null;
 
 function serpRow(id, rowTitle=title, price=100) {
   return {
@@ -140,8 +141,8 @@ async function test(name, fn) {
 }
 
 (async () => {
-  await test("Worker version is 3.23.7", () => {
-    assert.equal(api.VERSION, "3.23.7");
+  await test("Worker version is 3.23.8", () => {
+    assert.equal(api.VERSION, "3.23.8");
   });
 
   await test("target exact and broad async searches start concurrently", async () => {
@@ -295,6 +296,231 @@ async function test(name, fn) {
     assert.equal(result.targetEnrichmentFallback, true);
   });
 
+  await test("aggregate live-provider failure carries Phase 3 timeout diagnostics into cache fallback", async () => {
+    const cachedResult = {
+      provider: "Cached verified valuation",
+      searchMode: "cached",
+      searched: 3,
+      matched: 3,
+      used: 3,
+      median: 100,
+      low: 90,
+      high: 110,
+      confidence: "low",
+      notes: [],
+      comps: [comp("531111111111", 90), comp("532222222222", 100), comp("533333333333", 110)],
+    };
+    api.setMocks({
+      readValuationCache: async () => ({ result: cachedResult, fresh: true, stale: false, ageSeconds: 60 }),
+      runEbaySearchAsync: async () => { throw processingTimeout(); },
+      searchCardApiEbaySold: async () => { throw new Error("The Card API unavailable"); },
+    });
+    const result = await api.getValuationWithCache(card, {
+      SERPAPI_KEY: "serp-test",
+      CARD_API_KEY: "card-test",
+    }, true, null, { targetEnrichment: true, evidenceGoal: 4 });
+    const evidence = api.targetPricingEvidenceDetails(result, true);
+    assert.equal(result.used, 3);
+    assert.equal(result.median, 100);
+    assert.equal(result.cacheHit, true);
+    assert.equal(evidence.providerDetails.serpApi.exact.status, "timed_out");
+    assert.equal(evidence.providerDetails.serpApi.broad.status, "timed_out");
+  });
+
+  await test("equal live enrichment keeps cached price and comps but exposes live diagnostics", async () => {
+    const cachedComps = [
+      comp("541111111111", 90),
+      comp("542222222222", 100),
+      comp("543333333333", 110),
+    ];
+    const cachedResult = {
+      provider: "Cached verified Card API valuation",
+      searchMode: "cached verified search",
+      searched: 7,
+      matched: 3,
+      used: 3,
+      median: 100,
+      low: 90,
+      high: 110,
+      confidence: "low",
+      notes: ["Cached valuation note."],
+      comps: cachedComps,
+      providerDiagnostics: {
+        serpApi: {
+          exact: { rows: 99, matches: 9, status: "completed" },
+          broad: { rows: 99, matches: 9, status: "completed" },
+        },
+      },
+    };
+    const liveResult = {
+      provider: "Current weaker SerpApi valuation",
+      searchMode: "Sold-target-parallel-async-exact+broad",
+      searched: 40,
+      matched: 3,
+      used: 3,
+      median: 40,
+      low: 30,
+      high: 50,
+      confidence: "low",
+      notes: ["Current live attempt note."],
+      comps: [comp("544444444444", 30, "SerpApi"), comp("545555555555", 40, "SerpApi"), comp("546666666666", 50, "SerpApi")],
+      providerDiagnostics: {
+        serpApi: {
+          exact: { rows: 12, matches: 2, status: "completed", note: "" },
+          broad: { rows: 18, matches: 1, status: "completed", note: "" },
+        },
+        cardApi: {
+          initial: { rows: 7, matches: 3, status: "completed", note: "" },
+          fallback: { rows: 3, matches: 0, status: "completed", note: "" },
+          total: { rows: 10, matches: 3, status: "completed", note: "" },
+        },
+      },
+    };
+    api.setMocks({
+      readValuationCache: async () => ({ result: cachedResult, fresh: true, stale: false, ageSeconds: 60 }),
+      valueCard: async () => liveResult,
+    });
+    const result = await api.getValuationWithCache(card, {}, true, null, {
+      targetEnrichment: true,
+      evidenceGoal: 4,
+    });
+
+    assert.equal(result.provider, cachedResult.provider);
+    assert.equal(result.searchMode, cachedResult.searchMode);
+    assert.equal(result.used, 3);
+    assert.equal(result.median, 100);
+    assert.equal(result.low, 90);
+    assert.equal(result.high, 110);
+    assert.equal(result.legacyConfidence, "low");
+    assert.equal(JSON.stringify(result.comps), JSON.stringify(cachedComps));
+    assert.equal(result.cacheHit, true);
+    assert.equal(result.targetEnrichmentFallback, true);
+    assert.equal(result.providerDiagnostics.serpApi.exact.rows, 12);
+    assert.equal(result.liveEnrichmentProviderDiagnostics.serpApi.broad.matches, 1);
+    assert.match(result.notes.join(" "), /provider diagnostics below describe this search's live enrichment attempt/i);
+
+    const evidence = api.targetPricingEvidenceDetails(result, true);
+    cachedFallbackEvidence = evidence;
+    assert.equal(evidence.cacheHit, true);
+    assert.equal(evidence.soldCompsUsed, 3);
+    assert.equal(evidence.providerDetails.serpApi.exact.rows, 12);
+    assert.equal(evidence.providerDetails.serpApi.exact.matches, 2);
+    assert.equal(evidence.providerDetails.serpApi.broad.rows, 18);
+    assert.equal(evidence.providerDetails.serpApi.broad.matches, 1);
+    assert.equal(evidence.providerDetails.cardApi.total.rows, 10);
+    assert.equal(evidence.providerDetails.cardApi.total.matches, 3);
+    assert.match(evidence.notes.join(" "), /Current live attempt note/);
+    assert.doesNotMatch(evidence.notes.join(" "), /Cached valuation note/);
+  });
+
+  await test("stronger live enrichment still replaces the fresh cache normally", async () => {
+    const cachedResult = {
+      provider: "Cached verified valuation",
+      searchMode: "cached",
+      searched: 3,
+      matched: 3,
+      used: 3,
+      median: 100,
+      low: 90,
+      high: 110,
+      confidence: "low",
+      notes: [],
+      comps: [comp("551111111111", 90), comp("552222222222", 100), comp("553333333333", 110)],
+    };
+    const liveComps = [
+      comp("554444444444", 80, "SerpApi"),
+      comp("555555555555", 90, "SerpApi"),
+      comp("556666666666", 100, "The Card API"),
+      comp("557777777777", 110, "The Card API"),
+    ];
+    const liveResult = {
+      provider: "Live SerpApi + The Card API valuation",
+      searchMode: "Sold-target-parallel-async-exact+broad",
+      searched: 30,
+      matched: 4,
+      used: 4,
+      median: 95,
+      low: 87.5,
+      high: 102.5,
+      confidence: "medium",
+      notes: [],
+      comps: liveComps,
+      providerDiagnostics: {
+        serpApi: {
+          exact: { rows: 10, matches: 2, status: "completed" },
+          broad: { rows: 10, matches: 1, status: "completed" },
+        },
+      },
+    };
+    api.setMocks({
+      readValuationCache: async () => ({ result: cachedResult, fresh: true, stale: false, ageSeconds: 60 }),
+      valueCard: async () => liveResult,
+    });
+    const result = await api.getValuationWithCache(card, {}, true, null, {
+      targetEnrichment: true,
+      evidenceGoal: 4,
+    });
+    assert.equal(result.provider, liveResult.provider);
+    assert.equal(result.used, 4);
+    assert.equal(result.median, 95);
+    assert.equal(result.cacheHit, false);
+    assert.equal(result.targetEnrichmentFallback, undefined);
+    assert.equal(JSON.stringify(result.comps), JSON.stringify(liveComps));
+  });
+
+  await test("live timeout diagnostics and credential redaction survive fresh-cache fallback", async () => {
+    const cachedResult = {
+      provider: "Cached verified Card API valuation",
+      searchMode: "cached",
+      searched: 7,
+      matched: 3,
+      used: 3,
+      median: 100,
+      low: 90,
+      high: 110,
+      confidence: "low",
+      notes: [],
+      comps: [comp("561111111111", 90), comp("562222222222", 100), comp("563333333333", 110)],
+    };
+    const timeout = new Error("Live enrichment failed with api_key=ERROR-SECRET");
+    timeout.providerDiagnostics = {
+      serpApi: {
+        exact: { rows: 4, matches: 1, status: "completed", note: "Bearer EXACT-SECRET" },
+        broad: { rows: 0, matches: 0, status: "timed_out", note: "https://serpapi.com/searches/123.json?api_key=BROAD-SECRET timed out while still processing" },
+      },
+      cardApi: {
+        initial: { rows: 7, matches: 3, status: "completed", note: "x-market-api-key=CARD-SECRET" },
+        fallback: { rows: 0, matches: 0, status: "timed_out", note: "" },
+        total: { rows: 7, matches: 3, status: "completed", note: "" },
+      },
+    };
+    api.setMocks({
+      readValuationCache: async () => ({ result: cachedResult, fresh: true, stale: false, ageSeconds: 60 }),
+      valueCard: async () => { throw timeout; },
+    });
+    const result = await api.getValuationWithCache(card, {}, true, null, {
+      targetEnrichment: true,
+      evidenceGoal: 4,
+    });
+    const evidence = api.targetPricingEvidenceDetails(result, true);
+    assert.equal(result.provider, cachedResult.provider);
+    assert.equal(result.used, 3);
+    assert.equal(result.median, 100);
+    assert.equal(result.cacheHit, true);
+    assert.equal(evidence.cacheHit, true);
+    assert.equal(evidence.soldCompsUsed, 3);
+    assert.equal(evidence.providerDetails.serpApi.exact.rows, 4);
+    assert.equal(evidence.providerDetails.serpApi.exact.matches, 1);
+    assert.equal(evidence.providerDetails.serpApi.broad.status, "timed_out");
+    assert.equal(evidence.providerDetails.cardApi.total.rows, 7);
+    assert.equal(evidence.providerDetails.cardApi.total.matches, 3);
+    assert.match(evidence.notes.join(" "), /provider diagnostics below describe this search's live enrichment attempt/i);
+    const serialized = JSON.stringify(evidence);
+    for (const secret of ["ERROR-SECRET", "EXACT-SECRET", "BROAD-SECRET", "CARD-SECRET", "serpapi.com/searches"]) {
+      assert.equal(serialized.includes(secret), false, `fallback diagnostics leaked ${secret}`);
+    }
+  });
+
   await test("duplicate eBay IDs across exact, broad, and Card API count once", async () => {
     const duplicateId = "611111111111";
     api.setMocks({
@@ -412,6 +638,44 @@ async function test(name, fn) {
   assert.match(html, /SerpApi broad rows:/);
   assert.match(html, /SerpApi broad matches:/);
   assert.match(html, /Card API matches:/);
+
+  function extractHtmlFunction(name) {
+    const start = html.indexOf(`function ${name}(`);
+    assert.notEqual(start, -1, `missing ${name}`);
+    const end = html.indexOf("\nfunction ", start + 1);
+    assert.notEqual(end, -1, `missing end of ${name}`);
+    return html.slice(start, end).trim();
+  }
+  const uiContext = {
+    escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    },
+  };
+  uiContext.globalThis = uiContext;
+  vm.createContext(uiContext);
+  for (const name of [
+    "scoutPricingDiagnosticText",
+    "scoutPricingEvidenceCount",
+    "scoutPricingProviderSearchDetail",
+    "scoutPricingProviderDetails",
+    "scoutPricingEvidenceHtml",
+  ]) {
+    vm.runInContext(`${extractHtmlFunction(name)}\nglobalThis.${name}=${name};`, uiContext);
+  }
+  const fallbackMarkup = uiContext.scoutPricingEvidenceHtml({ pricingEvidence: cachedFallbackEvidence });
+  assert.match(fallbackMarkup, /Sold comps used:<\/b> 3/);
+  assert.match(fallbackMarkup, /Cache:<\/b> hit · fresh\/verified/);
+  assert.match(fallbackMarkup, /SerpApi exact rows:<\/b> 12/);
+  assert.match(fallbackMarkup, /SerpApi exact matches:<\/b> 2 · completed/);
+  assert.match(fallbackMarkup, /SerpApi broad rows:<\/b> 18/);
+  assert.match(fallbackMarkup, /SerpApi broad matches:<\/b> 1 · completed/);
+  assert.match(fallbackMarkup, /Card API returned:<\/b> 10/);
+  assert.match(fallbackMarkup, /Card API matches:<\/b> 3 · completed/);
 
   console.log("All Pricing Reliability Phase 3 tests passed.");
 })().catch(error => {
