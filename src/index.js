@@ -1,4 +1,4 @@
-const VERSION = "3.23.2";
+const VERSION = "3.23.3";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const VALUATION_CACHE_FRESH_SECONDS = 6 * 60 * 60;
@@ -2371,6 +2371,7 @@ function monthlyPickRejectReason(item, player, budget, mode, currentCard, prefer
   if (!Number.isFinite(item.shipping) || !Number.isFinite(item.delivered)) return { reason: "Shipping was unclear." };
   if (item.delivered > budget) return { reason: "Over budget." };
   if (looksLikeLot(raw) || /\b(set|team set|complete set|you pick|choose|lot of|collection)\b/i.test(raw)) return { reason: "Multi-card / set listing." };
+  if (isExplicitTeamCardListing(raw)) return { reason: "Team card / checklist listing." };
   if (isObviousNonTradingCardListing(raw)) return { reason: "Not a single physical card." };
   if (/\b(reprint|replica|facsimile|custom card|reissue|archives)\b/i.test(raw)) return { reason: "Reprint / replica / archive issue." };
 
@@ -3596,6 +3597,10 @@ function gradeMatches(title, grade, grader, relaxed=false){
 function serialDenominator(s){ const m=String(s||"").match(/\/\s*(\d+)/); return m?m[1]:""; }
 function looksLikeLot(t){
   return /\blot\s+of\s+\d+\b|\b\d+\s*card\s+lot\b|\bcard\s+lot\b|\bcomplete\s+(?:baseball\s+)?set\b|\bteam\s+set\b|\byou\s+pick\b|\bpick\s+your\s+card\b|\bmultiple\s+cards?\b/i.test(t);
+}
+function isExplicitTeamCardListing(title) {
+  const text = String(title || "");
+  return /\bteam[\s-]+(?:photo[\s-]+)?cards?\b|\bteam[\s-]+checklists?\b/i.test(text);
 }
 function isObviousNonTradingCardListing(title) {
   const text = String(title || "");
