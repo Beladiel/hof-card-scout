@@ -1,4 +1,4 @@
-const VERSION = "3.23.9";
+const VERSION = "3.23.10";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const VALUATION_CACHE_FRESH_SECONDS = 6 * 60 * 60;
@@ -36,6 +36,7 @@ const LIVE_BO_DEEP_TIMEOUT_MS = 5000;
 const CARD_API_PLATFORMS = ["goldin", "lelands", "scp", "hakes", "rea"];
 const DEALS_TIMEOUT_MS = 9000;
 const DEALS_SEARCH_COUNT = 50;
+const ACTIVE_EBAY_SHIP_TO_ZIP = "87114";
 const DEALS_BIN_LIMIT = 8;
 const DEALS_AUCTION_LIMIT = 6;
 const DEALS_REJECT_LIMIT = 10;
@@ -2079,16 +2080,26 @@ function validateDealTargets(t) {
 
 function extractActiveShipping(value) {
   if (value == null || value === "") return null;
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "number") return Number.isFinite(value) && value >= 0 ? value : null;
   if (typeof value === "object") {
-    if (Number.isFinite(Number(value.extracted))) return Number(value.extracted);
+    if (value.extracted != null && value.extracted !== "") {
+      const extracted = Number(value.extracted);
+      if (Number.isFinite(extracted) && extracted >= 0) return extracted;
+    }
     if (value.raw != null) return extractActiveShipping(value.raw);
   }
   const text = String(value).trim();
   if (!text) return null;
   if (/\bfree\b/i.test(text)) return 0;
   const parsed = parseMoney(text);
-  return Number.isFinite(parsed) ? parsed : null;
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function extractActiveItemPrice(result) {
+  // SerpApi's primary price is Scout's standard item price. Coupon and
+  // promotional fields are intentionally ignored because they may be
+  // account-specific, conditional, or unavailable at checkout.
+  return extractPrice(result?.price);
 }
 
 function activeBuyingFormat(r) {
@@ -2106,7 +2117,7 @@ function activeBuyingFormat(r) {
 
 function normalizeActiveEbayResult(r) {
   if (!r || !r.title) return null;
-  const price = extractPrice(r.price);
+  const price = extractActiveItemPrice(r);
   if (!Number.isFinite(price) || price <= 0) return null;
 
   const shipping = extractActiveShipping(r.shipping);
@@ -2120,7 +2131,7 @@ function normalizeActiveEbayResult(r) {
     title: String(r.title),
     price,
     shipping,
-    delivered: Number.isFinite(shipping) ? price + shipping : null,
+    delivered: Number.isFinite(shipping) ? round2(price + shipping) : null,
     condition: String(r.condition || ""),
     link: String(r.link || ""),
     thumbnail: String(r.thumbnail || ""),
@@ -2905,7 +2916,9 @@ async function searchMonthlyPickListing({ player, budget, mode, currentCard, exc
       suggestion: null,
       alternatesAvailable: 0,
       checkedAt: new Date().toISOString(),
-      message: `Scout did not find a trustworthy directly buyable ${mode === "upgrade" ? "upgrade for " : ""}${player} under $${Number(budget).toFixed(2)} in this search.`
+      shippingDestinationZip: ACTIVE_EBAY_SHIP_TO_ZIP,
+      message: `Scout did not find a trustworthy directly buyable ${mode === "upgrade" ? "upgrade for " : ""}${player} under $${Number(budget).toFixed(2)} in this search.`,
+      notes: [`Shipping calculated for ZIP ${ACTIVE_EBAY_SHIP_TO_ZIP}.`]
     };
   }
 
@@ -2947,7 +2960,9 @@ async function searchMonthlyPickListing({ player, budget, mode, currentCard, exc
     suggestion,
     alternatesAvailable: Math.max(0, uniqueAccepted.length - 1),
     checkedAt: new Date().toISOString(),
+    shippingDestinationZip: ACTIVE_EBAY_SHIP_TO_ZIP,
     notes: [
+      `Shipping calculated for ZIP ${ACTIVE_EBAY_SHIP_TO_ZIP}.`,
       purpose === "target" ? "Find a Target uses focused active eBay discovery queries for upgrade hunts." : "Monthly Pick uses one active eBay search per recommendation attempt.",
       purpose === "target" && cleanedHint ? "Scout used your existing saved target as a discovery clue before falling back to rookie-era listings." : "",
       purpose === "target" && !cleanedHint && mode === "upgrade" ? "Without a saved target clue, Scout searches rookie-era and vintage listings instead of a generic modern-heavy result pool." : "",
@@ -2985,6 +3000,7 @@ async function runActiveEbaySearch(query, apiKey) {
     _ipg: String(DEALS_SEARCH_COUNT),
     _sop: "15",
     _salic: "1",
+    _stpos: ACTIVE_EBAY_SHIP_TO_ZIP,
     api_key: apiKey,
   });
 
@@ -3137,7 +3153,9 @@ async function searchActiveEbayDeals(card, targets, apiKey) {
     rejected: rejected.slice(0, DEALS_REJECT_LIMIT),
     rejectedCount: rejected.length,
     checkedAt: new Date().toISOString(),
+    shippingDestinationZip: ACTIVE_EBAY_SHIP_TO_ZIP,
     notes: [
+      `Shipping calculated for ZIP ${ACTIVE_EBAY_SHIP_TO_ZIP}.`,
       "Deal Finder uses active eBay search results and includes visible shipping in delivered price.",
       usedFallback
         ? "The strict active search returned no results, so Scout retried with a broader discovery query and still applied the full exact-card identity filter."
