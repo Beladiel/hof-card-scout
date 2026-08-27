@@ -6,14 +6,16 @@ const worker=fs.readFileSync('src/index.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
 const ui=fs.readFileSync('automation-runner-ui.js','utf8');
 
-assert.match(worker,/const VERSION = "3\.28\.0"/);
+assert.match(worker,/const VERSION = "3\.29\.0"/);
 assert.match(worker,/AUTOMATION_CATALOG_KEY = "automation:catalog:v1"/);
 assert.match(worker,/url\.pathname === "\/automation\/catalog"/);
 assert.match(worker,/url\.pathname === "\/automation\/run-once"/);
 assert.match(worker,/function runOneAutomationTargetCheck|async function runOneAutomationTargetCheck/);
 assert.match(worker,/maxQueries: 1/,'protected runner must explicitly cap target discovery to one query');
 assert.match(worker,/Number\(maxQueries\) > 0 \? queries\.slice/,'shared target search must honor an explicit query cap');
-assert.doesNotMatch(worker,/scheduled\s*\(/,'cron must remain off during the one-search safety gate');
+assert.match(worker,/scheduled\s*\(/,'target-only cron should now be enabled');
+assert.match(worker,/dueOnly: true/,'scheduled target checks must honor cadence before spending');
+assert.match(worker,/collectionRunnerEnabled: false/,'collection rotation must remain disabled in this gate');
 assert.match(html,/automation-runner-ui\.js/);
 assert.match(ui,/RUN ONE SAFE TARGET CHECK/);
 assert.match(ui,/SYNC CATALOG · 0 SEARCHES/);
