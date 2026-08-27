@@ -20,6 +20,8 @@ jobs:
           fetch-depth: 0
       - name: Apply migration
         run: python apply_hunt_list_2.py
+      - name: Refresh stale Worker version assertions
+        run: sed -i 's/3\.24\.0/3.25.1/g' tests/*.test.cjs
       - name: Run full regression suite
         run: |
           for f in tests/*.test.cjs; do
@@ -30,7 +32,7 @@ jobs:
         run: |
           git config user.name "HOF Card Scout Automation"
           git config user.email "actions@users.noreply.github.com"
-          git add index.html tests/hunt-list-2.test.cjs
+          git add index.html tests/*.test.cjs
           if git diff --cached --quiet; then
             echo "No changes to commit"
             exit 0
