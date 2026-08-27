@@ -20,7 +20,7 @@ button{border:0;border-radius:13px;min-height:48px;padding:10px 13px;font-size:1
   <div class="header">
     <div class="ball">🔎</div>
     <div><h1>Find a Target</h1><p>Any Hall of Famer. Need card or meaningful upgrade.</p></div>
-    <div class="labtag">LAB v0.1.7</div>
+    <div class="labtag">LAB v0.1.8</div>
   </div>
 
   <div class="panel">
@@ -298,9 +298,10 @@ async function makeTarget(){
     const noteBits=["Scout Find a Target"];
     if(suggestion.upgrade?.reason)noteBits.push(suggestion.upgrade.reason);
     else if(suggestion.why)noteBits.push(suggestion.why.split(" Seller check:")[0]);
-    const updated={...existing,target:label,targetNotes:noteBits.join(" · ")};
+    const budget=Number($("budget").value);
+    const updated={...existing,target:label,targetNotes:noteBits.join(" · "),targetYear:Number(suggestion.year)||null,targetSet:suggestion.set||"",targetCardNum:suggestion.cardNum||"",targetGrader:suggestion.gradeInfo?.grader&&suggestion.gradeInfo.grader!=="Raw"?suggestion.gradeInfo.grader:"Any / Raw OK",targetGrade:suggestion.gradeInfo?.grade??"",targetAutoPreference:suggestion.traits?.autograph?"Autograph required":"No preference",targetMaxPrice:Number.isFinite(budget)&&budget>0?budget:null,targetListingUrl:suggestion.link||"",targetSource:"Scout Find a Target",targetUpdatedAt:new Date().toISOString()};
     cloudEdits[selected.name]=updated;
-    const r=await fetch(WORKER_URL+"/collection/save",{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":accessKey},body:JSON.stringify({appVersion:"phase6-find-target-lab-v0.1.7",clientUpdatedAt:new Date().toISOString(),playerUpdates:cloudEdits})});
+    const r=await fetch(WORKER_URL+"/collection/save",{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":accessKey},body:JSON.stringify({appVersion:"phase6-find-target-lab-v0.1.8",clientUpdatedAt:new Date().toISOString(),playerUpdates:cloudEdits})});
     const data=await r.json().catch(()=>({}));
     if(!r.ok||!data.ok)throw new Error(data.message||"Scout Cloud save failed.");
     localStorage.setItem(STORAGE_KEY,JSON.stringify(cloudEdits));

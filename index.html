@@ -103,6 +103,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .status-pill.owned{background:rgba(86,197,138,.16);color:#8be2b0;border:1px solid rgba(86,197,138,.35)}
 .status-pill.need{background:rgba(239,108,108,.15);color:#ff9c9c;border:1px solid rgba(239,108,108,.34)}
 .status-pill.incoming{background:rgba(230,189,99,.14);color:#f4d58a;border:1px solid rgba(230,189,99,.38)}
+.status-pill.target{background:rgba(230,189,99,.14);color:#f4d58a;border:1px solid rgba(230,189,99,.38)}
+.target-inline-tag{display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:2px 7px;border-radius:999px;background:rgba(230,189,99,.11);color:#f2cf7a;border:1px solid rgba(230,189,99,.28);font-size:9px;font-weight:900;vertical-align:1px}
+.target-summary{margin:12px 0;padding:13px 14px;border:1px solid rgba(230,189,99,.38);border-radius:15px;background:rgba(230,189,99,.055)}
+.target-summary[hidden]{display:none}.target-summary-main{font-size:16px;font-weight:950;line-height:1.35}.target-summary-meta{font-size:11px;color:var(--muted);line-height:1.55;margin-top:6px}.target-summary-meta strong{color:var(--text)}
 .incoming-tag{display:inline-flex;align-items:center;gap:5px;margin-left:6px;padding:2px 7px;border-radius:999px;background:rgba(230,189,99,.12);color:#f2cf7a;border:1px solid rgba(230,189,99,.28);font-size:10px;font-weight:900;vertical-align:1px}
 .purchase-box{margin:12px 0;padding:13px 14px;border:1px solid var(--line);border-radius:15px;background:rgba(255,255,255,.035)}
 .purchase-box[hidden]{display:none}
@@ -749,6 +753,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
         <div class="metric"><div class="m-label">UPGRADE TARGET</div><div class="m-value" id="upgradeTarget">Scout research</div></div>
       </div>
 
+      <div class="target-summary" id="targetSummary" hidden>
+        <div class="purchase-title">🎯 SAVED TARGET</div>
+        <div class="target-summary-main" id="targetSummaryMain"></div>
+        <div class="target-summary-meta" id="targetSummaryMeta"></div>
+      </div>
+
       <div class="purchase-box" id="purchaseBox" hidden>
         <div class="purchase-title">PURCHASE INFO</div>
         <div class="purchase-line" id="purchaseLine"></div>
@@ -776,7 +786,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       </div>
 
       <div class="action-row" id="targetScoutRow" hidden>
-        <button class="primary" id="scoutTargetBtn">🎯 SCOUT THIS TARGET →</button>
+        <button class="primary" id="scoutTargetBtn" style="grid-column:1/-1">🎯 SCOUT THIS TARGET →</button>
+        <button class="ghost" id="editTargetBtn">✎ EDIT TARGET</button>
         <button class="danger" id="removeTargetBtn">REMOVE TARGET</button>
       </div>
 
@@ -881,17 +892,21 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     <section class="screen" id="targetManageScreen">
       <button class="back" id="targetManageBack">← Back to Target Cards</button>
       <div class="form-panel">
-        <h2 class="form-title">Add Target Card</h2>
-        <p class="form-sub">Add a specific card you want to hunt. Scout will keep it on your Target Cards list whether you already own the player or still need them.</p>
+        <h2 class="form-title" id="targetManageTitle">Add Target Card</h2>
+        <p class="form-sub" id="targetManageSub">Add a specific card you want to hunt. Scout will keep it on your Target Cards list whether you already own the player or still need them.</p>
         <form id="targetForm">
           <div class="form-grid">
             <div class="field full"><label for="targetPlayer">Player</label><input id="targetPlayer" list="playerNames" required placeholder="Rickey Henderson"></div>
             <div class="field"><label for="targetYear">Target year</label><input id="targetYear" inputmode="numeric" maxlength="4" required placeholder="1980"></div>
             <div class="field"><label for="targetSet">Set</label><input id="targetSet" required placeholder="Topps"></div>
             <div class="field"><label for="targetNum">Card #</label><input id="targetNum" placeholder="482"></div>
-            <div class="field full"><label for="targetNotes">Target notes</label><textarea id="targetNotes" placeholder="Rookie, preferred grade, price ceiling, condition, etc."></textarea></div>
+            <div class="field"><label for="targetGrader">Grade preference</label><select id="targetGrader"><option>Any / Raw OK</option><option>PSA</option><option>SGC</option><option>CGC</option><option>BGS / Beckett</option><option>Other graded</option></select></div>
+            <div class="field"><label for="targetGrade">Grade / condition preference</label><input id="targetGrade" placeholder="PSA 5+, VG-EX, clean raw…"></div>
+            <div class="field"><label for="targetAutoPreference">Autograph preference</label><select id="targetAutoPreference"><option>No preference</option><option>Prefer autograph</option><option>Autograph required</option></select></div>
+            <div class="field"><label for="targetMaxPrice">Max delivered price</label><div class="money-input"><span class="currency-prefix">$</span><input id="targetMaxPrice" inputmode="decimal" placeholder="75.00"></div></div>
+            <div class="field full"><label for="targetNotes">Target notes</label><textarea id="targetNotes" placeholder="Why you want it, condition details, variation, seller notes, etc."></textarea></div>
           </div>
-          <button class="primary" type="submit" style="width:100%;margin-top:14px">SAVE TARGET CARD</button>
+          <button class="primary" id="targetSaveBtn" type="submit" style="width:100%;margin-top:14px">SAVE TARGET CARD</button>
         </form>
       </div>
     </section>
@@ -1220,12 +1235,16 @@ async function cloudStartupSync(manual=false){
 }
 
 function savePlayerEdit(p){
+  if(p.incoming)p.owned=true;
   const edits=currentEdits();
   edits[p.name]={
     owned:p.owned,cardYear:p.cardYear||null,set:p.set||"",cardNum:p.cardNum||"",description:p.description||"",
     grader:p.grader||"Raw",gradeCondition:p.gradeCondition||"",autograph:!!p.autograph,serial:p.serial||"",relic:!!p.relic,
     incoming:!!p.incoming,pricePaid:p.pricePaid??null,purchaseDate:p.purchaseDate||"",purchaseSource:p.purchaseSource||"",
-    userNotes:p.userNotes||"",target:p.target||"",targetNotes:p.targetNotes||"",median:p.median??null,low:p.low??null,high:p.high??null,comps:p.comps??null,confidence:p.confidence||"",lastChecked:p.lastChecked||""
+    userNotes:p.userNotes||"",target:p.target||"",targetNotes:p.targetNotes||"",
+    targetYear:p.targetYear??null,targetSet:p.targetSet||"",targetCardNum:p.targetCardNum||"",targetGrader:p.targetGrader||"Any / Raw OK",targetGrade:p.targetGrade||"",
+    targetAutoPreference:p.targetAutoPreference||"No preference",targetMaxPrice:p.targetMaxPrice??null,targetListingUrl:p.targetListingUrl||"",targetSource:p.targetSource||"",targetUpdatedAt:p.targetUpdatedAt||"",
+    median:p.median??null,low:p.low??null,high:p.high??null,comps:p.comps??null,confidence:p.confidence||"",lastChecked:p.lastChecked||""
   };
   localStorage.setItem(STORAGE_KEY,JSON.stringify(edits));
   markLocalCollectionChanged();
@@ -1235,6 +1254,7 @@ function ownedCount(){return PLAYERS.filter(p=>p.owned).length}
 function needCount(){return TOTAL-ownedCount()}
 function completion(){return ownedCount()/TOTAL*100}
 loadLocalEdits();
+PLAYERS.forEach(p=>{if(p.incoming)p.owned=true;});
 
 const $=id=>document.getElementById(id);
 const homeScreen=$("homeScreen"), forecastScreen=$("forecastScreen"), huntScreen=$("huntScreen"), detailScreen=$("detailScreen"), manageScreen=$("manageScreen"), targetManageScreen=$("targetManageScreen"), shopScreen=$("shopScreen");
@@ -1257,6 +1277,64 @@ function formatPurchaseDate(v){
   if(parts.length!==3)return v;
   const d=new Date(Date.UTC(Number(parts[0]),Number(parts[1])-1,Number(parts[2])));
   return d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric",timeZone:"UTC"});
+}
+function targetIdentity(p){
+  const parsed=phase3bParseTarget(p?.target||"")||{};
+  const directYear=Number(p?.targetYear);
+  return {
+    year:Number.isInteger(directYear)?directYear:(parsed.year||null),
+    set:String(p?.targetSet||parsed.set||"").trim(),
+    cardNum:String(p?.targetCardNum||parsed.cardNum||"").trim()
+  };
+}
+function targetIdentityLabel(p){
+  if(!p?.target)return "";
+  const t=targetIdentity(p);
+  const bits=[t.year,t.set,t.cardNum?"#"+t.cardNum:""] .filter(Boolean);
+  return bits.join(" ")||String(p.target||"");
+}
+function targetPreferenceBits(p){
+  if(!p?.target)return [];
+  const bits=[];
+  const grader=String(p.targetGrader||"").trim();
+  const grade=String(p.targetGrade||"").trim();
+  const autoPref=String(p.targetAutoPreference||"").trim();
+  const max=Number(p.targetMaxPrice);
+  if(grader&&grader!=="Any / Raw OK")bits.push("Grade: "+grader+(grade?" "+grade:""));
+  else if(grade)bits.push("Condition: "+grade);
+  if(autoPref&&autoPref!=="No preference")bits.push(autoPref);
+  if(Number.isFinite(max)&&max>0)bits.push("Max delivered "+formatMoney(max));
+  if(p.targetNotes)bits.push(String(p.targetNotes));
+  return bits;
+}
+function targetPrimaryStatus(p){
+  if(p?.incoming)return {key:"incoming",label:"📦 INCOMING"};
+  if(p?.owned)return {key:"owned",label:"✓ OWNED"};
+  if(p?.target)return {key:"target",label:"🎯 TARGET"};
+  return {key:"need",label:"✕ NEED"};
+}
+function applyStructuredTarget(p,data={}){
+  if(!p)return;
+  const year=Number(data.year);
+  const set=String(data.set||"").trim();
+  const cardNum=String(data.cardNum||"").trim();
+  p.targetYear=Number.isInteger(year)?year:null;
+  p.targetSet=set;
+  p.targetCardNum=cardNum;
+  p.targetGrader=String(data.grader||"Any / Raw OK").trim()||"Any / Raw OK";
+  p.targetGrade=String(data.grade||"").trim();
+  p.targetAutoPreference=String(data.autoPreference||"No preference").trim()||"No preference";
+  const max=Number(data.maxPrice);
+  p.targetMaxPrice=Number.isFinite(max)&&max>0?max:null;
+  p.targetNotes=String(data.notes||"").trim();
+  p.targetListingUrl=String(data.listingUrl||"").trim();
+  p.targetSource=String(data.source||"").trim();
+  p.targetUpdatedAt=new Date().toISOString();
+  p.target=[p.targetYear,p.targetSet,p.targetCardNum?"#"+p.targetCardNum:""] .filter(Boolean).join(" ")||String(data.label||p.target||"").trim();
+}
+function clearStructuredTarget(p){
+  clearStructuredTarget(p);p.targetYear=null;p.targetSet="";p.targetCardNum="";p.targetGrader="Any / Raw OK";p.targetGrade="";
+  p.targetAutoPreference="No preference";p.targetMaxPrice=null;p.targetListingUrl="";p.targetSource="";p.targetUpdatedAt="";
 }
 function purchaseSummary(p){
   const bits=[];
@@ -1387,7 +1465,7 @@ function renderList(){
       row.addEventListener("click",()=>openFutureHofTargetFromList(p.name));
     }else{
       row.innerHTML='<span class="mark '+(p.owned?'owned':'need')+'">'+(p.owned?'✓':'✕')+'</span>'+
-        '<span><span class="pname">'+escapeHtml(p.name)+(p.incoming?' <span class="incoming-tag">📦 Incoming</span>':'')+'</span><span class="psub">'+escapeHtml(cardLabel(p))+(p.target?' · 🎯 '+escapeHtml(p.target):'')+'</span></span><span class="chev">›</span>';
+        '<span><span class="pname">'+escapeHtml(p.name)+(p.incoming?' <span class="incoming-tag">📦 Incoming</span>':'')+(p.target?' <span class="target-inline-tag">🎯 Target</span>':'')+'</span><span class="psub">'+escapeHtml(cardLabel(p))+(p.target?' · '+escapeHtml(targetIdentityLabel(p)):'')+'</span></span><span class="chev">›</span>';
       row.addEventListener("click",()=>openPlayer(p));
     }
     box.appendChild(row);
@@ -1396,11 +1474,11 @@ function renderList(){
 
 let huntFilter="need";
 
-function huntNeedPlayers(){return PLAYERS.filter(p=>!p.owned&&!p.incoming)}
+function huntNeedPlayers(){return PLAYERS.filter(p=>!p.owned&&!p.incoming&&!p.target)}
 function huntTargetPlayers(){return PLAYERS.filter(p=>!!p.target).concat(futureHofActiveTargetEntries())}
 function huntIncomingPlayers(){return PLAYERS.filter(p=>!!p.incoming)}
 function huntMatchesFilter(p){
-  if(huntFilter==="need")return !p.owned&&!p.incoming;
+  if(huntFilter==="need")return !p.owned&&!p.incoming&&!p.target;
   if(huntFilter==="target")return !!p.target;
   if(huntFilter==="incoming")return !!p.incoming;
   return (!p.owned&&!p.incoming)||!!p.target||!!p.incoming;
@@ -1413,7 +1491,7 @@ function huntSectionName(){
 }
 function huntBadges(p){
   const b=[];
-  if(!p.owned&&!p.incoming)b.push('<span class="hunt-badge need">✕ NEED</span>');
+  if(!p.owned&&!p.incoming&&!p.target)b.push('<span class="hunt-badge need">✕ NEED</span>');
   if(p.target)b.push('<span class="hunt-badge target">🎯 TARGET</span>');
   if(p.incoming)b.push('<span class="hunt-badge incoming">📦 INCOMING</span>');
   return b.join("");
@@ -1425,7 +1503,7 @@ function huntDetail(p){
     if(purchase)bits.push(purchase);
     return bits.filter(Boolean).join(" · ");
   }
-  if(p.target)return p.target+(p.targetNotes?" · "+p.targetNotes:"");
+  if(p.target)return [targetIdentityLabel(p),...targetPreferenceBits(p)].filter(Boolean).join(" · ");
   return "No target selected yet · any representative card can fill this spot.";
 }
 function huntActions(p){
@@ -1524,8 +1602,7 @@ function huntAction(action,name){
     return;
   }
   if(action==="settarget"){
-    openTargetManage();
-    $("targetPlayer").value=p.name;
+    openTargetManage(p);
     return;
   }
   if(action==="target"){
@@ -1546,9 +1623,9 @@ function openPlayer(p,sourceScreen="homeScreen"){
     findTargetResetResult();
   }
   $("detailName").textContent=p.name;
-  const statusText=p.owned?(p.incoming?"✓ OWNED · 📦 INCOMING":"✓ OWNED"):"✕ NEED";
-  $("detailStatus").textContent=statusText;
-  $("detailStatus").className="status-pill "+(p.owned?(p.incoming?"incoming":"owned"):"need");
+  const primaryStatus=targetPrimaryStatus(p);
+  $("detailStatus").textContent=primaryStatus.label;
+  $("detailStatus").className="status-pill "+primaryStatus.key;
   $("detailCardline").textContent=p.owned?cardLabel(p):"No representative card yet";
   if(p.owned){
     $("cardYearBig").textContent=p.cardYear||"—";$("cardSetBig").textContent=p.set||"Set not entered";
@@ -1558,24 +1635,30 @@ function openPlayer(p,sourceScreen="homeScreen"){
   }else{
     $("cardYearBig").textContent="NEEDED";$("cardSetBig").textContent="This spot is open.";
     $("cardNumBig").textContent="Find a card you like — older-era cards get Scout bonus points.";
-    $("cardNote").textContent=p.target?("Target on file: "+p.target+(p.targetNotes?" — "+p.targetNotes:"")):"No target card entered yet.";
+    $("cardNote").textContent=p.target?("Target on file: "+[targetIdentityLabel(p),...targetPreferenceBits(p)].filter(Boolean).join(" · ")):"No target card entered yet.";
     $("cardStage").style.opacity=".92";
   }
   $("medianValue").textContent=p.median?"$"+Number(p.median).toFixed(2):"Not priced yet";
   $("lastChecked").textContent=p.lastChecked||"—";
-  $("upgradeTarget").textContent=p.target||(!p.owned?"First card":"Scout research");
+  $("upgradeTarget").textContent=p.target?targetIdentityLabel(p):(!p.owned?"First card":"Scout research");
   $("targetScoutRow").hidden=!p.target;
+  $("targetSummary").hidden=!p.target;
+  $("targetSummaryMain").textContent=p.target?targetIdentityLabel(p):"";
+  const targetMeta=targetPreferenceBits(p);
+  if(p.targetSource)targetMeta.push("Saved via "+p.targetSource);
+  $("targetSummaryMeta").textContent=targetMeta.join(" · ")||"Identity saved. No extra preferences yet.";
   const purchase=purchaseSummary(p);
   $("purchaseBox").hidden=!(p.owned&&(purchase||p.incoming));
   $("purchaseLine").innerHTML=p.owned?((purchase?"<strong>"+escapeHtml(purchase)+"</strong>":"Purchase details not entered.")+(p.incoming?" · 📦 Still in transit":"")):"";
   const lines=[];
   if(p.incoming) lines.push("Card acquired. Now we wait for the postal service to complete the double play.");
-  else if(p.target) lines.push("Target locked: "+p.target+". If one shows up at a sane price, we pay attention.");
+  else if(p.target) lines.push("Target locked: "+targetIdentityLabel(p)+". If one shows up at a sane price, we pay attention.");
   else if(!p.owned) lines.push("Open roster spot. Find a card you actually like — Scout is not here to fill the Hall with junk.");
   else if(p.description) lines.push("You’ve got "+p.name+" covered. Notes matter here: "+p.description+".");
   else lines.push("You’ve got "+p.name+" covered. Next question: is there an older card worth upgrading to?");
   $("scoutDetailLine").textContent=lines[0];
   $("manageCardBtn").textContent=p.owned?"✎ EDIT MY CARD":"＋ ADD CARD TO COLLECTION";
+  $("findTargetBtn").textContent=p.owned?"🔎 FIND AN UPGRADE TARGET":(p.target?"🔎 FIND / REPLACE TARGET":"🔎 FIND A TARGET");
   $("upgradeCardBtn").hidden=!p.owned;
   $("receivedBtn").hidden=!(p.owned&&p.incoming);
   $("removeCardBtn").hidden=!p.owned;
@@ -3694,12 +3777,19 @@ function saveFindTarget(){
     const ok=window.confirm(p.name+" already has a target: "+p.target+". Replace it with "+label+"?");
     if(!ok)return;
   }
-  p.target=label;
-  p.targetNotes=notes;
+  const budget=Number($("findTargetBudget").value);
+  applyStructuredTarget(p,{
+    year:s.year,set:s.set,cardNum:s.cardNum,
+    grader:s.gradeInfo?.grader&&s.gradeInfo.grader!=="Raw"?s.gradeInfo.grader:"Any / Raw OK",
+    grade:s.gradeInfo?.grade??"",
+    autoPreference:s.traits?.autograph?"Autograph required":"No preference",
+    maxPrice:budget,notes,listingUrl:s.link||"",source:"Scout Target Finder",label
+  });
   savePlayerEdit(p);
   stats();rotateMission();renderList();
-  $("upgradeTarget").textContent=p.target;
-  if(!p.owned)$("cardNote").textContent="Target on file: "+p.target+(p.targetNotes?" — "+p.targetNotes:"");
+  $("upgradeTarget").textContent=targetIdentityLabel(p);
+  if(!p.owned)$("cardNote").textContent="Target on file: "+[targetIdentityLabel(p),...targetPreferenceBits(p)].filter(Boolean).join(" · ");
+  $("targetSummary").hidden=false;$("targetSummaryMain").textContent=targetIdentityLabel(p);$("targetSummaryMeta").textContent=targetPreferenceBits(p).join(" · ")||"Identity saved.";
   $("targetScoutRow").hidden=false;
   $("findTargetSaveBtn").disabled=true;
   $("findTargetSaveBtn").textContent="✓ MATCHES YOUR SAVED TARGET";
@@ -3723,8 +3813,8 @@ function phase3bParseTarget(label){
 }
 function phase3bScoutTarget(p){
   if(!p||!p.target){toast("No target card is saved for this player.");return}
-  const t=phase3bParseTarget(p.target);
-  if(!t){toast("Scout couldn't read that target. Edit the target and include year + set.");return}
+  const t=targetIdentity(p);
+  if(!t.year||!t.set){toast("Scout couldn't read that target. Edit the target and include year + set.");return}
   openShop(null);
   phase3bActiveTargetPlayer=p;
   $("shopPlayer").value=p.name||"";
@@ -3737,13 +3827,21 @@ function phase3bScoutTarget(p){
   $("shopPrice").value="";
   $("shopGrade").value="Raw";
   $("shopGradeNum").value="";
-  const desiredGrade=String(p.targetNotes||"").match(/Desired grade:\s*(PSA|SGC|CGC|BGS|BVG|CSG|GMA|HGA|ISA)\s*([0-9.]+)?/i);
-  if(desiredGrade){
-    const g=desiredGrade[1].toUpperCase();
-    const option=[...$("shopGrade").options].find(o=>String(o.textContent).toUpperCase().startsWith(g));
+  const structuredGrader=String(p.targetGrader||"");
+  if(structuredGrader&&structuredGrader!=="Any / Raw OK"){
+    const option=[...$("shopGrade").options].find(o=>String(o.textContent).toUpperCase().startsWith(structuredGrader.toUpperCase().split(" /")[0]));
     if(option)$("shopGrade").value=option.value;
-    if(desiredGrade[2])$("shopGradeNum").value=desiredGrade[2];
+    if(p.targetGrade)$("shopGradeNum").value=p.targetGrade;
+  }else{
+    const desiredGrade=String(p.targetNotes||"").match(/Desired grade:\s*(PSA|SGC|CGC|BGS|BVG|CSG|GMA|HGA|ISA)\s*([0-9.]+)?/i);
+    if(desiredGrade){
+      const g=desiredGrade[1].toUpperCase();
+      const option=[...$("shopGrade").options].find(o=>String(o.textContent).toUpperCase().startsWith(g));
+      if(option)$("shopGrade").value=option.value;
+      if(desiredGrade[2])$("shopGradeNum").value=desiredGrade[2];
+    }
   }
+  $("shopAuto").checked=String(p.targetAutoPreference||"")!==""&&String(p.targetAutoPreference||"")!=="No preference";
   $("shopNotes").value=p.targetNotes||"";
   syncShopGrader();
   resetPsaVerification(true);
@@ -3956,7 +4054,7 @@ function shopCollectionContext(card){
       call="You already have "+p.name+" represented, but this is a different card. It has to earn the roster spot.";
     }
     if(p.target){
-      const targetYear=(String(p.target).match(/\b(18|19|20)\d{2}\b/)||[])[0];
+      const targetYear=targetIdentity(p).year;
       if(card.year&&Number(targetYear)===card.year) call="🎯 TARGET MATCH. Okay, now you have Scout’s full attention.";
     }
     const gradeBits=[];
@@ -4274,8 +4372,7 @@ function phase3aOpenTarget(card,p,targets){
       const ok=window.confirm(p.name+" already has a target: "+p.target+". Replace it with "+label+"?");
       if(!ok)return;
     }
-    p.target=label;
-    p.targetNotes=$("phase3aTargetNotes").value.trim();
+    applyStructuredTarget(p,{year:card.year,set:card.set,cardNum:card.cardNum,grader:card.grader&&card.grader!=="Raw"?card.grader:"Any / Raw OK",grade:card.grade||"",autoPreference:card.autograph?"Autograph required":"No preference",maxPrice:targets?.ceiling??null,notes:$("phase3aTargetNotes").value.trim(),source:"Card Shop Mode",label});
     savePlayerEdit(p);stats();rotateMission();renderList();
     box.innerHTML=`<div class="handoff-done"><div class="ok">✓ TARGET SAVED</div><div class="big">${escapeHtml(p.name)} is on the shopping radar</div><div class="text">${escapeHtml(label)} was added to Target Cards. Owned/Need status and the current representative card were not changed.</div>
       <div class="handoff-actions"><button type="button" class="ghost" id="phase3aTargetNext">NEXT CARD</button></div></div>`;
@@ -4472,7 +4569,7 @@ function phase3bRememberTargetDetails(card){
   if(!Number.isInteger(card.year)||!card.set||!card.cardNum)return;
   const label=[card.year,card.set,"#"+card.cardNum].join(" ");
   if(p.target===label)return;
-  p.target=label;
+  applyStructuredTarget(p,{...targetIdentity(p),cardNum:card.cardNum,grader:p.targetGrader,grade:p.targetGrade,autoPreference:p.targetAutoPreference,maxPrice:p.targetMaxPrice,notes:p.targetNotes,listingUrl:p.targetListingUrl,source:p.targetSource||"Scout Target"});
   savePlayerEdit(p);
   stats();
   rotateMission();
@@ -4500,8 +4597,28 @@ async function shopAnalysis(e){
     renderLiveResult(card,data,ctx);
   }catch(err){renderPricingError(card,ctx,err.message||"Unknown pricing error.");}
 }
-function openTargetManage(){
+function openTargetManage(prefill=null){
   $("targetForm").reset();
+  const p=prefill||null;
+  if(p){
+    const t=targetIdentity(p);
+    $("targetPlayer").value=p.name||"";
+    $("targetYear").value=t.year||"";
+    $("targetSet").value=t.set||"";
+    $("targetNum").value=t.cardNum||"";
+    $("targetGrader").value=p.targetGrader||"Any / Raw OK";
+    $("targetGrade").value=p.targetGrade||"";
+    $("targetAutoPreference").value=p.targetAutoPreference||"No preference";
+    $("targetMaxPrice").value=Number.isFinite(Number(p.targetMaxPrice))&&Number(p.targetMaxPrice)>0?Number(p.targetMaxPrice).toFixed(2):"";
+    $("targetNotes").value=p.targetNotes||"";
+    $("targetManageTitle").textContent=p.target?"Edit Target Card":"Add Target Card";
+    $("targetManageSub").textContent=p.target?"Update the exact card and preferences Scout should hunt for "+p.name+".":"Add a specific card you want Scout to hunt.";
+    $("targetSaveBtn").textContent=p.target?"SAVE TARGET CHANGES":"SAVE TARGET CARD";
+  }else{
+    $("targetManageTitle").textContent="Add Target Card";
+    $("targetManageSub").textContent="Add a specific card you want to hunt. Scout will keep it on your Target Cards list whether you already own the player or still need them.";
+    $("targetSaveBtn").textContent="SAVE TARGET CARD";
+  }
   showScreen("targetManageScreen");
 }
 function saveTargetCard(e){
@@ -4513,15 +4630,20 @@ function saveTargetCard(e){
   const set=$("targetSet").value.trim();
   const num=$("targetNum").value.trim();
   const notes=$("targetNotes").value.trim();
+  const maxRaw=$("targetMaxPrice").value.trim();
+  const maxPrice=maxRaw===""?null:Number(maxRaw);
   if(!Number.isInteger(year)||year<1800||year>2100){toast("Target year needs to be a 4-digit year.");return}
   if(!set){toast("Scout needs the target set name.");return}
+  if(maxRaw!==""&&(!Number.isFinite(maxPrice)||maxPrice<=0)){toast("Max delivered price needs to be a valid amount.");return}
   const label=[year,set,num?"#"+num:""] .filter(Boolean).join(" ");
   if(p.target&&p.target!==label){
     const ok=window.confirm(p.name+" already has a target: "+p.target+". Replace it with "+label+"?");
     if(!ok)return;
   }
-  p.target=label;p.targetNotes=notes;savePlayerEdit(p);stats();rotateMission();
-  showScreen("homeScreen");showTargets();
+  applyStructuredTarget(p,{year,set,cardNum:num,grader:$("targetGrader").value,grade:$("targetGrade").value.trim(),autoPreference:$("targetAutoPreference").value,maxPrice,notes,source:"Manual Target",label});
+  savePlayerEdit(p);stats();rotateMission();renderList();renderHuntList();
+  if(currentPlayer&&currentPlayer.name===p.name){openPlayer(p,returnScreen);}
+  else{showScreen("homeScreen");showTargets();}
   const msgs=[
     "Target acquired. Now we wait for the cardboard gods to cooperate.",
     p.name+" is officially on the shopping radar.",
@@ -4568,6 +4690,7 @@ $("importBtn").addEventListener("click",()=>$("importFile").click());
 $("importFile").addEventListener("change",e=>importUpdatesFile(e.target.files&&e.target.files[0]));
 $("refreshValueBtn").addEventListener("click",valueRefresh);
 $("scoutTargetBtn").addEventListener("click",()=>phase3bScoutTarget(currentPlayer));
+$("editTargetBtn").addEventListener("click",()=>openTargetManage(currentPlayer));
 $("removeTargetBtn").addEventListener("click",removeCurrentTarget);
 $("findTargetBtn").addEventListener("click",openFindTarget);
 $("findTargetSearchBtn").addEventListener("click",searchFindTarget);
