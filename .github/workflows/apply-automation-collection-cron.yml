@@ -19,7 +19,17 @@ jobs:
         with:
           fetch-depth: 0
       - name: Apply full automation scheduler
-        run: python apply_automation_collection_cron.py
+        run: |
+          python apply_automation_collection_cron.py
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('tests/automation-collection-runner.test.cjs')
+          s=p.read_text(encoding='utf-8')
+          old="const end=worker.indexOf('async function runScheduledTargetMonitor',start);"
+          new="const end=worker.indexOf('function automationCents',start);"
+          assert old in s
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
       - name: Check syntax
         run: |
           node --check src/index.js
