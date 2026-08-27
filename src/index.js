@@ -1,4 +1,4 @@
-const VERSION = "3.25.1";
+const VERSION = "3.26.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -44,6 +44,9 @@ const DEALS_REJECT_LIMIT = 10;
 const COLLECTION_KV_KEY = "collection:primary:v1";
 const COLLECTION_MAX_BYTES = 512 * 1024;
 const COLLECTION_MAX_PLAYERS = 500;
+const CARD_PHOTO_PREFIX = "card-photo:v1:";
+const CARD_PHOTO_MAX_BYTES = 1200 * 1024;
+const CARD_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export default {
   async fetch(request, env, ctx) {
@@ -52,8 +55,9 @@ export default {
     const corsOrigin = origin === allowedOrigin ? origin : allowedOrigin;
     const cors = {
       "Access-Control-Allow-Origin": corsOrigin,
-      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type,X-Scout-Key",
+      "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type,X-Scout-Key,X-Scout-Card-Fingerprint",
+      "Access-Control-Expose-Headers": "X-Scout-Photo-Fingerprint,X-Scout-Photo-Updated-At",
       "Vary": "Origin",
     };
 
@@ -544,6 +548,73 @@ export default {
     }
 
 
+    if (url.pathname === "/card-photo" && ["GET", "POST", "DELETE"].includes(request.method)) {
+      const supplied = request.headers.get("X-Scout-Key") || "";
+      if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
+        return json({ ok: false, error: "unauthorized", message: "Scout access key rejected." }, 401, cors);
+      }
+      if (!env.SCOUT_DATA) {
+        return json({ ok: false, error: "cloud_storage_not_configured", message: "SCOUT_DATA KV binding is not configured on the Worker." }, 503, cors);
+      }
+      const player = normalizeCardPhotoPlayer(url.searchParams.get("player"));
+      if (!player) {
+        return json({ ok: false, error: "invalid_player", message: "Scout needs a valid Hall of Famer name for the photo." }, 400, cors);
+      }
+      const key = cardPhotoKey(player);
+
+      if (request.method === "GET") {
+        try {
+          const stored = await env.SCOUT_DATA.getWithMetadata(key, { type: "arrayBuffer" });
+          if (!stored?.value) return json({ ok: false, error: "photo_not_found", message: "No representative card photo is saved for this player." }, 404, cors);
+          const metadata = stored.metadata && typeof stored.metadata === "object" ? stored.metadata : {};
+          return new Response(stored.value, {
+            status: 200,
+            headers: {
+              ...cors,
+              "Content-Type": CARD_PHOTO_TYPES.has(metadata.contentType) ? metadata.contentType : "image/jpeg",
+              "Cache-Control": "private, max-age=300",
+              "X-Scout-Photo-Fingerprint": String(metadata.fingerprint || ""),
+              "X-Scout-Photo-Updated-At": String(metadata.updatedAt || "")
+            }
+          });
+        } catch (err) {
+          console.error(err);
+          return json({ ok: false, error: "photo_load_failed", message: "Scout could not load that card photo." }, 502, cors);
+        }
+      }
+
+      if (request.method === "DELETE") {
+        try {
+          await env.SCOUT_DATA.delete(key);
+          return json({ ok: true, version: VERSION, player }, 200, cors);
+        } catch (err) {
+          console.error(err);
+          return json({ ok: false, error: "photo_delete_failed", message: "Scout could not remove that card photo." }, 502, cors);
+        }
+      }
+
+      const contentType = String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
+      if (!CARD_PHOTO_TYPES.has(contentType)) {
+        return json({ ok: false, error: "invalid_photo_type", message: "Scout accepts JPEG, PNG, or WebP card photos." }, 415, cors);
+      }
+      let bytes;
+      try { bytes = await request.arrayBuffer(); }
+      catch { return json({ ok: false, error: "photo_read_failed", message: "Scout could not read that card photo." }, 400, cors); }
+      if (!bytes.byteLength || bytes.byteLength > CARD_PHOTO_MAX_BYTES) {
+        return json({ ok: false, error: "photo_too_large", message: "That card photo is too large after compression. Please try another photo." }, 413, cors);
+      }
+      const fingerprint = normalizeCardPhotoFingerprint(request.headers.get("X-Scout-Card-Fingerprint"));
+      const updatedAt = new Date().toISOString();
+      try {
+        await env.SCOUT_DATA.put(key, bytes, { metadata: { contentType, fingerprint, updatedAt, bytes: bytes.byteLength } });
+        return json({ ok: true, version: VERSION, player, updatedAt, bytes: bytes.byteLength }, 200, cors);
+      } catch (err) {
+        console.error(err);
+        return json({ ok: false, error: "photo_save_failed", message: "Scout could not save that card photo." }, 502, cors);
+      }
+    }
+
+
     if (url.pathname === "/collection/load" && request.method === "GET") {
       const supplied = request.headers.get("X-Scout-Key") || "";
       if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
@@ -732,6 +803,21 @@ function json(body, status, cors) {
     status,
     headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
   });
+}
+
+
+function normalizeCardPhotoPlayer(value) {
+  const player = String(value || "").trim().replace(/\s+/g, " ");
+  return player.length >= 2 && player.length <= 100 ? player : "";
+}
+
+function normalizeCardPhotoFingerprint(value) {
+  const fp = String(value || "").trim().toLowerCase();
+  return /^[a-f0-9]{8,64}$/.test(fp) ? fp : "";
+}
+
+function cardPhotoKey(player) {
+  return CARD_PHOTO_PREFIX + encodeURIComponent(String(player || "").trim().toLowerCase());
 }
 
 function validateCard(c) {
