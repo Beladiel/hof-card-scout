@@ -10,7 +10,7 @@ assert.match(fp,/^[a-f0-9]{8}$/);
 assert.equal(fp,photos.fingerprintForPlayer({owned:true,name:"Sandy Koufax",cardYear:1965,set:"Topps",cardNum:"300",grader:"PSA",gradeCondition:"6"}));
 assert.notEqual(fp,photos.fingerprintForPlayer({owned:true,name:"Sandy Koufax",cardYear:1966,set:"Topps",cardNum:"100",grader:"PSA",gradeCondition:"6"}));
 
-assert.match(html,/v6\.0\.0/);
+assert.match(html,/v6\.0\.1/);
 assert.match(html,/id="cardPhotoPanel"/);
 assert.match(html,/id="cardPhotoCameraInput"[^>]*capture="environment"/);
 assert.match(html,/id="cardPhotoLibraryInput"/);

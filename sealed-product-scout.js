@@ -36,13 +36,13 @@
       <div class="sealed-wrap">
         <div class="sealed-hero">
           <div class="section-eyebrow">📦 SEALED PRODUCT SCOUT</div>
-          <div class="sealed-title">Too many boxes. One simple decision.</div>
-          <div class="sealed-sub">Take a front photo or enter the product yourself. Scout will confirm exactly what you mean before any pricing research happens. This first gate uses <strong>0 marketplace searches</strong>.</div>
+          <div class="sealed-title">Too many sealed choices. One simple decision.</div>
+          <div class="sealed-sub">Scan a pack, hanger, tin, bundle, box, or other sealed product. Scout will confirm exactly what you mean before any pricing research happens. This first gate uses <strong>0 marketplace searches</strong>.</div>
           <div class="sealed-category-row"><span class="sealed-category">⚡ Pokémon</span><span class="sealed-category">🧙 Magic: The Gathering</span><span class="sealed-category">⚾ Baseball</span><span class="sealed-category">🏀 Basketball</span><span class="sealed-category">🏈 Football</span></div>
         </div>
 
         <div class="sealed-card">
-          <div class="section-eyebrow">STEP 1 · SHOW SCOUT THE BOX</div>
+          <div class="section-eyebrow">STEP 1 · SHOW SCOUT THE PRODUCT</div>
           <div class="sealed-card-title">Start with a clear photo of the front.</div>
           <div class="sealed-card-sub">Photo capture is ready now. Visual auto-identification will be connected in the next gate; until then, the manual confirmation fields below let us test the full in-store flow without guessing.</div>
           <div class="sealed-actions three">
@@ -52,7 +52,7 @@
           </div>
           <input type="file" id="sealedCameraInput" accept="image/*" capture="environment" hidden>
           <input type="file" id="sealedPhotoInput" accept="image/*" hidden>
-          <div class="sealed-photo-stage" id="sealedPhotoStage"><div class="sealed-photo-empty"><span class="big">📦</span>No box photo yet.<br>Try to fill the frame with the front panel.</div></div>
+          <div class="sealed-photo-stage" id="sealedPhotoStage"><div class="sealed-photo-empty"><span class="big">📦</span>No sealed-product photo yet.<br>Try to fill the frame with the front panel.</div></div>
           <div class="sealed-status" id="sealedPhotoStatus">No searches used. Scout is waiting for a photo or manual product details.</div>
         </div>
 
@@ -64,7 +64,7 @@
             <div class="sealed-field"><label for="sealedCategory">CATEGORY</label><select id="sealedCategory"><option value="">Choose one…</option><option>Pokémon</option><option>Magic: The Gathering</option><option>Baseball</option><option>Basketball</option><option>Football</option><option>Other</option></select></div>
             <div class="sealed-field"><label for="sealedYear">YEAR / SEASON</label><input id="sealedYear" placeholder="2025-26, 2026, etc."></div>
             <div class="sealed-field full"><label for="sealedSet">BRAND / SET</label><input id="sealedSet" placeholder="NBA Hoops, Topps Chrome, Prismatic Evolutions…"></div>
-            <div class="sealed-field"><label for="sealedBoxType">PRODUCT TYPE</label><select id="sealedBoxType"><option value="">Choose one…</option><option>Blaster Box</option><option>Mega Box</option><option>Hobby Box</option><option>Retail Box</option><option>Elite Trainer Box</option><option>Booster Box</option><option>Booster Bundle</option><option>Collection Box</option><option>Tin</option><option>Other</option></select></div>
+            <div class="sealed-field"><label for="sealedBoxType">PRODUCT TYPE</label><select id="sealedBoxType"><option value="">Choose one…</option><option>Blaster Box</option><option>Mega Box</option><option>Hobby Box</option><option>Retail Box</option><option>Hanger Box</option><option>Hanger Pack</option><option>Value / Fat Pack</option><option>Single Pack</option><option>Multi-Pack</option><option>Elite Trainer Box</option><option>Booster Box</option><option>Booster Bundle</option><option>Booster Pack</option><option>Collection Box</option><option>Tin</option><option>Other</option></select></div>
             <div class="sealed-field"><label for="sealedVariant">VARIANT / EXTRA WORDING</label><input id="sealedVariant" placeholder="Exclusive color, player on box, SKU clue…"></div>
           </div>
           <div class="sealed-actions">
@@ -143,22 +143,22 @@
 
   function handlePhoto(file){
     if(!file)return;
-    if(!String(file.type||"").startsWith("image/")){byId("sealedPhotoStatus").textContent="That file is not an image. Try a photo of the box front.";return;}
+    if(!String(file.type||"").startsWith("image/")){byId("sealedPhotoStatus").textContent="That file is not an image. Try a photo of the sealed product front.";return;}
     clearPhotoUrl();
     activePhotoUrl=URL.createObjectURL(file);
     byId("sealedPhotoStage").innerHTML=`<img src="${esc(activePhotoUrl)}" alt="Sealed product photo preview">`;
     const mb=(file.size/1024/1024).toFixed(1);
     const status=byId("sealedPhotoStatus");status.className="sealed-status ok";
     status.textContent=`✓ Photo captured (${mb} MB). It stays on this device for this session. 0 marketplace searches used.`;
-    saveDraft({hasPhoto:true,photoName:String(file.name||"box photo")});
+    saveDraft({hasPhoto:true,photoName:String(file.name||"sealed product photo")});
     byId("sealedIdentityCard")?.scrollIntoView({behavior:"smooth",block:"start"});
   }
 
   function confirmIdentity(){
     const identity=identityFromFields();
     if(!identity.category){byId("sealedIdentityStatus").className="sealed-status warn";byId("sealedIdentityStatus").textContent="Choose a category first.";byId("sealedCategory")?.focus();return;}
-    if(!identity.set){byId("sealedIdentityStatus").className="sealed-status warn";byId("sealedIdentityStatus").textContent="Enter the brand or set name you can read on the box.";byId("sealedSet")?.focus();return;}
-    if(!identity.boxType){byId("sealedIdentityStatus").className="sealed-status warn";byId("sealedIdentityStatus").textContent="Choose the product type so Scout does not compare the wrong box format.";byId("sealedBoxType")?.focus();return;}
+    if(!identity.set){byId("sealedIdentityStatus").className="sealed-status warn";byId("sealedIdentityStatus").textContent="Enter the brand or set name you can read on the product.";byId("sealedSet")?.focus();return;}
+    if(!identity.boxType){byId("sealedIdentityStatus").className="sealed-status warn";byId("sealedIdentityStatus").textContent="Choose the product type so Scout does not compare the wrong sealed format.";byId("sealedBoxType")?.focus();return;}
     const draft=saveDraft({identity,confirmed:true,shelfPrice:readDraft().shelfPrice??"",store:readDraft().store||""});
     renderConfirmed(draft);
     byId("sealedConfirmed")?.scrollIntoView({behavior:"smooth",block:"center"});
@@ -166,7 +166,7 @@
 
   function saveShelfPrice(){
     const draft=readDraft();
-    if(!draft.confirmed){byId("sealedPriceStatus").className="sealed-status warn";byId("sealedPriceStatus").textContent="Confirm the exact product first. Scout will not attach a price to an uncertain box.";return;}
+    if(!draft.confirmed){byId("sealedPriceStatus").className="sealed-status warn";byId("sealedPriceStatus").textContent="Confirm the exact product first. Scout will not attach a price to an uncertain product.";return;}
     const raw=byId("sealedShelfPrice")?.value.trim()||"";
     const price=Number(raw.replace(/[$,]/g,""));
     if(!Number.isFinite(price)||price<=0){byId("sealedPriceStatus").className="sealed-status warn";byId("sealedPriceStatus").textContent="Enter the shelf price you see in the store.";byId("sealedShelfPrice")?.focus();return;}
@@ -179,7 +179,7 @@
     localStorage.removeItem(DRAFT_KEY);
     ["sealedCategory","sealedYear","sealedSet","sealedBoxType","sealedVariant","sealedShelfPrice","sealedStore"].forEach(id=>{const el=byId(id);if(el)el.value="";});
     byId("sealedCameraInput").value="";byId("sealedPhotoInput").value="";
-    byId("sealedPhotoStage").innerHTML='<div class="sealed-photo-empty"><span class="big">📦</span>No box photo yet.<br>Try to fill the frame with the front panel.</div>';
+    byId("sealedPhotoStage").innerHTML='<div class="sealed-photo-empty"><span class="big">📦</span>No sealed-product photo yet.<br>Try to fill the frame with the front panel.</div>';
     const ps=byId("sealedPhotoStatus");ps.className="sealed-status";ps.textContent="No searches used. Scout is waiting for a photo or manual product details.";
     renderConfirmed({});
     byId("sealedPhotoStage")?.scrollIntoView({behavior:"smooth",block:"center"});
@@ -190,7 +190,7 @@
     const main=document.querySelector("main"),grid=document.querySelector("#homeScreen .quick-grid");
     if(!main||!grid){setTimeout(mount,75);return;}
     addStyles();
-    const btn=document.createElement("button");btn.type="button";btn.className="primary sealed-home-btn";btn.id="sealedProductScoutBtn";btn.innerHTML="📦 SEALED PRODUCT SCOUT · SCAN A BOX";
+    const btn=document.createElement("button");btn.type="button";btn.className="primary sealed-home-btn";btn.id="sealedProductScoutBtn";btn.innerHTML="📦 SCAN SEALED PRODUCT";
     grid.insertBefore(btn,grid.firstChild);
     main.insertAdjacentHTML("beforeend",screenHtml());
 
