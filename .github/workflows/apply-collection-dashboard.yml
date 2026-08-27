@@ -1,0 +1,38 @@
+name: Apply collection dashboard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apply_collection_dashboard.py
+      - .github/workflows/apply-collection-dashboard.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply migration
+        run: python apply_collection_dashboard.py
+      - name: Run full regression suite
+        run: |
+          for f in tests/*.test.cjs; do
+            echo "Running $f"
+            node "$f"
+          done
+      - name: Commit changes
+        run: |
+          git config user.name "HOF Card Scout Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html tests/collection-dashboard.test.cjs
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Build collection dashboard"
+          git push
