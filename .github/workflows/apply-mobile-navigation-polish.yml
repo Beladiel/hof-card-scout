@@ -1,0 +1,38 @@
+name: Apply mobile navigation polish
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apply_mobile_navigation_polish.py
+      - .github/workflows/apply-mobile-navigation-polish.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply migration
+        run: python apply_mobile_navigation_polish.py
+      - name: Run full regression suite
+        run: |
+          for f in tests/*.test.cjs; do
+            echo "Running $f"
+            node "$f"
+          done
+      - name: Commit changes
+        run: |
+          git config user.name "HOF Card Scout Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html tests/collection-dashboard.test.cjs tests/mobile-navigation-polish.test.cjs
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Polish mobile navigation and layout"
+          git push
