@@ -1,0 +1,45 @@
+name: Apply full automation scheduler
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apply_automation_collection_cron.py
+      - tests/automation-collection-cron.test.cjs
+      - .github/workflows/apply-automation-collection-cron.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply full automation scheduler
+        run: python apply_automation_collection_cron.py
+      - name: Check syntax
+        run: |
+          node --check src/index.js
+          node --check automation-budget.js
+          node --check automation-runner-ui.js
+      - name: Run regression suite
+        run: |
+          node collection-intelligence.test.cjs
+          for f in tests/*.test.cjs; do
+            echo "Running $f"
+            node "$f"
+          done
+      - name: Commit changes
+        run: |
+          git config user.name "HOF Card Scout Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/index.js automation-budget.js tests/*.test.cjs
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Enable protected collection value automation"
+          git push
