@@ -20,11 +20,31 @@ assert.ok(rough.score>clean.score,'severe condition should raise upgrade priorit
 
 const genericModern=intel.evaluatePlayer(p({name:'Generic',cardYear:2025,induction:2000,set:'Topps'}),2026);
 const autoModern=intel.evaluatePlayer(p({name:'Auto',cardYear:2025,induction:2000,set:'Topps Finest',autograph:true,serial:'38/99'}),2026);
-assert.ok(genericModern.score>autoModern.score,'autograph/numbering should protect intentional modern representation');
+assert.ok(genericModern.score>autoModern.score,'an owned autograph/numbered card should remain protected from routine replacement');
+
+const authenticatedOwned=intel.evaluatePlayer(p({name:'Authenticated Auto',cardYear:2025,induction:2000,set:'Topps',autograph:true,grader:'PSA',gradeCondition:'PSA 8'}),2026);
+assert.ok(authenticatedOwned.score<genericModern.score,'an owned graded autograph should get stronger protection');
 
 const rookie=intel.evaluatePlayer(p({name:'Rookie',cardYear:1983,induction:2007,description:'Rookie'}),2026);
 const samePlain=intel.evaluatePlayer(p({name:'Plain',cardYear:1983,induction:2007}),2026);
 assert.ok(rookie.score<samePlain.score,'rookie designation should reduce upgrade urgency');
+
+const savedAuto=intel.evaluatePlayer(p({name:'Saved Auto',cardYear:2005,induction:2022,target:'1997 Topps JSA Authenticated Autograph'}),2026);
+assert.ok(savedAuto.score>target.score,'a saved authenticated autograph target should receive a major preference boost');
+
+const current={cardYear:2025};
+const olderBase=intel.candidatePreferenceScore({cardYear:1975,description:'Topps base card',price:60},current,{budget:100,currentYear:2026});
+const affordableAuthAuto=intel.candidatePreferenceScore({cardYear:1990,description:'JSA Authenticated Autograph',autograph:true,grader:'PSA',gradeCondition:'PSA 8',price:65},current,{budget:100,currentYear:2026});
+assert.ok(affordableAuthAuto.score>olderBase.score,'an affordable authenticated/graded autograph may outrank an older non-auto base card');
+
+const overBudgetAuthAuto=intel.candidatePreferenceScore({cardYear:1990,description:'JSA Authenticated Autograph',autograph:true,grader:'PSA',gradeCondition:'PSA 8',price:140},current,{budget:100,currentYear:2026});
+assert.ok(overBudgetAuthAuto.score<olderBase.score,'over-budget autograph candidates should lose the affordability advantage');
+
+const farVintage=intel.candidatePreferenceScore({cardYear:1955,description:'Topps base card',price:60},current,{budget:100,currentYear:2026});
+assert.ok(farVintage.score>affordableAuthAuto.score,'substantially older true-vintage cardboard should still be able to beat a much newer autograph');
+
+const newerPsa10=intel.candidatePreferenceScore({cardYear:2018,description:'Topps',grader:'PSA',gradeCondition:'PSA 10',price:40},current,{budget:100,currentYear:2026});
+assert.ok(olderBase.score>newerPsa10.score,'grading alone should not make a newer PSA 10 outrank a much older card');
 
 const incoming=intel.evaluatePlayer(p({name:'Incoming',incoming:true}),2026);
 assert.equal(incoming,null,'incoming cards should not be recommended for immediate upgrades');
@@ -37,4 +57,4 @@ const ranked=intel.rankCollection([
 ],{limit:2,currentYear:2026});
 assert.deepEqual(ranked.map(x=>x.name),['A','B'],'ranking should be deterministic and ignore unowned cards');
 
-console.log('Collection Intelligence tests passed:', 7, 'scenarios');
+console.log('Collection Intelligence tests passed:', 12, 'scenarios');
