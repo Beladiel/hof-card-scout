@@ -1002,7 +1002,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.0.3</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.1.0</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -1306,6 +1306,20 @@ function targetPreferenceBits(p){
   if(Number.isFinite(max)&&max>0)bits.push("Max delivered "+formatMoney(max));
   if(p.targetNotes)bits.push(String(p.targetNotes));
   return bits;
+}
+function targetSearchHint(p){
+  if(!p?.target)return "";
+  const t=targetIdentity(p),parts=[];
+  if(t.year)parts.push(String(t.year));
+  if(t.set)parts.push(t.set);
+  if(t.cardNum)parts.push("#"+t.cardNum);
+  const grader=String(p.targetGrader||"").trim();
+  const grade=String(p.targetGrade||"").trim();
+  const autoPref=String(p.targetAutoPreference||"").trim();
+  if(grader&&grader!=="Any / Raw OK")parts.push(grader);
+  if(grade)parts.push(grade);
+  if(autoPref==="Autograph required")parts.push("autograph");
+  return parts.join(" ").trim()||String(p.target||"").trim();
 }
 function targetPrimaryStatus(p){
   if(p?.incoming)return {key:"incoming",label:"📦 INCOMING"};
@@ -3507,7 +3521,9 @@ function openFindTarget(){
   $("findTargetSub").textContent=currentPlayer.owned
     ?"Scout favors older cards, but may choose a one-year-newer card when it is clearly the better collectible or value."
     :"Scout favors older cards, but may choose a one-year-newer card when it is clearly the better collectible or value.";
-  if(!$("findTargetBudget").value)$("findTargetBudget").value=localStorage.getItem(FIND_TARGET_BUDGET_KEY)||"";
+  const structuredMax=Number(currentPlayer.targetMaxPrice);
+  if(Number.isFinite(structuredMax)&&structuredMax>0)$("findTargetBudget").value=structuredMax.toFixed(2);
+  else if(!$("findTargetBudget").value)$("findTargetBudget").value=localStorage.getItem(FIND_TARGET_BUDGET_KEY)||"";
   panel.scrollIntoView({behavior:"smooth",block:"nearest"});
   setTimeout(()=>$("findTargetBudget")?.focus(),150);
 }
@@ -3710,7 +3726,13 @@ async function searchFindTarget(){
       budget,
       mode:p.owned?"upgrade":"need",
       currentCard:findTargetCurrentCardPayload(p),
-      searchHint:p.target||"",
+      searchHint:targetSearchHint(p),
+      targetSpec:p.target?{
+        year:targetIdentity(p).year,set:targetIdentity(p).set,cardNum:targetIdentity(p).cardNum,
+        grader:p.targetGrader||"Any / Raw OK",grade:p.targetGrade||"",
+        autographPreference:p.targetAutoPreference||"No preference",
+        maxDelivered:Number.isFinite(Number(p.targetMaxPrice))?Number(p.targetMaxPrice):null
+      }:null,
       excludeIds:findTargetExcludedIds,
       preferredSellers:findTargetPreferredSellers()
     };
