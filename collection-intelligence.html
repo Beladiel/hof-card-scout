@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0e2b22">
+<title>Collection Intelligence · HOF Card Scout</title>
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{--bg:#071c16;--bg2:#0d2b22;--panel:#12372c;--panel2:#173f33;--text:#f7f4ea;--muted:#b9c9c2;--line:#2a5045;--green:#56c58a;--gold:#e6bd63;--red:#ef6c6c;--cream:#fff8e9;--shadow:0 14px 34px rgba(0,0,0,.28)}
+*{box-sizing:border-box}html{background:var(--bg)}body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% -10%,rgba(230,189,99,.13),transparent 34%),linear-gradient(180deg,var(--bg2),var(--bg) 360px);color:var(--text);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,a{font:inherit}.shell{max-width:880px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top)) 16px calc(34px + env(safe-area-inset-bottom))}.topbar{display:flex;align-items:center;gap:12px;margin-bottom:16px}.logo{width:54px;height:54px;flex:0 0 54px;border-radius:17px;background:linear-gradient(145deg,#fffaf0,#e8ddc5);display:grid;place-items:center;box-shadow:var(--shadow);font-size:28px}.brand{min-width:0}.brand h1{font-size:22px;line-height:1.05;margin:0;font-weight:950;letter-spacing:-.45px}.brand p{margin:4px 0 0;color:var(--muted);font-size:12px}.spacer{flex:1}.home-link,.ghost,.primary{display:inline-flex;align-items:center;justify-content:center;min-height:44px;border-radius:13px;padding:9px 12px;text-decoration:none;font-weight:900;border:1px solid var(--line);cursor:pointer}.home-link,.ghost{color:var(--text);background:rgba(255,255,255,.05)}.primary{background:var(--gold);color:#211a0b;border-color:var(--gold)}button:focus-visible,a:focus-visible{outline:3px solid rgba(230,189,99,.65);outline-offset:2px}.hero{background:linear-gradient(145deg,rgba(230,189,99,.12),rgba(255,255,255,.04));border:1px solid var(--line);border-radius:19px;padding:15px;margin-bottom:12px}.eyebrow{font-size:10px;letter-spacing:.14em;font-weight:950;color:var(--gold)}.hero h2{margin:5px 0 6px;font-size:25px;line-height:1.1}.hero p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}.hero-note{display:flex;gap:8px;align-items:flex-start;margin-top:11px;padding:9px 10px;border-radius:12px;background:rgba(86,197,138,.08);border:1px solid rgba(86,197,138,.25);font-size:11px;color:#bfe9d0;line-height:1.45}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:12px 0}.stat{background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:14px;padding:11px}.stat .label{font-size:9px;font-weight:950;letter-spacing:.1em;color:var(--muted)}.stat .value{font-size:20px;font-weight:950;margin-top:3px}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:13px 0}.toolbar-copy{font-size:11px;color:var(--muted)}.list{display:grid;gap:10px}.rank-card{border:1px solid var(--line);background:rgba(255,255,255,.045);border-radius:18px;padding:14px;overflow:hidden}.rank-top{display:grid;grid-template-columns:46px minmax(0,1fr) auto;gap:11px;align-items:start}.rank-num{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:rgba(230,189,99,.12);border:1px solid rgba(230,189,99,.28);color:var(--gold);font-size:20px;font-weight:950}.rank-name{font-size:18px;font-weight:950;line-height:1.15}.rank-cardline{font-size:12px;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}.score{border-radius:999px;padding:6px 8px;font-size:9px;font-weight:950;letter-spacing:.08em;white-space:nowrap;border:1px solid rgba(255,255,255,.13)}.score.high{background:rgba(239,108,108,.13);color:#ffb0b0;border-color:rgba(239,108,108,.28)}.score.good{background:rgba(230,189,99,.12);color:#f4d58a;border-color:rgba(230,189,99,.28)}.score.watch{background:rgba(86,197,138,.1);color:#9ce4ba;border-color:rgba(86,197,138,.25)}.why{font-size:13px;line-height:1.5;margin:11px 0 0}.factors{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.factor{font-size:9px;font-weight:900;border-radius:999px;padding:5px 7px;background:rgba(255,255,255,.055);border:1px solid var(--line);color:#dce6e2}.factor.protect{color:#a9d9bf;border-color:rgba(86,197,138,.25);background:rgba(86,197,138,.07)}.target{margin-top:10px;padding:9px 10px;border-radius:12px;background:rgba(230,189,99,.075);border:1px solid rgba(230,189,99,.19);font-size:11px;line-height:1.4}.target strong{color:var(--gold)}details{margin-top:13px;border:1px solid var(--line);border-radius:15px;background:rgba(0,0,0,.08);overflow:hidden}summary{cursor:pointer;padding:12px 13px;font-size:12px;font-weight:900}.method{padding:0 13px 13px;color:var(--muted);font-size:11px;line-height:1.55}.method strong{color:var(--text)}.method ul{margin:7px 0 0;padding-left:18px}.empty{padding:30px 16px;text-align:center;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.035);color:var(--muted);line-height:1.5}.error{color:#ffc0c0;border-color:rgba(239,108,108,.32);background:rgba(239,108,108,.08)}.foot{margin:16px 0 0;color:var(--muted);font-size:10px;text-align:center}.loading{padding:26px;text-align:center;color:var(--muted)}
+@media(max-width:560px){.shell{padding-left:12px;padding-right:12px}.brand h1{font-size:19px}.brand p{display:none}.home-link{padding:8px 9px;font-size:11px}.summary{grid-template-columns:1fr 1fr 1fr}.stat{padding:9px}.stat .value{font-size:17px}.rank-top{grid-template-columns:40px minmax(0,1fr);}.rank-num{width:40px;height:40px}.score{grid-column:2;justify-self:start}.toolbar{align-items:flex-end}.toolbar-copy{max-width:55%}}
+</style>
+</head>
+<body>
+<main class="shell">
+  <header class="topbar">
+    <div class="logo" aria-hidden="true">⚾</div>
+    <div class="brand"><h1>Collection Intelligence</h1><p>HOF Card Scout · Stage A</p></div>
+    <div class="spacer"></div>
+    <a class="home-link" href="./">← HOME</a>
+  </header>
+
+  <section class="hero">
+    <div class="eyebrow">SCOUT'S TOP 5 UPGRADE OPPORTUNITIES</div>
+    <h2>Where should the collection improve next?</h2>
+    <p>Scout analyzes the representative cards already saved on this device and ranks the five strongest upgrade opportunities. Older-card opportunity carries the most weight; condition, saved targets, and special card traits adjust the result.</p>
+    <div class="hero-note"><span aria-hidden="true">🛡️</span><span><strong>Zero marketplace searches.</strong> Opening or refreshing this screen does not call eBay or spend a live search. Stage B will add live investigation only when you deliberately ask for it.</span></div>
+  </section>
+
+  <section class="summary" aria-label="Collection Intelligence summary">
+    <div class="stat"><div class="label">OWNED REVIEWED</div><div class="value" id="ownedReviewed">—</div></div>
+    <div class="stat"><div class="label">INCOMING SKIPPED</div><div class="value" id="incomingSkipped">—</div></div>
+    <div class="stat"><div class="label">MARKET CALLS</div><div class="value">0</div></div>
+  </section>
+
+  <div class="toolbar">
+    <div class="toolbar-copy" id="updatedCopy">Reading your saved collection…</div>
+    <button class="ghost" type="button" id="refreshBtn">↻ REFRESH RANKING</button>
+  </div>
+
+  <section id="rankingList" class="list" aria-live="polite"><div class="loading">Scout is reviewing the collection…</div></section>
+
+  <details>
+    <summary>How Scout ranks upgrade opportunities</summary>
+    <div class="method">
+      <strong>Age first.</strong> Cards issued long after a player's Hall induction, modern representatives, and obvious archive/retrospective issues rise fastest. A much older vintage card is deliberately protected from being replaced just because it has a low grade.
+      <ul>
+        <li>Saved older targets can raise priority because you already identified a direction for the upgrade.</li>
+        <li>Creases, rough condition, or low grades add pressure, but condition does not overpower age.</li>
+        <li>Autographs, relics, numbered/scarce cards, and rookie-designated cards get protection because a newer special card may be an intentional representative.</li>
+        <li>Incoming cards are skipped so Scout does not immediately recommend replacing something you just bought.</li>
+      </ul>
+    </div>
+  </details>
+
+  <div class="foot">Collection Intelligence ranking v1 · local collection analysis only</div>
+</main>
+<script src="collection-intelligence.js"></script>
+<script>
+(function(){
+  "use strict";
+  const STORAGE_KEY="hofCardScoutEditsV1";
+  const $=id=>document.getElementById(id);
+  const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+
+  function readEdits(){
+    try{
+      const parsed=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");
+      return parsed&&typeof parsed==="object"?parsed:{};
+    }catch{return {}}
+  }
+
+  async function loadPlayers(){
+    const response=await fetch("./index.html",{cache:"no-store"});
+    if(!response.ok)throw new Error("Could not read the HOF Card Scout collection file.");
+    const html=await response.text();
+    const match=html.match(/(?:const|let|var)\s+PLAYERS\s*=\s*(\[[\s\S]*?\]);\s*(?:const|let|var)\s+STORAGE_KEY\s*=/);
+    if(!match)throw new Error("Scout could not locate the collection roster in the current app build.");
+    let players;
+    try{players=JSON.parse(match[1]);}catch{throw new Error("Scout found the roster but could not read it safely.")}
+    const edits=readEdits();
+    for(const p of players){
+      if(edits[p.name]&&typeof edits[p.name]==="object")Object.assign(p,edits[p.name]);
+    }
+    return players;
+  }
+
+  function renderCard(result,index){
+    const positives=result.positiveSignals.slice(0,4).map(s=>`<span class="factor">${esc(s.label)}</span>`).join("");
+    const protections=result.protections.slice(0,2).map(s=>`<span class="factor protect">🛡 ${esc(s.label)}</span>`).join("");
+    const target=result.player.target?`<div class="target"><strong>SAVED TARGET:</strong> ${esc(result.player.target)}${result.player.targetNotes?` · ${esc(result.player.targetNotes)}`:""}</div>`:"";
+    return `<article class="rank-card">
+      <div class="rank-top">
+        <div class="rank-num">#${index+1}</div>
+        <div><div class="rank-name">${esc(result.name)}</div><div class="rank-cardline">Current: ${esc(result.currentCard||String(result.cardYear))}</div></div>
+        <div class="score ${result.priority.toLowerCase()}">${esc(result.priority)} · ${result.score}</div>
+      </div>
+      <p class="why">${esc(result.summary)}</p>
+      <div class="factors">${positives}${protections}</div>
+      ${target}
+    </article>`;
+  }
+
+  async function refresh(){
+    const list=$("rankingList");
+    $("refreshBtn").disabled=true;
+    list.innerHTML='<div class="loading">Scout is reviewing the collection…</div>';
+    try{
+      if(!window.ScoutCollectionIntelligence)throw new Error("Collection Intelligence engine did not load.");
+      const players=await loadPlayers();
+      const owned=players.filter(p=>p&&p.owned);
+      const incoming=owned.filter(p=>p.incoming);
+      const reviewed=owned.filter(p=>!p.incoming&&Number.isInteger(Number(p.cardYear)));
+      const top=window.ScoutCollectionIntelligence.rankCollection(players,{limit:5});
+      $("ownedReviewed").textContent=String(reviewed.length);
+      $("incomingSkipped").textContent=String(incoming.length);
+      $("updatedCopy").textContent=`Ranked from this device's saved collection · ${new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}`;
+      if(!top.length){
+        list.innerHTML='<div class="empty">Scout does not have enough owned-card data on this device to build an upgrade ranking yet.</div>';
+      }else{
+        list.innerHTML=top.map(renderCard).join("");
+      }
+    }catch(err){
+      $("ownedReviewed").textContent="—";$("incomingSkipped").textContent="—";
+      $("updatedCopy").textContent="Ranking unavailable";
+      list.innerHTML=`<div class="empty error"><strong>Scout hit a local-data problem.</strong><br>${esc(err&&err.message?err.message:"Unknown error")}</div>`;
+    }finally{$("refreshBtn").disabled=false}
+  }
+
+  $("refreshBtn").addEventListener("click",refresh);
+  refresh();
+})();
+</script>
+</body>
+</html>
