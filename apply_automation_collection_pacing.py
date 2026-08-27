@@ -46,6 +46,8 @@ p.write_text(u,encoding='utf-8')
 for test in Path('tests').glob('*.test.cjs'):
     t=test.read_text(encoding='utf-8')
     t=t.replace('3\\.30\\.0','3\\.31\\.0')
+    t=t.replace("'3.30.0'","'3.31.0'")
+    t=t.replace('"3.30.0"','"3.31.0"')
     test.write_text(t,encoding='utf-8')
 
 p=Path('tests/automation-collection-runner.test.cjs')
