@@ -7,6 +7,7 @@ on:
       - apply_collection_history_chart.py
       - collection-value-dashboard.js
       - tests/collection-value-history-dashboard.test.cjs
+      - tests/end-to-end-reliability.test.cjs
       - .github/workflows/apply-collection-history-chart.yml
 
 permissions:
@@ -32,7 +33,7 @@ jobs:
         run: |
           git config user.name "HOF Card Scout Automation"
           git config user.email "actions@users.noreply.github.com"
-          git add index.html collection-value-dashboard.js tests/collection-value-history-dashboard.test.cjs
+          git add index.html collection-value-dashboard.js tests/collection-value-history-dashboard.test.cjs tests/end-to-end-reliability.test.cjs
           if git diff --cached --quiet; then
             echo "No changes to commit"
             exit 0
