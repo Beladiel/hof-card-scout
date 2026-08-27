@@ -2,7 +2,7 @@ const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const html=fs.readFileSync("index.html","utf8");
 
-assert.match(html,/v5\.3\.0/);
+assert.match(html,/v5\.3\.1/);
 assert.match(html,/id="dashboardBtn">📊 MY COLLECTION/);
 assert.match(html,/id="dashboardScreen"/);
 assert.match(html,/id="dashboardOwned"/);
@@ -13,6 +13,8 @@ assert.match(html,/function dashboardTargetCount\(\)/);
 assert.match(html,/function dashboardPaidPlayers\(\)/);
 assert.match(html,/function renderDashboard\(\)/);
 assert.match(html,/function openDashboard\(\)/);
+assert.match(html,/document\.querySelectorAll\("\.screen"\)\.forEach/);
+assert.doesNotMatch(html,/\[homeScreen,forecastScreen,huntScreen,detailScreen,manageScreen,targetManageScreen,shopScreen\]\.forEach/);
 assert.match(html,/dashboardBtn"\)\.addEventListener\("click",openDashboard\)/);
 assert.match(html,/dashboardHuntBtn"\)\.addEventListener\("click",\(\)=>openHuntList\("all"\)\)/);
 assert.match(html,/dashboardTargetsBtn"\)\.addEventListener/);

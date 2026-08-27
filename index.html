@@ -1162,7 +1162,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.3.0</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.3.1</div>
 </div>
 <div class="data-modal-backdrop" id="dataMenuModal" hidden>
   <div class="data-modal" role="dialog" aria-modal="true" aria-labelledby="dataMenuTitle">
@@ -1536,7 +1536,7 @@ function purchaseSummary(p){
 }
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
 function showScreen(id){
-  [homeScreen,forecastScreen,huntScreen,detailScreen,manageScreen,targetManageScreen,shopScreen].forEach(s=>s.classList.toggle("active",s.id===id));
+  document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("active",s.id===id));
   if(id==="huntScreen")renderHuntList();
   if(id==="forecastScreen")renderHallForecast();
   window.scrollTo({top:0,behavior:"smooth"});
