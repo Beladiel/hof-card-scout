@@ -1212,7 +1212,7 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.5.0</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.6.0</div>
 </div>
 <div class="data-modal-backdrop" id="dataMenuModal" hidden>
   <div class="data-modal" role="dialog" aria-modal="true" aria-labelledby="dataMenuTitle">
@@ -2142,7 +2142,7 @@ function saveManagedCard(e){
 function markReceived(){
   if(!currentPlayer||!currentPlayer.owned||!currentPlayer.incoming)return;
   currentPlayer.incoming=false;
-  savePlayerEdit(currentPlayer);renderList();openPlayer(currentPlayer);
+  savePlayerEdit(currentPlayer);stats();rotateMission();renderList();renderHuntList();openPlayer(currentPlayer,returnScreen);
   const msgs=[
     "Package landed. Card is officially home.",
     "Mail call complete. No more porch surveillance required.",
@@ -2178,14 +2178,41 @@ function undoRemove(){
   savePlayerEdit(currentPlayer);lastRemovedCard=null;stats();rotateMission();buildAlphabet();renderList();openPlayer(currentPlayer);
   toast("Removal undone. Crisis averted.");
 }
+function backupReadJson(key){
+  try{
+    const raw=localStorage.getItem(key);
+    return raw?JSON.parse(raw):null;
+  }catch(err){return null}
+}
+function backupHasFutureState(state){
+  return !!state&&(
+    (Array.isArray(state.watch)&&state.watch.length)||
+    Object.keys(state.targets||{}).length||
+    Object.keys(state.purchases||{}).length
+  );
+}
 function exportUpdates(){
   const edits=currentEdits(),names=Object.keys(edits);
-  if(!names.length){toast("No phone updates to export yet.");return}
-  const payload={app:"HOF Card Scout",version:"5.0.3",exportedAt:new Date().toISOString(),playerUpdates:edits};
+  const monthlyPick=backupReadJson(MONTHLY_STATE_KEY);
+  const futureHof=backupReadJson(FUTURE_HOF_STATE_KEY);
+  const hasMonthly=!!monthlyPick&&Object.keys(monthlyPick).length>0;
+  const hasFuture=backupHasFutureState(futureHof);
+  if(!names.length&&!hasMonthly&&!hasFuture){toast("No Scout updates to export yet.");return}
+  const payload={
+    app:"HOF Card Scout",
+    version:"5.6.0",
+    backupSchema:2,
+    exportedAt:new Date().toISOString(),
+    playerUpdates:edits,
+    monthlyPick:monthlyPick||null,
+    futureHof:futureHof||null
+  };
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="HOF-Card-Scout-updates.json";document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);toast(names.length+" player update"+(names.length===1?"":"s")+" exported.");
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  const extra=(hasMonthly?1:0)+(hasFuture?1:0);
+  toast(names.length+" player update"+(names.length===1?"":"s")+(extra?" + Scout activity":"")+" exported.");
 }
 function importUpdatesFile(file){
   if(!file)return;
@@ -2199,17 +2226,28 @@ function importUpdatesFile(file){
       const validNames=new Set(PLAYERS.map(p=>p.name));
       const incoming={};
       Object.entries(payload.playerUpdates).forEach(([name,data])=>{
-        if(validNames.has(name)&&data&&typeof data==="object") incoming[name]=data;
+        if(validNames.has(name)&&data&&typeof data==="object"&&!Array.isArray(data)) incoming[name]=data;
       });
       const names=Object.keys(incoming);
-      if(!names.length) throw new Error("Scout could not find any matching player updates in that file.");
-      const merged={...currentEdits(),...incoming};
-      localStorage.setItem(STORAGE_KEY,JSON.stringify(merged));
+      const hasMonthly=payload.monthlyPick&&typeof payload.monthlyPick==="object"&&!Array.isArray(payload.monthlyPick);
+      const hasFuture=payload.futureHof&&typeof payload.futureHof==="object"&&!Array.isArray(payload.futureHof);
+      if(!names.length&&!hasMonthly&&!hasFuture) throw new Error("Scout could not find any matching updates in that file.");
+
+      if(names.length){
+        const merged={...currentEdits(),...incoming};
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(merged));
+      }
+      if(hasMonthly)localStorage.setItem(MONTHLY_STATE_KEY,JSON.stringify(payload.monthlyPick));
+      if(hasFuture)localStorage.setItem(FUTURE_HOF_STATE_KEY,JSON.stringify(payload.futureHof));
+
       markLocalCollectionChanged();
       scheduleCloudSave();
-      PLAYERS.forEach(p=>{if(incoming[p.name]) Object.assign(p,incoming[p.name]);});
-      stats();rotateMission();buildAlphabet();renderList();
-      toast(names.length+" player update"+(names.length===1?"":"s")+" restored. Welcome back, cardboard.");
+      const restored=[];
+      if(names.length)restored.push(names.length+" player update"+(names.length===1?"":"s"));
+      if(hasMonthly)restored.push("Monthly Pick");
+      if(hasFuture)restored.push("Future HOF data");
+      toast(restored.join(" + ")+" restored. Reloading Scout…");
+      setTimeout(()=>location.reload(),450);
     }catch(err){
       toast(err.message||"Scout could not import that updates file.");
     }finally{
@@ -4741,7 +4779,7 @@ function phase3aSavePurchasedCard(card,data,p,mode){
   p.confidence=data.confidence||"";
   p.lastChecked=new Date().toLocaleDateString();
 
-  if(phase3aTargetMatches(p,card)){p.target="";p.targetNotes="";}
+  if(phase3aTargetMatches(p,card))clearStructuredTarget(p);
 
   savePlayerEdit(p);stats();rotateMission();buildAlphabet();renderList();
   currentPlayer=p;
