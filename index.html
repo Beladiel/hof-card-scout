@@ -1352,6 +1352,7 @@ let activeLetter=null;
 let activeFilter="all";
 let currentPlayer=null;
 let returnScreen="homeScreen";
+let shopReturnScreen="homeScreen";
 let manageMode="add";
 let lastRemovedCard=null;
 
@@ -4478,7 +4479,9 @@ function phase3bScoutTarget(p){
 function openShop(prefill){
   phase3bActiveTargetPlayer=null;
   $("shopNum").placeholder="482";
-  returnScreen=document.querySelector(".screen.active")?.id||"homeScreen";
+  const activeScreen=document.querySelector(".screen.active")?.id||"homeScreen";
+  shopReturnScreen=activeScreen;
+  if(activeScreen!=="detailScreen")returnScreen=activeScreen;
   if(prefill){
     const variant=window.ScoutCollectionValue?ScoutCollectionValue.representativeVariant(prefill):{
       grader:prefill.grader||"Raw",grade:prefill.gradeCondition||"",serial:prefill.serial||"",autograph:!!prefill.autograph,relic:!!prefill.relic
@@ -5592,7 +5595,7 @@ function closeDataMenu(){
 $("homeBtn").addEventListener("click",()=>showScreen("homeScreen"));
 $("detailBack").addEventListener("click",()=>showScreen(returnScreen||"homeScreen"));
 $("manageBack").addEventListener("click",()=>showScreen("detailScreen"));
-$("shopBack").addEventListener("click",()=>showScreen(returnScreen==="shopScreen"?"homeScreen":returnScreen));
+$("shopBack").addEventListener("click",()=>showScreen(shopReturnScreen==="shopScreen"?"homeScreen":shopReturnScreen));
 $("shopModeBtn").addEventListener("click",()=>openShop(null));
 $("huntModeBtn").addEventListener("click",()=>openHuntList("all"));
 $("forecastBtn").addEventListener("click",()=>showScreen("forecastScreen"));
