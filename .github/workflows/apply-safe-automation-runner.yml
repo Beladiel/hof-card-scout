@@ -6,8 +6,7 @@ on:
     paths:
       - apply_safe_automation_runner.py
       - automation-runner-ui.js
-      - tests/automation-runner.test.cjs
-      - tests/automation-budget.test.cjs
+      - tests/*.test.cjs
       - .github/workflows/apply-safe-automation-runner.yml
 
 permissions:
