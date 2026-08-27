@@ -1,0 +1,41 @@
+name: Apply Sealed Product Cache Bust
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apply-sealed-cache-bust.py
+      - .github/workflows/apply-sealed-cache-bust.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply cache-bust migration
+        run: python apply-sealed-cache-bust.py
+      - name: Check syntax
+        run: node --check sealed-product-scout.js
+      - name: Run regression suite
+        run: |
+          node collection-intelligence.test.cjs
+          for f in tests/*.test.cjs; do
+            echo "Running $f"
+            node "$f"
+          done
+      - name: Commit changes
+        run: |
+          git config user.name "HOF Card Scout Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html tests/*.test.cjs
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Force fresh Sealed Product Scout module"
+          git push
