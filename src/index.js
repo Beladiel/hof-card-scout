@@ -1,4 +1,4 @@
-const VERSION = "3.33.0";
+const VERSION = "3.34.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -49,6 +49,9 @@ const CARD_PHOTO_PREFIX = "card-photo:v1:";
 const AUTOMATION_STATE_KEY = "automation:state:v1";
 const AUTOMATION_CATALOG_KEY = "automation:catalog:v1";
 const AUTOMATION_CATALOG_MAX_BYTES = 256 * 1024;
+const PUSH_VAPID_KEY = "push:vapid:v1";
+const PUSH_SUBSCRIPTIONS_KEY = "push:subscriptions:v1";
+const PUSH_MAX_SUBSCRIPTIONS = 5;
 const AUTOMATION_DEFAULT_SETTINGS = Object.freeze({
   monthlySerpCap: 30,
   targetMonitoringEnabled: true,
@@ -188,6 +191,79 @@ export default {
         console.error(err);
         return json({ ok: false, error: "automation_run_failed", message: err?.message || "Scout could not complete the protected automation check." }, 502, cors);
       }
+    }
+
+    if (url.pathname === "/push/config" && request.method === "GET") {
+      const supplied = request.headers.get("X-Scout-Key") || "";
+      if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
+        return json({ ok: false, error: "unauthorized", message: "Scout access key rejected." }, 401, cors);
+      }
+      if (!env.SCOUT_DATA) return json({ ok: false, error: "cloud_storage_not_configured" }, 503, cors);
+      try {
+        const vapid = await pushGetOrCreateVapid(env.SCOUT_DATA);
+        const subscriptions = await pushReadSubscriptions(env.SCOUT_DATA);
+        return json({ ok: true, version: VERSION, publicKey: vapid.publicKey, subscriptionCount: subscriptions.length }, 200, cors);
+      } catch (err) {
+        console.error(err);
+        return json({ ok: false, error: "push_config_failed", message: "Scout could not prepare phone notifications." }, 502, cors);
+      }
+    }
+
+    if (url.pathname === "/push/subscribe" && request.method === "POST") {
+      const supplied = request.headers.get("X-Scout-Key") || "";
+      if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
+        return json({ ok: false, error: "unauthorized", message: "Scout access key rejected." }, 401, cors);
+      }
+      if (!env.SCOUT_DATA) return json({ ok: false, error: "cloud_storage_not_configured" }, 503, cors);
+      let body = {};
+      try { body = await request.json(); } catch { return json({ ok: false, error: "bad_json" }, 400, cors); }
+      try {
+        const saved = await pushSaveSubscription(env.SCOUT_DATA, body?.deviceToken, body?.subscription);
+        return json({ ok: true, version: VERSION, deviceToken: saved.deviceToken, subscriptionCount: saved.subscriptionCount }, 200, cors);
+      } catch (err) {
+        return json({ ok: false, error: "push_subscribe_failed", message: err?.message || "Scout could not save this phone for notifications." }, 400, cors);
+      }
+    }
+
+    if (url.pathname === "/push/unsubscribe" && request.method === "POST") {
+      const supplied = request.headers.get("X-Scout-Key") || "";
+      if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
+        return json({ ok: false, error: "unauthorized", message: "Scout access key rejected." }, 401, cors);
+      }
+      if (!env.SCOUT_DATA) return json({ ok: false, error: "cloud_storage_not_configured" }, 503, cors);
+      let body = {};
+      try { body = await request.json(); } catch {}
+      const count = await pushRemoveSubscription(env.SCOUT_DATA, body?.deviceToken);
+      return json({ ok: true, version: VERSION, subscriptionCount: count }, 200, cors);
+    }
+
+    if (url.pathname === "/push/test" && request.method === "POST") {
+      const supplied = request.headers.get("X-Scout-Key") || "";
+      if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
+        return json({ ok: false, error: "unauthorized", message: "Scout access key rejected." }, 401, cors);
+      }
+      if (!env.SCOUT_DATA) return json({ ok: false, error: "cloud_storage_not_configured" }, 503, cors);
+      let body = {};
+      try { body = await request.json(); } catch {}
+      try {
+        const result = await pushSendTest(env, body?.deviceToken);
+        return json({ ok: true, version: VERSION, ...result, searchUsed: 0 }, 200, cors);
+      } catch (err) {
+        return json({ ok: false, error: "push_test_failed", message: err?.message || "Scout could not send the test notification." }, 502, cors);
+      }
+    }
+
+    if (url.pathname === "/push/latest" && request.method === "GET") {
+      if (!env.SCOUT_DATA) return json({ ok: false, error: "cloud_storage_not_configured" }, 503, cors);
+      const deviceToken = url.searchParams.get("token") || "";
+      const subscriptions = await pushReadSubscriptions(env.SCOUT_DATA);
+      if (!subscriptions.some(row => row.deviceToken === deviceToken)) {
+        return json({ ok: false, error: "unknown_push_device" }, 401, cors);
+      }
+      const state = await readAutomationState(env.SCOUT_DATA);
+      const latest = Array.isArray(state.activity) && state.activity.length ? state.activity[state.activity.length - 1] : null;
+      const payload = pushActivityPayload(latest);
+      return json({ ok: true, version: VERSION, ...payload }, 200, cors);
     }
 
     if (url.pathname === "/psa/verify" && request.method === "POST") {
@@ -993,6 +1069,166 @@ function automationPublicState(state) {
   };
 }
 
+function pushBase64UrlBytes(input) {
+  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function pushBase64UrlText(text) {
+  return pushBase64UrlBytes(new TextEncoder().encode(String(text || "")));
+}
+
+async function pushGetOrCreateVapid(kv) {
+  let existing = null;
+  try { existing = await kv.get(PUSH_VAPID_KEY, { type: "json" }); } catch {}
+  if (existing?.publicKey && existing?.privateJwk) return existing;
+  const pair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+  const rawPublic = new Uint8Array(await crypto.subtle.exportKey("raw", pair.publicKey));
+  const privateJwk = await crypto.subtle.exportKey("jwk", pair.privateKey);
+  const publicJwk = await crypto.subtle.exportKey("jwk", pair.publicKey);
+  const record = { schema: 1, publicKey: pushBase64UrlBytes(rawPublic), privateJwk, publicJwk, createdAt: new Date().toISOString() };
+  await kv.put(PUSH_VAPID_KEY, JSON.stringify(record));
+  return record;
+}
+
+function pushNormalizeToken(value) {
+  const token = String(value || "").trim();
+  return /^[A-Za-z0-9_-]{20,160}$/.test(token) ? token : "";
+}
+
+function pushNormalizeSubscription(value) {
+  const endpoint = String(value?.endpoint || "").trim();
+  if (!endpoint || endpoint.length > 1400) throw new Error("This phone returned an invalid push endpoint.");
+  let parsed;
+  try { parsed = new URL(endpoint); } catch { throw new Error("This phone returned an invalid push endpoint."); }
+  if (parsed.protocol !== "https:") throw new Error("Scout only accepts secure push endpoints.");
+  return {
+    endpoint,
+    expirationTime: Number.isFinite(Number(value?.expirationTime)) ? Number(value.expirationTime) : null,
+    keys: {
+      p256dh: automationText(value?.keys?.p256dh, 300),
+      auth: automationText(value?.keys?.auth, 200),
+    },
+  };
+}
+
+async function pushReadSubscriptions(kv) {
+  let raw = null;
+  try { raw = await kv.get(PUSH_SUBSCRIPTIONS_KEY, { type: "json" }); } catch {}
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(row => pushNormalizeToken(row?.deviceToken) && row?.subscription?.endpoint).slice(-PUSH_MAX_SUBSCRIPTIONS);
+}
+
+async function pushWriteSubscriptions(kv, rows) {
+  const safe = Array.isArray(rows) ? rows.slice(-PUSH_MAX_SUBSCRIPTIONS) : [];
+  await kv.put(PUSH_SUBSCRIPTIONS_KEY, JSON.stringify(safe));
+  return safe;
+}
+
+async function pushSaveSubscription(kv, tokenValue, subscriptionValue) {
+  const deviceToken = pushNormalizeToken(tokenValue);
+  if (!deviceToken) throw new Error("Scout could not create a secure device token.");
+  const subscription = pushNormalizeSubscription(subscriptionValue);
+  const now = new Date().toISOString();
+  const rows = await pushReadSubscriptions(kv);
+  const previous = rows.find(row => row.deviceToken === deviceToken || row.subscription?.endpoint === subscription.endpoint);
+  const next = [...rows.filter(row => row.deviceToken !== deviceToken && row.subscription?.endpoint !== subscription.endpoint), {
+    deviceToken,
+    subscription,
+    createdAt: previous?.createdAt || now,
+    updatedAt: now,
+  }].slice(-PUSH_MAX_SUBSCRIPTIONS);
+  await pushWriteSubscriptions(kv, next);
+  return { deviceToken, subscriptionCount: next.length };
+}
+
+async function pushRemoveSubscription(kv, tokenValue) {
+  const deviceToken = pushNormalizeToken(tokenValue);
+  const rows = await pushReadSubscriptions(kv);
+  const next = deviceToken ? rows.filter(row => row.deviceToken !== deviceToken) : rows;
+  if (next.length !== rows.length) await pushWriteSubscriptions(kv, next);
+  return next.length;
+}
+
+async function pushVapidJwt(endpoint, vapid) {
+  const aud = new URL(endpoint).origin;
+  const header = pushBase64UrlText(JSON.stringify({ typ: "JWT", alg: "ES256" }));
+  const claims = pushBase64UrlText(JSON.stringify({ aud, exp: Math.floor(Date.now() / 1000) + 12 * 60 * 60, sub: "https://beladiel.github.io/hof-card-scout/" }));
+  const signingInput = `${header}.${claims}`;
+  const key = await crypto.subtle.importKey("jwk", vapid.privateJwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  const signature = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(signingInput)));
+  return `${signingInput}.${pushBase64UrlBytes(signature)}`;
+}
+
+async function pushSendEndpoint(endpoint, vapid) {
+  const jwt = await pushVapidJwt(endpoint, vapid);
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "TTL": "300",
+      "Urgency": "normal",
+      "Authorization": `vapid t=${jwt}, k=${vapid.publicKey}`,
+    },
+  });
+  return { ok: response.ok, status: response.status, stale: response.status === 404 || response.status === 410 };
+}
+
+function pushActivityPayload(activity) {
+  if (!activity) return { id: "ready", title: "HOF Card Scout notifications are ready", body: "Future real automated searches will send a recap here.", url: "./?automation=1" };
+  const player = automationText(activity.player, 120) || "Scout search";
+  let title = `🔎 Scout checked ${player}`;
+  if (activity.outcome === "deal-found") title = `🎯 Target deal — ${player}`;
+  else if (activity.outcome === "value-updated") title = `📈 Value updated — ${player}`;
+  else if (activity.outcome === "error") title = `⚠️ Scout search issue — ${player}`;
+  return {
+    id: automationText(activity.id, 220) || activity.at || "activity",
+    title,
+    body: automationText(activity.summary || "Automated search completed.", 320),
+    url: "./?automation=1",
+  };
+}
+
+async function pushNotifySubscribers(env, state) {
+  if (!env?.SCOUT_DATA) return { sent: 0, failed: 0 };
+  const rows = await pushReadSubscriptions(env.SCOUT_DATA);
+  if (!rows.length) return { sent: 0, failed: 0 };
+  const vapid = await pushGetOrCreateVapid(env.SCOUT_DATA);
+  let sent = 0, failed = 0, changed = false;
+  const keep = [];
+  for (const row of rows) {
+    try {
+      const result = await pushSendEndpoint(row.subscription.endpoint, vapid);
+      if (result.stale) { changed = true; continue; }
+      if (result.ok) sent++; else failed++;
+      keep.push(row);
+    } catch (err) {
+      console.error("Scout push send failed", err);
+      failed++;
+      keep.push(row);
+    }
+  }
+  if (changed) await pushWriteSubscriptions(env.SCOUT_DATA, keep);
+  return { sent, failed };
+}
+
+async function pushSendTest(env, tokenValue) {
+  const deviceToken = pushNormalizeToken(tokenValue);
+  if (!deviceToken) throw new Error("This phone is not registered for Scout notifications.");
+  const rows = await pushReadSubscriptions(env.SCOUT_DATA);
+  const row = rows.find(item => item.deviceToken === deviceToken);
+  if (!row) throw new Error("This phone is not registered for Scout notifications.");
+  const vapid = await pushGetOrCreateVapid(env.SCOUT_DATA);
+  const result = await pushSendEndpoint(row.subscription.endpoint, vapid);
+  if (result.stale) {
+    await pushWriteSubscriptions(env.SCOUT_DATA, rows.filter(item => item.deviceToken !== deviceToken));
+    throw new Error("This phone's old notification subscription expired. Enable notifications again.");
+  }
+  if (!result.ok) throw new Error(`Push service returned ${result.status}.`);
+  return { sent: 1 };
+}
+
 function automationActivityMoney(value) {
   const n = Number(value);
   return Number.isFinite(n) ? `$${n.toFixed(2)}` : "";
@@ -1631,6 +1867,9 @@ async function runScheduledAutomation(env, now=new Date()) {
   if (Number(targetRun.result?.searchUsed) > 0 || targetRun.result?.status === "error") {
     state = automationRecordActivity(state, "target", targetRun.result, now, "scheduled");
     await writeAutomationState(env.SCOUT_DATA, state);
+    if (Number(targetRun.result?.searchUsed) > 0) {
+      try { await pushNotifySubscribers(env, state); } catch (err) { console.error("Scheduled target push failed", err); }
+    }
     return { kind: "target", ...targetRun.result };
   }
 
@@ -1652,6 +1891,9 @@ async function runScheduledAutomation(env, now=new Date()) {
   }
   state = automationRecordActivity(state, "collection", collectionRun.result, now, "scheduled");
   await writeAutomationState(env.SCOUT_DATA, state);
+  if (Number(collectionRun.result?.searchUsed) > 0) {
+    try { await pushNotifySubscribers(env, state); } catch (err) { console.error("Scheduled collection push failed", err); }
+  }
   return { kind: "collection", ...collectionRun.result };
 }
 

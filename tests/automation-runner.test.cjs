@@ -6,7 +6,7 @@ const worker=fs.readFileSync('src/index.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
 const ui=fs.readFileSync('automation-runner-ui.js','utf8');
 
-assert.match(worker,/const VERSION = "3\.33\.0"/);
+assert.match(worker,/const VERSION = "3\.34\.0"/);
 assert.match(worker,/AUTOMATION_CATALOG_KEY = "automation:catalog:v1"/);
 assert.match(worker,/url\.pathname === "\/automation\/catalog"/);
 assert.match(worker,/url\.pathname === "\/automation\/run-once"/);

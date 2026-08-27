@@ -40,7 +40,7 @@ assert.deepEqual(value.gainLoss(40,64),{amount:24,pct:60});
 assert.equal(value.gainLoss(null,64),null);
 
 const html=fs.readFileSync("index.html","utf8");
-assert.match(html,/v5\.9\.0/);
+assert.match(html,/v5\.9\.1/);
 assert.match(html,/<script src="collection-value\.js"><\/script>/);
 assert.match(html,/id="collectionValuePanel"/);
 assert.match(html,/id="collectionValuePaid"/);

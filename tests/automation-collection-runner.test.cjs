@@ -5,7 +5,7 @@ const vm=require('node:vm');
 const worker=fs.readFileSync('src/index.js','utf8');
 const ui=fs.readFileSync('automation-runner-ui.js','utf8');
 
-assert.match(worker,/const VERSION = "3\.33\.0"/);
+assert.match(worker,/const VERSION = "3\.34\.0"/);
 assert.match(worker,/function runOneAutomationCollectionCheck|async function runOneAutomationCollectionCheck/);
 assert.match(worker,/kind === "collection"/,'run-once must support the explicit collection safety gate');
 assert.match(worker,/collectionRunnerEnabled: true/,'unattended collection rotation is enabled only after the safe-runner gates');
