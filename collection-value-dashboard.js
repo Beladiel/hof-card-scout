@@ -3,6 +3,8 @@
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
   else root.ScoutCollectionValueDashboard=api;
 })(typeof globalThis!=="undefined"?globalThis:this,function(){
+  const MAX_HISTORY=48;
+
   function cents(v){
     const n=Number(v);
     return Number.isFinite(n)?Math.round(n*100)/100:null;
@@ -49,5 +51,46 @@
       gainLossPct:gainLossPct===null?null:Math.round(gainLossPct*10)/10
     };
   }
-  return {summarize};
+  function snapshotForSummary(summary,now){
+    if(!summary||!Number.isFinite(Number(summary.estimatedValue))||Number(summary.estimatedValue)<=0||Number(summary.valuedCount)<1)return null;
+    const d=now instanceof Date?now:new Date(now||Date.now());
+    if(Number.isNaN(d.getTime()))return null;
+    return {
+      at:d.toISOString(),
+      value:cents(summary.estimatedValue),
+      valuedCount:Math.max(0,Math.floor(Number(summary.valuedCount)||0)),
+      ownedCount:Math.max(0,Math.floor(Number(summary.ownedCount)||0)),
+      coveragePct:Math.round((Number(summary.coveragePct)||0)*10)/10,
+      matchedCostBasis:summary.matchedCostBasis===null?null:cents(summary.matchedCostBasis),
+      matchedCount:Math.max(0,Math.floor(Number(summary.matchedCount)||0))
+    };
+  }
+  function thinHistory(rows,max=MAX_HISTORY){
+    max=Math.max(3,Number(max)||MAX_HISTORY);
+    if(rows.length<=max)return rows;
+    const keepLatest=Math.min(18,max-2);
+    const older=rows.slice(0,-keepLatest);
+    const latest=rows.slice(-keepLatest);
+    const slots=max-keepLatest;
+    const sampled=[];
+    for(let i=0;i<slots;i++){
+      const idx=slots===1?0:Math.round(i*(older.length-1)/(slots-1));
+      if(older[idx]&&!sampled.includes(older[idx]))sampled.push(older[idx]);
+    }
+    return [...sampled,...latest].sort((a,b)=>String(a.at).localeCompare(String(b.at))).slice(-max);
+  }
+  function mergeHistory(history,snapshot,max=MAX_HISTORY){
+    const rows=(Array.isArray(history)?history:[])
+      .filter(x=>x&&x.at&&Number.isFinite(Number(x.value))&&Number(x.value)>0)
+      .map(x=>({...x,value:cents(x.value)}));
+    if(!snapshot)return thinHistory(rows,max);
+    const day=String(snapshot.at).slice(0,10);
+    const idx=rows.findIndex(x=>String(x.at).slice(0,10)===day);
+    if(idx>=0)rows[idx]=snapshot;
+    else rows.push(snapshot);
+    rows.sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+    return thinHistory(rows,max);
+  }
+
+  return {summarize,MAX_HISTORY,snapshotForSummary,mergeHistory};
 });
