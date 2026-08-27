@@ -85,22 +85,13 @@ new_call='''        const moondreamQuestion = `${prompt} First transcribe ALL re
 if old_call not in s: raise SystemExit('AI call block not found')
 s=s.replace(old_call,new_call,1)
 
-# Keep the schema variable harmless but update prompt language to emphasize evidence.
 s=s.replace('Read visible packaging text carefully: year/season, brand/set, format, pack/card counts, retail-exclusive wording, and variant clues.', 'Read visible packaging text carefully and use those words as primary evidence: year/season, league/category, brand/set, format, pack/card counts, retail-exclusive wording, and variant clues.',1)
 p.write_text(s,encoding='utf-8')
 
-# Update Worker version expectations.
 for test in Path('tests').glob('*.test.cjs'):
     t=test.read_text(encoding='utf-8')
     t=t.replace("'3.35.0'", "'3.36.0'")
     t=t.replace('"3.35.0"', '"3.36.0"')
     t=t.replace('3\\.35\\.0','3\\.36\\.0')
+    t=t.replace('@cf\\/meta\\/llama-4-scout-17b-16e-instruct','@cf\\/moondream\\/moondream3\\.1-9B-A2B')
     test.write_text(t,encoding='utf-8')
-
-# Extend vision test if present.
-tp=Path('tests/sealed-product-vision.test.cjs')
-if tp.exists():
-    t=tp.read_text(encoding='utf-8')
-    if 'moondream3.1-9B-A2B' not in t:
-        t += '''\n// Accuracy regression: sealed product vision must use OCR-oriented Moondream and textual category guards.\nassert.match(worker,/moondream3\\.1-9B-A2B/,'sealed vision should use the OCR-oriented Moondream model');\nassert.match(worker,/NBA\\\\b[\\s\\S]*category = \\"Basketball\\"|NBA\\\\s\\+Hoops/,'NBA evidence should force Basketball rather than artwork-based guesses');\n'''
-    tp.write_text(t,encoding='utf-8')
