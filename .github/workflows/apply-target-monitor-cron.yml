@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - apply_target_monitor_cron.py
-      - tests/automation-target-cron.test.cjs
+      - tests/*.test.cjs
       - .github/workflows/apply-target-monitor-cron.yml
 
 permissions:
