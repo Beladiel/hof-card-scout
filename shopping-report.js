@@ -37,45 +37,77 @@
     if(value&&typeof value==="object"&&!Array.isArray(value)&&Object.prototype.hasOwnProperty.call(value,"value"))return value;
     return {value};
   }
-  function cellXml(ref,value,styleId=4){
+  function isNumberCell(d){
+    return (d.type==="number"||d.style==="money")&&Number.isFinite(Number(d.value));
+  }
+  function normalizeText(value){return String(value??"");}
+
+  function collectSharedStrings(sheets){
+    const strings=[],index=new Map();
+    function add(value){
+      const s=normalizeText(value);
+      if(!index.has(s)){index.set(s,strings.length);strings.push(s);}
+    }
+    for(const sheet of sheets){
+      add(sheet.title||sheet.name);
+      add(sheet.subtitle||"");
+      const headers=Array.isArray(sheet.headers)&&sheet.headers.length?sheet.headers:["Items"];
+      headers.forEach(add);
+      for(const row of (Array.isArray(sheet.rows)?sheet.rows:[])){
+        const values=Array.isArray(row)?row:[row];
+        for(const value of values){
+          const d=cellDescriptor(value);
+          if(d.value===null||d.value===undefined||d.value===""||isNumberCell(d))continue;
+          add(d.value);
+        }
+      }
+    }
+    return {strings,index};
+  }
+  function sharedStringsXml(shared){
+    const body=shared.strings.map(s=>`<si><t xml:space="preserve">${xmlEscape(s)}</t></si>`).join("");
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${shared.strings.length}" uniqueCount="${shared.strings.length}">${body}</sst>`;
+  }
+  function cellXml(ref,value,shared,styleId=4){
     const d=cellDescriptor(value);
     const style=d.style==="money"?5:(Number.isInteger(d.style)?d.style:styleId);
     const v=d.value;
     if(v===null||v===undefined||v==="")return `<c r="${ref}" s="${style}"/>`;
-    if((d.type==="number"||d.style==="money")&&Number.isFinite(Number(v))){
-      return `<c r="${ref}" s="${style}"><v>${Number(v)}</v></c>`;
-    }
-    return `<c r="${ref}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(v)}</t></is></c>`;
+    if(isNumberCell(d))return `<c r="${ref}" s="${style}"><v>${Number(v)}</v></c>`;
+    const key=normalizeText(v),idx=shared.index.get(key);
+    if(!Number.isInteger(idx))throw new Error("Shared string was not registered: "+key.slice(0,80));
+    return `<c r="${ref}" s="${style}" t="s"><v>${idx}</v></c>`;
   }
-  function rowXml(rowNum,values,styleId=4,height=""){
-    const cells=values.map((value,i)=>cellXml(colName(i)+rowNum,value,styleId)).join("");
+  function rowXml(rowNum,values,shared,styleId=4,height=""){
+    const cells=values.map((value,i)=>cellXml(colName(i)+rowNum,value,shared,styleId)).join("");
     const h=height?` ht="${height}" customHeight="1"`:"";
     return `<row r="${rowNum}"${h}>${cells}</row>`;
   }
-  function worksheetXml(sheet){
+  function worksheetXml(sheet,shared){
     const headers=Array.isArray(sheet.headers)&&sheet.headers.length?sheet.headers:["Items"];
     const rows=Array.isArray(sheet.rows)?sheet.rows:[];
     const lastCol=colName(headers.length-1);
     const lastRow=Math.max(4,4+rows.length);
     const widths=(sheet.widths||headers.map(()=>18)).map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${Math.max(7,Math.min(60,Number(w)||18))}" customWidth="1"/>`).join("");
     const data=[
-      rowXml(1,[sheet.title||sheet.name],1,24),
-      rowXml(2,[sheet.subtitle||""],2,32),
-      rowXml(4,headers,3,28),
-      ...rows.map((r,i)=>rowXml(i+5,Array.isArray(r)?r:[r],4,30))
+      rowXml(1,[sheet.title||sheet.name],shared,1,24),
+      rowXml(2,[sheet.subtitle||""],shared,2,32),
+      rowXml(4,headers,shared,3,28),
+      ...rows.map((r,i)=>rowXml(i+5,Array.isArray(r)?r:[r],shared,4,30))
     ].join("");
     const filter=rows.length?`<autoFilter ref="A4:${lastCol}${lastRow}"/>`:"";
+    const merges=headers.length>1?`<mergeCells count="2"><mergeCell ref="A1:${lastCol}1"/><mergeCell ref="A2:${lastCol}2"/></mergeCells>`:"";
     const orientation=sheet.orientation==="portrait"?"portrait":"landscape";
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>
   <dimension ref="A1:${lastCol}${lastRow}"/>
-  <sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+  <sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A5" sqref="A5"/></sheetView></sheetViews>
   <sheetFormatPr defaultRowHeight="15"/>
   <cols>${widths}</cols>
   <sheetData>${data}</sheetData>
-  <mergeCells count="2"><mergeCell ref="A1:${lastCol}1"/><mergeCell ref="A2:${lastCol}2"/></mergeCells>
   ${filter}
+  ${merges}
   <printOptions horizontalCentered="0" verticalCentered="0"/>
   <pageMargins left="0.3" right="0.3" top="0.45" bottom="0.45" header="0.2" footer="0.2"/>
   <pageSetup orientation="${orientation}" paperSize="9" fitToWidth="1" fitToHeight="0"/>
@@ -120,6 +152,7 @@
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
   <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>
   <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
   <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
   ${sheets}
@@ -150,6 +183,7 @@
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   ${rels}
   <Relationship Id="rId${sheetCount+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rId${sheetCount+2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>
 </Relationships>`;
   }
   function coreXml(options,now){
@@ -229,6 +263,7 @@
     const used=new Set();
     const sheets=inputSheets.map(s=>({...s,name:safeSheetName(s.name||s.title,used)}));
     const now=options.now instanceof Date?options.now:new Date();
+    const shared=collectSharedStrings(sheets);
     const files=[
       {name:"[Content_Types].xml",content:contentTypesXml(sheets.length)},
       {name:"_rels/.rels",content:rootRelsXml()},
@@ -237,7 +272,8 @@
       {name:"xl/workbook.xml",content:workbookXml(sheets)},
       {name:"xl/_rels/workbook.xml.rels",content:workbookRelsXml(sheets.length)},
       {name:"xl/styles.xml",content:stylesXml()},
-      ...sheets.map((s,i)=>({name:`xl/worksheets/sheet${i+1}.xml`,content:worksheetXml(s)}))
+      {name:"xl/sharedStrings.xml",content:sharedStringsXml(shared)},
+      ...sheets.map((s,i)=>({name:`xl/worksheets/sheet${i+1}.xml`,content:worksheetXml(s,shared)}))
     ];
     return zipStore(files,now);
   }
