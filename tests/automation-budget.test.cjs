@@ -6,6 +6,8 @@ const defaults=budget.normalizeSettings({});
 assert.equal(defaults.monthlySerpCap,30);
 assert.equal(defaults.targetCadenceDays,7);
 assert.equal(defaults.collectionCardsPerMonth,10);
+assert.equal(defaults.targetMonitoringEnabled,true);
+assert.equal(defaults.collectionRefreshEnabled,true);
 
 const estimate=budget.estimateMonthlyDemand(4,defaults);
 assert.equal(estimate.targetSearches,20,'weekly monitoring should budget one search per target check');
