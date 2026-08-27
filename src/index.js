@@ -1,4 +1,4 @@
-const VERSION = "3.26.0";
+const VERSION = "3.27.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -45,6 +45,14 @@ const COLLECTION_KV_KEY = "collection:primary:v1";
 const COLLECTION_MAX_BYTES = 512 * 1024;
 const COLLECTION_MAX_PLAYERS = 500;
 const CARD_PHOTO_PREFIX = "card-photo:v1:";
+const AUTOMATION_STATE_KEY = "automation:state:v1";
+const AUTOMATION_DEFAULT_SETTINGS = Object.freeze({
+  monthlySerpCap: 30,
+  targetMonitoringEnabled: true,
+  targetCadenceDays: 7,
+  collectionRefreshEnabled: true,
+  collectionCardsPerMonth: 10,
+});
 const CARD_PHOTO_MAX_BYTES = 1200 * 1024;
 const CARD_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -81,6 +89,46 @@ export default {
           cloudStorage: Boolean(env.SCOUT_DATA),
         }
       }, 200, cors);
+    }
+
+    if (url.pathname === "/automation/status" && request.method === "GET") {
+      const supplied = request.headers.get("X-Scout-Key") || "";
+      if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
+        return json({ ok: false, error: "unauthorized", message: "Scout access key rejected." }, 401, cors);
+      }
+      if (!env.SCOUT_DATA) {
+        return json({ ok: false, error: "cloud_storage_not_configured", message: "SCOUT_DATA KV binding is not configured on the Worker." }, 503, cors);
+      }
+      try {
+        const state = await readAutomationState(env.SCOUT_DATA);
+        return json({ ok: true, version: VERSION, runnerEnabled: false, ...automationPublicState(state) }, 200, cors);
+      } catch (err) {
+        console.error(err);
+        return json({ ok: false, error: "automation_status_failed", message: "Scout could not load the automation search budget." }, 502, cors);
+      }
+    }
+
+    if (url.pathname === "/automation/settings" && request.method === "POST") {
+      const supplied = request.headers.get("X-Scout-Key") || "";
+      if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
+        return json({ ok: false, error: "unauthorized", message: "Scout access key rejected." }, 401, cors);
+      }
+      if (!env.SCOUT_DATA) {
+        return json({ ok: false, error: "cloud_storage_not_configured", message: "SCOUT_DATA KV binding is not configured on the Worker." }, 503, cors);
+      }
+      let body;
+      try { body = await request.json(); }
+      catch { return json({ ok: false, error: "bad_json", message: "Automation settings are not valid JSON." }, 400, cors); }
+      try {
+        const existing = await readAutomationState(env.SCOUT_DATA);
+        const settings = normalizeAutomationSettings(body);
+        const next = { ...existing, settings, updatedAt: new Date().toISOString() };
+        await writeAutomationState(env.SCOUT_DATA, next);
+        return json({ ok: true, version: VERSION, runnerEnabled: false, ...automationPublicState(next) }, 200, cors);
+      } catch (err) {
+        console.error(err);
+        return json({ ok: false, error: "automation_settings_failed", message: "Scout could not save the automation search budget." }, 502, cors);
+      }
     }
 
     if (url.pathname === "/psa/verify" && request.method === "POST") {
@@ -797,6 +845,93 @@ export default {
     }
   }
 };
+
+function automationMonthKey(now=new Date()) {
+  return now.toISOString().slice(0, 7);
+}
+
+function automationClampInt(value, min, max, fallback) {
+  const number = Math.round(Number(value));
+  return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
+}
+
+function normalizeAutomationSettings(input={}) {
+  return {
+    monthlySerpCap: automationClampInt(input?.monthlySerpCap, 1, 500, AUTOMATION_DEFAULT_SETTINGS.monthlySerpCap),
+    targetMonitoringEnabled: input?.targetMonitoringEnabled !== false,
+    targetCadenceDays: automationClampInt(input?.targetCadenceDays, 1, 30, AUTOMATION_DEFAULT_SETTINGS.targetCadenceDays),
+    collectionRefreshEnabled: input?.collectionRefreshEnabled !== false,
+    collectionCardsPerMonth: automationClampInt(input?.collectionCardsPerMonth, 0, 100, AUTOMATION_DEFAULT_SETTINGS.collectionCardsPerMonth),
+  };
+}
+
+function normalizeAutomationUsage(raw={}, period=automationMonthKey()) {
+  if (String(raw?.period || "") !== period) {
+    return { period, serpSuccessful: 0, cardApiRequests: 0, apifyRuns: 0 };
+  }
+  return {
+    period,
+    serpSuccessful: Math.max(0, Math.floor(Number(raw?.serpSuccessful) || 0)),
+    cardApiRequests: Math.max(0, Math.floor(Number(raw?.cardApiRequests) || 0)),
+    apifyRuns: Math.max(0, Math.floor(Number(raw?.apifyRuns) || 0)),
+  };
+}
+
+function normalizeAutomationState(raw={}) {
+  const period = automationMonthKey();
+  return {
+    schema: 1,
+    settings: normalizeAutomationSettings(raw?.settings || AUTOMATION_DEFAULT_SETTINGS),
+    usage: normalizeAutomationUsage(raw?.usage || {}, period),
+    alerts: Array.isArray(raw?.alerts) ? raw.alerts.slice(-50) : [],
+    lastRunAt: raw?.lastRunAt || "",
+    updatedAt: raw?.updatedAt || "",
+  };
+}
+
+function automationSerpRemaining(state) {
+  const normalized = normalizeAutomationState(state);
+  return Math.max(0, normalized.settings.monthlySerpCap - normalized.usage.serpSuccessful);
+}
+
+function automationCanSpendSerp(state, count=1) {
+  const needed = Math.max(0, Math.floor(Number(count) || 0));
+  return automationSerpRemaining(state) >= needed;
+}
+
+function automationReserveSerp(state, count=1) {
+  const normalized = normalizeAutomationState(state);
+  const needed = Math.max(0, Math.floor(Number(count) || 0));
+  if (!automationCanSpendSerp(normalized, needed)) return { ok: false, state: normalized };
+  normalized.usage.serpSuccessful += needed;
+  return { ok: true, state: normalized };
+}
+
+function automationPublicState(state) {
+  const normalized = normalizeAutomationState(state);
+  return {
+    schema: normalized.schema,
+    period: normalized.usage.period,
+    settings: normalized.settings,
+    usage: normalized.usage,
+    remaining: { serpSuccessful: automationSerpRemaining(normalized) },
+    lastRunAt: normalized.lastRunAt || null,
+    updatedAt: normalized.updatedAt || null,
+    note: "Background runner is not enabled yet; these server-side guardrails are installed first.",
+  };
+}
+
+async function readAutomationState(kv) {
+  const raw = await kv.get(AUTOMATION_STATE_KEY, { type: "json" });
+  return normalizeAutomationState(raw || {});
+}
+
+async function writeAutomationState(kv, state) {
+  const normalized = normalizeAutomationState(state);
+  normalized.updatedAt = state?.updatedAt || new Date().toISOString();
+  await kv.put(AUTOMATION_STATE_KEY, JSON.stringify(normalized));
+  return normalized;
+}
 
 function json(body, status, cors) {
   return new Response(JSON.stringify(body), {
