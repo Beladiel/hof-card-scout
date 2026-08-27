@@ -1,0 +1,16 @@
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const vm=require("node:vm");
+const html=fs.readFileSync("index.html","utf8");
+const scriptMatch=html.match(/<script>([\s\S]*)<\/script>/);
+assert.ok(scriptMatch,"inline app script missing");
+new vm.Script(scriptMatch[1]);
+assert.match(html,/const targetTotal=PLAYERS\.filter\(p=>p\.target\)\.length\+futureHofActiveTargetEntries\(\)\.length/);
+assert.match(html,/function futureHofEditTarget\(name\)/);
+assert.match(html,/function futureHofRemoveTarget\(name\)/);
+assert.match(html,/targetManageOrigin="future"/);
+assert.match(html,/if\(targetManageFutureName\)\{/);
+assert.match(html,/FIND \/ REPLACE TARGET/);
+assert.match(html,/futureBudgetValue/);
+assert.match(html,/targetAutoPreference:String\(target\.autoPreference\|\|"No preference"\)/);
+console.log("Future HOF target parity tests passed.");

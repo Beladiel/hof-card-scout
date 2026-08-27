@@ -1002,7 +1002,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.1.0</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.1.1</div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -1369,12 +1369,13 @@ function toast(msg){
 }
 function stats(){
   const owned=ownedCount(),need=needCount(),complete=completion();
+  const targetTotal=PLAYERS.filter(p=>p.target).length+futureHofActiveTargetEntries().length;
   $("haveStat").textContent=owned;$("needStat").textContent=need;$("completeStat").textContent=complete.toFixed(1)+"%";
   $("progressFill").style.width=complete.toFixed(1)+"%";
-  $("targetCount").textContent=PLAYERS.filter(p=>p.target).length;
+  $("targetCount").textContent=targetTotal;
 }
 function rotateMission(){
-  const owned=ownedCount(),need=needCount(),complete=completion(),targets=PLAYERS.filter(p=>p.target).length;
+  const owned=ownedCount(),need=needCount(),complete=completion(),targets=PLAYERS.filter(p=>p.target).length+futureHofActiveTargetEntries().length;
   const missionLines=[
     [need+" Hall of Famers still need cardboard representation.","Pick a letter. Let’s go fill a hole in the lineup."],
     ["Your Hall is "+complete.toFixed(1)+"% complete.","That means there is still perfectly good cardboard out there avoiding you."],
@@ -1421,7 +1422,14 @@ function futureHofActiveTargetEntries(){
       last:String(name).trim().split(/\s+/).slice(-1)[0]||name,
       futureHofTarget:true,
       target:String(target.label||target.title||"Saved Future Target"),
-      targetNotes:"Future HOF Watchlist · Not yet in the Hall",
+      targetNotes:String(target.notes||"Future HOF Watchlist · Not yet in the Hall"),
+      targetYear:Number.isInteger(Number(target.year))?Number(target.year):null,
+      targetSet:String(target.set||""),
+      targetCardNum:String(target.cardNum||""),
+      targetGrader:String(target.grader||"Any / Raw OK"),
+      targetGrade:String(target.grade||""),
+      targetAutoPreference:String(target.autoPreference||"No preference"),
+      targetMaxPrice:Number.isFinite(Number(target.maxPrice))?Number(target.maxPrice):null,
       listingUrl:String(target.listingUrl||""),
       priceVerdict:String(target.priceVerdict||""),
       savedFutureTarget:target
@@ -2733,6 +2741,7 @@ function renderHallForecast(){
 
   $("forecastTopFive").innerHTML=HOF_FORECAST_2027.map(p=>{
     const watching=state.watch.includes(p.name);
+    const hasTarget=!!state.targets[p.name];
     const pills=p.firstYear
       ? `<span class="forecast-pill">FIRST-YEAR ELIGIBLE</span><span class="forecast-pill">NO VOTE HISTORY</span>`
       : `<span class="forecast-pill">${p.current.toFixed(1)}% CURRENT</span><span class="forecast-pill">+${p.trend.toFixed(1)} TREND</span><span class="forecast-pill">${p.projected.toFixed(1)}% SIMPLE PROJECTION</span>`;
@@ -2744,7 +2753,7 @@ function renderHallForecast(){
         <div class="forecast-pills">${pills}</div>
         <div class="forecast-actions">
           <button class="${watching?"secondary":"ghost"}" onclick='futureHofToggleWatch(${JSON.stringify(p.name)})'>${watching?"✓ WATCHING":"👁 WATCH"}</button>
-          <button class="ghost" onclick='futureHofOpenTarget(${JSON.stringify(p.name)})'>🔎 FIND A TARGET</button>
+          <button class="ghost" onclick='futureHofOpenTarget(${JSON.stringify(p.name)})'>${hasTarget?"🔎 FIND / REPLACE TARGET":"🔎 FIND A TARGET"}</button>
         </div>
       </div>
       <div class="forecast-score"><b>${p.score.toFixed(1)}</b><span>SCOUT MOMENTUM</span></div>
@@ -2770,11 +2779,18 @@ function renderFutureHofWatchlist(){
     const slug=futureHofSlug(name);
     const target=state.targets[name];
     const purchase=state.purchases[name];
+    const targetMax=Number(target?.maxPrice);
+    const futureBudgetValue=Number.isFinite(targetMax)&&targetMax>0?targetMax.toFixed(2):defaultBudget;
     const purchaseLabel=purchase
       ? `<div class="future-hof-owned">✓ EARLY CARD OWNED${purchase.incoming?" · INCOMING":""}</div>`
       : "";
     const targetLabel=target
-      ? `<div class="future-hof-target">🎯 FUTURE TARGET: ${escapeHtml(target.label||target.title||"Saved target")}${target.priceVerdict?` · ${escapeHtml(target.priceVerdict)}`:""}</div>`
+      ? `<div class="future-hof-target">🎯 FUTURE TARGET: ${escapeHtml(target.label||target.title||"Saved target")}${target.priceVerdict?` · ${escapeHtml(target.priceVerdict)}`:""}
+          <div class="forecast-actions" style="margin-top:8px">
+            <button class="ghost" type="button" onclick='futureHofEditTarget(${JSON.stringify(name)})'>✎ EDIT TARGET</button>
+            <button class="danger" type="button" onclick='futureHofRemoveTarget(${JSON.stringify(name)})'>REMOVE TARGET</button>
+          </div>
+        </div>`
       : "";
     const meta=p.firstYear
       ? "First-year eligible · résumé-based watch"
@@ -2792,9 +2808,9 @@ function renderFutureHofWatchlist(){
       <div class="future-hof-budget">
         <div>
           <label for="futureBudget-${slug}">MAX DELIVERED PRICE</label>
-          <div class="future-hof-money"><span>$</span><input id="futureBudget-${slug}" inputmode="decimal" value="${escapeHtml(defaultBudget)}"></div>
+          <div class="future-hof-money"><span>$</span><input id="futureBudget-${slug}" inputmode="decimal" value="${escapeHtml(futureBudgetValue)}"></div>
         </div>
-        <button class="secondary" onclick='futureHofFindTarget(${JSON.stringify(name)},false)'>🔎 FIND A TARGET</button>
+        <button class="secondary" onclick='futureHofFindTarget(${JSON.stringify(name)},false)'>${target?"🔎 FIND / REPLACE TARGET":"🔎 FIND A TARGET"}</button>
       </div>
       <div class="future-hof-status" id="futureStatus-${slug}"></div>
       <div class="future-hof-result" id="futureResult-${slug}" hidden></div>
@@ -2958,12 +2974,26 @@ function futureHofSaveTarget(name){
   const s=futureHofSuggestions[name];
   if(!s)return;
   const state=futureHofGetState();
+  const label=futureHofTargetLabel(s);
+  const existing=state.targets[name];
+  if(existing&&String(existing.label||existing.title||"")!==label){
+    const ok=window.confirm(name+" already has a Future Target: "+(existing.label||existing.title||"Saved target")+". Replace it with "+label+"?");
+    if(!ok)return;
+  }
   if(!state.watch.includes(name))state.watch.push(name);
+  const slug=futureHofSlug(name);
+  const budget=Number($("futureBudget-"+slug)?.value);
   state.targets[name]={
-    label:futureHofTargetLabel(s),
+    ...existing,
+    label,
     year:s.year||null,
     set:scoutRecommendationCanonicalSet(s)||s.set||"",
     cardNum:s.cardNum||scoutRecommendationCardNumFromTitle(s.title||"")||"",
+    grader:s.gradeInfo?.grader&&s.gradeInfo.grader!=="Raw"?s.gradeInfo.grader:"Any / Raw OK",
+    grade:s.gradeInfo?.grade??"",
+    autoPreference:s.traits?.autograph?"Autograph required":"No preference",
+    maxPrice:Number.isFinite(budget)&&budget>0?budget:null,
+    notes:String(existing?.notes||""),
     title:s.title||"",
     listingUrl:s.link||"",
     delivered:Number.isFinite(Number(s.delivered))?Number(s.delivered):null,
@@ -2971,6 +3001,7 @@ function futureHofSaveTarget(name){
     savedAt:new Date().toISOString()
   };
   futureHofWrite(state,true);
+  stats();rotateMission();
   toast("🎯 Future target saved for "+name+". It is now visible in your main Targets list.");
   renderHallForecast();
   renderList();
@@ -4620,7 +4651,42 @@ async function shopAnalysis(e){
   }catch(err){renderPricingError(card,ctx,err.message||"Unknown pricing error.");}
 }
 let targetManageOrigin="targets";
+let targetManageFutureName="";
+function futureHofEditTarget(name){
+  const state=futureHofGetState();
+  const t=state.targets[name];
+  if(!t){toast("No Future HOF target is saved for "+name+".");return}
+  targetManageFutureName=name;
+  targetManageOrigin="future";
+  $("targetForm").reset();
+  $("targetPlayer").readOnly=true;
+  $("targetPlayer").value=name;
+  $("targetYear").value=t.year||"";
+  $("targetSet").value=t.set||"";
+  $("targetNum").value=t.cardNum||"";
+  $("targetGrader").value=t.grader||"Any / Raw OK";
+  $("targetGrade").value=t.grade||"";
+  $("targetAutoPreference").value=t.autoPreference||"No preference";
+  $("targetMaxPrice").value=Number.isFinite(Number(t.maxPrice))&&Number(t.maxPrice)>0?Number(t.maxPrice).toFixed(2):"";
+  $("targetNotes").value=t.notes||"";
+  $("targetManageTitle").textContent="Edit Future HOF Target";
+  $("targetManageSub").textContent="Update the exact card and preferences Scout should hunt for "+name+". This does not add him to your official Hall roster.";
+  $("targetSaveBtn").textContent="SAVE FUTURE TARGET CHANGES";
+  showScreen("targetManageScreen");
+}
+function futureHofRemoveTarget(name){
+  const state=futureHofGetState();
+  const t=state.targets[name];
+  if(!t)return;
+  const ok=window.confirm("Remove "+name+"’s Future HOF target “"+(t.label||t.title||"Saved target")+"”? He will stay on your Future HOF Watchlist.");
+  if(!ok)return;
+  delete state.targets[name];
+  futureHofWrite(state,true);
+  stats();rotateMission();renderHallForecast();renderList();renderHuntList();
+  toast("Future HOF target removed for "+name+".");
+}
 function openTargetManage(prefill=null){
+  targetManageFutureName="";
   $("targetForm").reset();
   const p=prefill&&prefill.name?prefill:null;
   targetManageOrigin=p&&currentPlayer&&currentPlayer.name===p.name?"detail":"targets";
@@ -4649,8 +4715,6 @@ function openTargetManage(prefill=null){
 function saveTargetCard(e){
   e.preventDefault();
   const name=$("targetPlayer").value.trim();
-  const p=PLAYERS.find(x=>x.name.toLowerCase()===name.toLowerCase());
-  if(!p){toast("Scout needs an exact Hall of Famer from the player list.");return}
   const year=parseInt($("targetYear").value.trim(),10);
   const set=$("targetSet").value.trim();
   const num=$("targetNum").value.trim();
@@ -4661,6 +4725,27 @@ function saveTargetCard(e){
   if(!set){toast("Scout needs the target set name.");return}
   if(maxRaw!==""&&(!Number.isFinite(maxPrice)||maxPrice<=0)){toast("Max delivered price needs to be a valid amount.");return}
   const label=[year,set,num?"#"+num:""] .filter(Boolean).join(" ");
+  if(targetManageFutureName){
+    const futureName=targetManageFutureName;
+    const state=futureHofGetState();
+    const existing=state.targets[futureName]||{};
+    if(!state.watch.includes(futureName))state.watch.push(futureName);
+    state.targets[futureName]={
+      ...existing,label,year,set,cardNum:num,
+      grader:$("targetGrader").value,grade:$("targetGrade").value.trim(),
+      autoPreference:$("targetAutoPreference").value,maxPrice,notes,
+      savedAt:new Date().toISOString()
+    };
+    futureHofWrite(state,true);
+    targetManageFutureName="";
+    stats();rotateMission();renderList();renderHuntList();
+    showScreen("forecastScreen");renderHallForecast();
+    setTimeout(()=>$("futureRow-"+futureHofSlug(futureName))?.scrollIntoView({behavior:"smooth",block:"center"}),80);
+    toast("Future HOF target updated for "+futureName+".");
+    return;
+  }
+  const p=PLAYERS.find(x=>x.name.toLowerCase()===name.toLowerCase());
+  if(!p){toast("Scout needs an exact Hall of Famer from the player list.");return}
   if(p.target&&p.target!==label){
     const ok=window.confirm(p.name+" already has a target: "+p.target+". Replace it with "+label+"?");
     if(!ok)return;
@@ -4727,7 +4812,11 @@ $("findTargetBudget").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preve
 $("targetsBtn").addEventListener("click",showTargets);
 $("addTargetBtn").addEventListener("click",()=>openTargetManage());
 $("targetManageBack").addEventListener("click",()=>{
-  if(targetManageOrigin==="detail"&&currentPlayer)openPlayer(currentPlayer,returnScreen);
+  if(targetManageOrigin==="future"&&targetManageFutureName){
+    const name=targetManageFutureName;targetManageFutureName="";
+    showScreen("forecastScreen");renderHallForecast();
+    setTimeout(()=>$("futureRow-"+futureHofSlug(name))?.scrollIntoView({behavior:"smooth",block:"center"}),80);
+  }else if(targetManageOrigin==="detail"&&currentPlayer)openPlayer(currentPlayer,returnScreen);
   else{showScreen("homeScreen");showTargets();}
 });
 $("targetForm").addEventListener("submit",saveTargetCard);
