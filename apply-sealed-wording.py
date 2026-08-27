@@ -32,6 +32,7 @@ p.write_text(h,encoding='utf-8')
 
 for test in Path('tests').glob('*.test.cjs'):
     t=test.read_text(encoding='utf-8')
+    t=t.replace('SEALED PRODUCT SCOUT · SCAN A BOX','SCAN SEALED PRODUCT')
     t=t.replace('v6\\.0\\.0','v6\\.0\\.1')
     t=t.replace('v6.0.0','v6.0.1')
     t=t.replace('version:"6.0.0"','version:"6.0.1"')
