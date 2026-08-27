@@ -19,7 +19,7 @@ function storedZipEntries(bytes){
 }
 
 const sheets=[
-  {name:"Hunt Sheet",title:"Hunt",subtitle:"Offline",headers:["STATUS","PLAYER","MAX"],rows:[["TARGET","Sandy Koufax",{value:25,type:"number",style:"money"}]],widths:[20,25,15],orientation:"landscape"},
+  {name:"Hunt Sheet",title:"HOF Card Scout — Offline Hunt Sheet",subtitle:"Generated test",headers:["STATUS","PLAYER","MAX"],rows:[["TARGET","Sandy Koufax",{value:25,type:"number",style:"money"}],["NEED","Pete Hill",""]],widths:[20,25,15],orientation:"landscape"},
   {name:"Need List",title:"Need",subtitle:"Official Hall",headers:["PLAYER"],rows:[["Pete Hill"]],widths:[25],orientation:"portrait"},
   {name:"Target List",title:"Targets",subtitle:"Hall + Future",headers:["PLAYER"],rows:[["Buster Posey"]],widths:[25],orientation:"landscape"},
   {name:"Incoming",title:"Incoming",subtitle:"Do not rebuy",headers:["PLAYER"],rows:[["Dave Bancroft"]],widths:[25],orientation:"landscape"}
@@ -27,14 +27,27 @@ const sheets=[
 const bytes=report.buildWorkbook(sheets,{creator:"HOF Card Scout",now:new Date("2026-08-27T12:00:00Z")});
 assert.equal(bytes[0],0x50);assert.equal(bytes[1],0x4b);
 const entries=storedZipEntries(bytes);
-for(const name of ["[Content_Types].xml","_rels/.rels","docProps/core.xml","docProps/app.xml","xl/workbook.xml","xl/_rels/workbook.xml.rels","xl/styles.xml","xl/worksheets/sheet1.xml","xl/worksheets/sheet4.xml"]){
+for(const name of ["[Content_Types].xml","_rels/.rels","docProps/core.xml","docProps/app.xml","xl/workbook.xml","xl/_rels/workbook.xml.rels","xl/styles.xml","xl/sharedStrings.xml","xl/worksheets/sheet1.xml","xl/worksheets/sheet4.xml"]){
   assert.ok(entries.has(name),"missing XLSX part "+name);
 }
 const workbook=entries.get("xl/workbook.xml").toString("utf8");
 assert.match(workbook,/sheet name="Hunt Sheet"/);assert.match(workbook,/sheet name="Need List"/);assert.match(workbook,/sheet name="Target List"/);assert.match(workbook,/sheet name="Incoming"/);
 assert.match(workbook,/_xlnm\.Print_Titles/);
+
+const rels=entries.get("xl/_rels/workbook.xml.rels").toString("utf8");
+assert.match(rels,/relationships\/sharedStrings/);
+const contentTypes=entries.get("[Content_Types].xml").toString("utf8");
+assert.match(contentTypes,/sharedStrings\.xml/);
+
+const shared=entries.get("xl/sharedStrings.xml").toString("utf8");
+for(const text of ["HOF Card Scout — Offline Hunt Sheet","STATUS","PLAYER","TARGET","Sandy Koufax","NEED","Pete Hill","Buster Posey","Dave Bancroft"]){
+  assert.ok(shared.includes(text),"shared-string table missing "+text);
+}
+
 const hunt=entries.get("xl/worksheets/sheet1.xml").toString("utf8");
-assert.match(hunt,/fitToWidth="1"/);assert.match(hunt,/state="frozen"/);assert.match(hunt,/Sandy Koufax/);assert.match(hunt,/<v>25<\/v>/);
+assert.match(hunt,/fitToWidth="1"/);assert.match(hunt,/state="frozen"/);assert.match(hunt,/t="s"/);assert.match(hunt,/<v>25<\/v>/);
+assert.ok(hunt.indexOf("<sheetData>")<hunt.indexOf("<autoFilter"),"sheetData must precede autoFilter");
+assert.ok(hunt.indexOf("<autoFilter")<hunt.indexOf("<mergeCells"),"autoFilter must precede mergeCells for Excel worksheet schema order");
 assert.ok(entries.get("xl/styles.xml").toString("utf8").includes('$#,##0.00'));
 
 const html=fs.readFileSync("index.html","utf8");
