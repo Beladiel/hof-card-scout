@@ -27,8 +27,9 @@ jobs:
           for p in Path("tests").glob("*.test.cjs"):
               s=p.read_text(encoding="utf-8")
               s=s.replace("3.25.1","3.26.0")
-              s=s.replace(r"v5\.7\.0",r"v5\.8\.0")
+              s=s.replace(r"3\.25\.1",r"3\.26\.0")
               s=s.replace("5.7.0","5.8.0")
+              s=s.replace(r"5\.7\.0",r"5\.8\.0")
               p.write_text(s,encoding="utf-8")
           PY
       - name: Syntax-check Worker and browser helpers
