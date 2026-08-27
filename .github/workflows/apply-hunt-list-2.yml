@@ -1,6 +1,7 @@
 name: Apply Hunt List 2.0
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
