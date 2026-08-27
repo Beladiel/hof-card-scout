@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - apply_automation_budget.py
+      - fix_automation_wiring.py
       - automation-budget.js
       - tests/automation-budget.test.cjs
       - .github/workflows/apply-automation-budget.yml
@@ -20,7 +21,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Apply automation budget guardrails
-        run: python apply_automation_budget.py
+        run: |
+          python apply_automation_budget.py
+          python fix_automation_wiring.py
       - name: Check Worker syntax
         run: node --check src/index.js
       - name: Run regression suite
