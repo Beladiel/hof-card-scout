@@ -1,0 +1,42 @@
+name: Apply target monitor cron
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apply_target_monitor_cron.py
+      - tests/automation-target-cron.test.cjs
+      - .github/workflows/apply-target-monitor-cron.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply target monitor cron
+        run: python apply_target_monitor_cron.py
+      - name: Check Worker syntax
+        run: node --check src/index.js
+      - name: Run regression suite
+        run: |
+          node collection-intelligence.test.cjs
+          for f in tests/*.test.cjs; do
+            echo "Running $f"
+            node "$f"
+          done
+      - name: Commit changes
+        run: |
+          git config user.name "HOF Card Scout Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/index.js wrangler.jsonc automation-budget.js tests/*.test.cjs
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Enable budgeted target monitoring"
+          git push
