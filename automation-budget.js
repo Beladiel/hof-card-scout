@@ -99,7 +99,7 @@
     if(demandEl)demandEl.textContent=String(d.total);
     if(note)note.textContent=d.total>settings.monthlySerpCap
       ?`Planned demand is about ${d.total} one-search checks/month, but Scout would stop at your ${settings.monthlySerpCap}-search hard cap.`
-      :`Planned demand is about ${d.total} one-search checks/month (${d.targetSearches} target + ${d.collectionSearches} collection), below your ${settings.monthlySerpCap}-search cap.`;
+      :`Planned demand is about ${d.total} one-search checks/month (${d.targetSearches} target + ${d.collectionSearches} collection), at or below your ${settings.monthlySerpCap}-search cap.`;
   }
   function renderState(state){
     latestState=state||latestState;
@@ -114,7 +114,7 @@
     document.getElementById("automationMeterFill").style.width=pct(used,s.monthlySerpCap).toFixed(1)+"%";
     document.getElementById("automationRemaining").textContent=remaining(s.monthlySerpCap,used)+" automatic searches remain in "+(latestState.period||"this monthly period")+".";
     const chip=document.getElementById("automationEngineChip");
-    chip.textContent=latestState.runnerEnabled?"BACKGROUND RUNNER ON":"GUARDRAILS ONLY";
+    chip.textContent=latestState.targetRunnerEnabled?"TARGET MONITOR ON":(latestState.runnerEnabled?"BACKGROUND RUNNER ON":"GUARDRAILS ONLY");
     chip.className="automation-chip "+(latestState.runnerEnabled?"safe":"warn");
     renderDemand();
   }
@@ -129,7 +129,7 @@
       const res=await fetch(c.endpoint+"/automation/status",{headers:{"X-Scout-Key":c.accessKey}});const data=await res.json().catch(()=>({}));
       if(!res.ok||!data.ok)throw new Error(data.message||data.error||("HTTP "+res.status));
       renderState(data);
-      status.className="automation-status ok";status.textContent=data.runnerEnabled?"✓ Background automation is protected by this hard cap.":"✓ Search guardrails are stored on the Worker. No background searches are running yet.";
+      status.className="automation-status ok";status.textContent=data.targetRunnerEnabled?"✓ Saved-target monitoring is scheduled and protected by this hard cap. Collection rotation is still off.":(data.runnerEnabled?"✓ Background automation is protected by this hard cap.":"✓ Search guardrails are stored on the Worker. No background searches are running yet.");
       return true;
     }catch(err){status.className="automation-status bad";status.textContent="Automation budget service unavailable: "+(err.message||"unknown error");return false;}
   }

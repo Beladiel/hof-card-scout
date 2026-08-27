@@ -1,4 +1,4 @@
-const VERSION = "3.28.0";
+const VERSION = "3.29.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -104,7 +104,7 @@ export default {
       try {
         const state = await readAutomationState(env.SCOUT_DATA);
         const catalog = await readAutomationCatalog(env.SCOUT_DATA);
-        return json({ ok: true, version: VERSION, runnerEnabled: false, ...automationPublicState(state), catalog: automationCatalogSummary(catalog) }, 200, cors);
+        return json({ ok: true, version: VERSION, runnerEnabled: true, targetRunnerEnabled: true, collectionRunnerEnabled: false, ...automationPublicState(state), catalog: automationCatalogSummary(catalog) }, 200, cors);
       } catch (err) {
         console.error(err);
         return json({ ok: false, error: "automation_status_failed", message: "Scout could not load the automation search budget." }, 502, cors);
@@ -127,7 +127,7 @@ export default {
         const settings = normalizeAutomationSettings(body);
         const next = { ...existing, settings, updatedAt: new Date().toISOString() };
         await writeAutomationState(env.SCOUT_DATA, next);
-        return json({ ok: true, version: VERSION, runnerEnabled: false, ...automationPublicState(next) }, 200, cors);
+        return json({ ok: true, version: VERSION, runnerEnabled: true, targetRunnerEnabled: true, collectionRunnerEnabled: false, ...automationPublicState(next) }, 200, cors);
       } catch (err) {
         console.error(err);
         return json({ ok: false, error: "automation_settings_failed", message: "Scout could not save the automation search budget." }, 502, cors);
@@ -178,7 +178,7 @@ export default {
         const run = await runOneAutomationTargetCheck(env, state, catalog);
         state = run.state;
         await writeAutomationState(env.SCOUT_DATA, state);
-        return json({ ok: true, version: VERSION, runnerEnabled: false, result: run.result, ...automationPublicState(state), catalog: automationCatalogSummary(catalog) }, 200, cors);
+        return json({ ok: true, version: VERSION, runnerEnabled: true, targetRunnerEnabled: true, collectionRunnerEnabled: false, result: run.result, ...automationPublicState(state), catalog: automationCatalogSummary(catalog) }, 200, cors);
       } catch (err) {
         console.error(err);
         return json({ ok: false, error: "automation_run_failed", message: err?.message || "Scout could not complete the protected target check." }, 502, cors);
@@ -897,7 +897,13 @@ export default {
       console.error(err);
       return json({ ok: false, error: "valuation_failed", message: err?.message || "Valuation failed." }, 502, cors);
     }
-  }
+  },
+  async scheduled(controller, env, ctx) {
+    const now = new Date(Number(controller?.scheduledTime) || Date.now());
+    const task = runScheduledTargetMonitor(env, now).catch(err => console.error("Scheduled target monitor failed", err));
+    if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(task);
+    else await task;
+  },
 };
 
 function automationMonthKey(now=new Date()) {
@@ -973,7 +979,7 @@ function automationPublicState(state) {
     lastRunAt: normalized.lastRunAt || null,
     updatedAt: normalized.updatedAt || null,
     alerts: normalized.alerts.slice(-20),
-    note: "Background cron is not enabled yet; the one-search runner is available for an explicit safety test.",
+    note: "Saved-target monitoring is scheduled with the one-search guardrail. Collection-value rotation is still disabled.",
   };
 }
 
@@ -1085,10 +1091,20 @@ function automationEligibleTargets(catalog) {
   });
 }
 
-function automationChooseTarget(catalog, state) {
-  const targets = automationEligibleTargets(catalog);
+function automationChooseTarget(catalog, state, options={}) {
+  let targets = automationEligibleTargets(catalog);
   if (!targets.length) return null;
   const checks = state?.targetChecks && typeof state.targetChecks === "object" ? state.targetChecks : {};
+  if (options?.dueOnly) {
+    const now = options?.now instanceof Date ? options.now : new Date(options?.now || Date.now());
+    const cadenceDays = Math.max(1, Number(state?.settings?.targetCadenceDays) || 7);
+    const cadenceMs = cadenceDays * 24 * 60 * 60 * 1000;
+    targets = targets.filter(target => {
+      const last = Date.parse(checks[automationTargetKey(target)] || "") || 0;
+      return !last || now.getTime() - last >= cadenceMs;
+    });
+    if (!targets.length) return null;
+  }
   targets.sort((a,b) => {
     const at = Date.parse(checks[automationTargetKey(a)] || "") || 0;
     const bt = Date.parse(checks[automationTargetKey(b)] || "") || 0;
@@ -1114,12 +1130,12 @@ function automationAlertFromSuggestion(target, suggestion, now) {
   };
 }
 
-async function runOneAutomationTargetCheck(env, inputState, catalog, now=new Date()) {
+async function runOneAutomationTargetCheck(env, inputState, catalog, now=new Date(), options={}) {
   let state = normalizeAutomationState(inputState || {});
   if (!state.settings.targetMonitoringEnabled) return { state, result: { status: "skipped", searchUsed: 0, message: "Saved-target monitoring is turned off in your guardrails." } };
   if (!env.SERPAPI_KEY) return { state, result: { status: "skipped", searchUsed: 0, message: "SerpApi is not configured, so Scout used zero searches." } };
-  const target = automationChooseTarget(catalog, state);
-  if (!target) return { state, result: { status: "skipped", searchUsed: 0, message: "No saved target has enough identity plus a maximum price for an automatic affordability check." } };
+  const target = automationChooseTarget(catalog, state, { dueOnly: Boolean(options?.dueOnly), now });
+  if (!target) return { state, result: { status: "skipped", searchUsed: 0, message: options?.dueOnly ? "No saved target is due yet. Scout used zero searches." : "No saved target has enough identity plus a maximum price for an automatic affordability check." } };
   const reserved = automationReserveSerp(state, 1);
   if (!reserved.ok) return { state: reserved.state, result: { status: "skipped", searchUsed: 0, message: "Monthly automatic-search cap reached. Scout stopped without searching." } };
   state = reserved.state;
@@ -1143,6 +1159,16 @@ async function runOneAutomationTargetCheck(env, inputState, catalog, now=new Dat
   }
   state.updatedAt = now.toISOString();
   return { state, result };
+}
+
+async function runScheduledTargetMonitor(env, now=new Date()) {
+  if (!env?.SCOUT_DATA) return { status: "skipped", searchUsed: 0, message: "SCOUT_DATA is not configured." };
+  let state = await readAutomationState(env.SCOUT_DATA);
+  const catalog = await readAutomationCatalog(env.SCOUT_DATA);
+  const run = await runOneAutomationTargetCheck(env, state, catalog, now, { dueOnly: true });
+  state = run.state;
+  await writeAutomationState(env.SCOUT_DATA, state);
+  return run.result;
 }
 
 function json(body, status, cors) {

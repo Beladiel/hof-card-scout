@@ -7,6 +7,9 @@
   "observability": {
     "enabled": true
   },
+  "triggers": {
+    "crons": ["15 16 * * *"]
+  },
   "kv_namespaces": [
     {
       "binding": "SCOUT_DATA",
