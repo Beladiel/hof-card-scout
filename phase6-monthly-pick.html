@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e2b22">
-<title>Scout's Monthly Pick — Lab v0.2.2</title>
+<title>Scout's Monthly Pick — Lab v0.2.3</title>
 <style>
 :root{--bg:#071c16;--bg2:#0d2b22;--panel:#12372c;--text:#f7f4ea;--muted:#b9c9c2;--line:#2a5045;--green:#56c58a;--red:#ef6c6c;--gold:#e6bd63;--cream:#fff8e9;--ink:#102019}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% -10%,rgba(230,189,99,.14),transparent 35%),linear-gradient(180deg,var(--bg2),var(--bg) 420px);color:var(--text);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
@@ -37,8 +37,8 @@ button{border:0;border-radius:13px;min-height:46px;padding:9px 13px;font-weight:
 <div class="shell">
   <div class="top">
     <div class="ball">⚾</div>
-    <div class="brand"><h1>Scout's Monthly Pick</h1><p>One player. One recommendation. Once a month.</p></div>
-    <div class="version">LAB v0.2.2</div>
+    <div class="brand"><h1>Scout's Monthly Pick</h1><p>One player. Five ranked choices. Once a month.</p></div>
+    <div class="version">LAB v0.2.3</div>
   </div>
 
   <div class="hero">
@@ -265,6 +265,7 @@ function selectMonthlyPlayer(){
           excludedIds:[],
           retryCount:0,
           suggestion:null,
+          suggestions:[],
           checkedAt:null,
           migratedFromV01:true
         };
@@ -285,6 +286,7 @@ function selectMonthlyPlayer(){
       excludedIds:[],
       retryCount:0,
       suggestion:null,
+      suggestions:[],
       checkedAt:null
     };
     writeState();
@@ -298,7 +300,7 @@ function selectMonthlyPlayer(){
     ?"Your Hall of Fame roster is complete, so Scout selected an owned player for an age-first upgrade."
     :"Randomly selected from Hall of Famers you still need. Scout will keep this player for the entire month.";
 
-  if(state.suggestion)renderSuggestion(state.suggestion);
+  if(state.suggestion){if(!Array.isArray(state.suggestions)||!state.suggestions.length)state.suggestions=[state.suggestion];renderSuggestion(state.suggestion)}
   if(state.purchase){
     $("purchasedBox").hidden=false;
     $("purchasedText").textContent=`${state.player} · ${state.purchase.cardYear} ${state.purchase.set||""}${state.purchase.cardNum?" #"+state.purchase.cardNum:""} · ${state.purchase.purchaseSource||"eBay"} · marked ${state.purchase.incoming?"Incoming":"Received"}.`;
@@ -350,6 +352,7 @@ async function scoutMonthly(isRetry=false){
     state.checkedAt=data.checkedAt||new Date().toISOString();
     if(!data.suggestion){
       state.suggestion=null;
+      state.suggestions=[];
       writeState();
       $("result").hidden=true;
       $("noResult").hidden=false;
@@ -358,9 +361,10 @@ async function scoutMonthly(isRetry=false){
       return;
     }
 
-    state.suggestion=data.suggestion;
+    state.suggestions=(Array.isArray(data.suggestions)&&data.suggestions.length?data.suggestions:[data.suggestion]).slice(0,5);
+    state.suggestion=state.suggestions[0];
     writeState();
-    renderSuggestion(data.suggestion);
+    renderSuggestion(state.suggestion);
     lockMonthlySearch("✓ MONTHLY PICK LOCKED");
     $("cloudStatus").className="status ok";
     $("cloudStatus").textContent="✓ Monthly recommendation ready. Refreshing this page will not re-search.";
@@ -378,8 +382,16 @@ function lockMonthlySearch(label="✓ MONTHLY PICK LOCKED"){
   $("scoutBtn").textContent=label;
 }
 
+function renderMonthlyRankStrip(){
+  const title=$("resultTitle");if(!title)return;
+  let host=$("monthlyRankStrip");if(!host){host=document.createElement("div");host.id="monthlyRankStrip";host.style.cssText="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin:9px 0 12px";title.parentNode.insertBefore(host,title)}
+  const rows=(Array.isArray(state?.suggestions)&&state.suggestions.length?state.suggestions:(state?.suggestion?[state.suggestion]:[])).slice(0,5);
+  host.innerHTML=rows.map((x,i)=>`<button type="button" data-rank="${i}" style="min-height:58px;border-radius:11px;border:1px solid ${x===state.suggestion?'var(--gold)':'var(--line)'};background:${x===state.suggestion?'rgba(230,189,99,.13)':'rgba(255,255,255,.04)'};color:var(--text);padding:7px;font-weight:900"><span style="display:block;color:var(--gold)">#${i+1}${i===0?' · SCOUT PICK':''}</span><span style="display:block;font-size:9px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${[x.year,x.set].filter(Boolean).join(' ')||'Card'}</span><span style="display:block;font-size:9px;color:var(--muted);margin-top:2px">${money(x.delivered)}</span></button>`).join("");
+  host.querySelectorAll("[data-rank]").forEach(btn=>btn.onclick=()=>{const next=rows[Number(btn.dataset.rank)];if(next){state.suggestion=next;writeState();renderSuggestion(next)}});
+}
 function renderSuggestion(s){
   $("result").hidden=false;
+  renderMonthlyRankStrip();
   $("noResult").hidden=true;
   $("resultTitle").textContent=s.title||monthlyPlayer.name;
   $("resultYear").textContent=s.year||"—";
@@ -388,7 +400,8 @@ function renderSuggestion(s){
   $("resultWhy").textContent=s.why||"";
   $("viewListing").dataset.link=s.link||"";
 
-  const badges=['<span class="badge age">OLDEST FIRST</span>'];
+  const rank=Math.max(1,(state?.suggestions||[]).indexOf(s)+1);
+  const badges=[`<span class="badge age">${rank===1?"SCOUT PICK":"RANK #"+rank}</span>`,'<span class="badge age">OLDEST FIRST</span>'];
   if(s.traits?.rookie)badges.push('<span class="badge good">ROOKIE</span>');
   if(s.traits?.graded)badges.push('<span class="badge good">GRADED</span>');
   if(s.traits?.autograph)badges.push('<span class="badge good">AUTOGRAPH</span>');
@@ -412,10 +425,11 @@ function renderSuggestion(s){
 
 async function retryListing(){
   if(!state?.suggestion)return;
-  const oldId=String(state.suggestion.id||state.suggestion.productId||"");
-  if(oldId&&!state.excludedIds.includes(oldId))state.excludedIds.push(oldId);
+  const rows=Array.isArray(state.suggestions)&&state.suggestions.length?state.suggestions:[state.suggestion];
+  for(const item of rows){const oldId=String(item?.id||item?.productId||"");if(oldId&&!state.excludedIds.includes(oldId))state.excludedIds.push(oldId)}
   state.retryCount=(state.retryCount||0)+1;
   state.suggestion=null;
+  state.suggestions=[];
   writeState();
   $("result").hidden=true;
   $("scoutBtn").textContent="🔎 SCOUT THIS MONTH'S PICK";
@@ -493,7 +507,7 @@ async function savePurchase(){
       method:"POST",
       headers:{"Content-Type":"application/json","X-Scout-Key":accessKey},
       body:JSON.stringify({
-        appVersion:"phase6-monthly-pick-lab-v0.2.2",
+        appVersion:"phase6-monthly-pick-lab-v0.2.3",
         clientUpdatedAt:new Date().toISOString(),
         playerUpdates:cloudEdits
       })

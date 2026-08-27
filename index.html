@@ -1992,6 +1992,7 @@ let phase3bActiveTargetPlayer=null;
 /* v5.0.3 — Find a Target */
 const FIND_TARGET_BUDGET_KEY="hofScoutFindTargetBudgetV1";
 let findTargetSuggestion=null;
+let findTargetSuggestions=[];
 let findTargetExcludedIds=[];
 let findTargetPlayerName="";
 let findTargetPreviousSummary=null;
@@ -3019,6 +3020,7 @@ function monthlyChoosePlayer(){
       excludedIds:[],
       retryCount:0,
       suggestion:null,
+      suggestions:[],
       checkedAt:null,
       purchase:null
     };
@@ -3040,9 +3042,34 @@ function monthlyLockButton(text="✓ MONTHLY PICK LOCKED"){
   $("monthlyScoutBtn").disabled=true;
   $("monthlyScoutBtn").textContent=text;
 }
+function monthlyRenderRankStrip(){
+  const title=$("monthlyResultTitle");
+  if(!title||!monthlyState)return;
+  let host=$("monthlyRankStrip");
+  if(!host){
+    host=document.createElement("div");
+    host.id="monthlyRankStrip";
+    host.style.cssText="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin:9px 0 12px";
+    title.parentNode.insertBefore(host,title);
+  }
+  const rows=(Array.isArray(monthlyState.suggestions)&&monthlyState.suggestions.length?monthlyState.suggestions:(monthlyState.suggestion?[monthlyState.suggestion]:[])).slice(0,5);
+  host.innerHTML=rows.map((x,i)=>{
+    const active=x===monthlyState.suggestion||String(x.id||x.productId||"")===String(monthlyState.suggestion?.id||monthlyState.suggestion?.productId||"");
+    const card=[x.year,x.set].filter(Boolean).join(" ");
+    return `<button type="button" data-monthly-rank="${i}" style="min-height:58px;border-radius:11px;border:1px solid ${active?'var(--gold)':'var(--line)'};background:${active?'rgba(230,189,99,.13)':'rgba(255,255,255,.04)'};color:var(--text);padding:7px;font-weight:900;cursor:pointer"><span style="display:block;color:var(--gold);font-size:13px">#${i+1}${i===0?' · SCOUT PICK':''}</span><span style="display:block;font-size:9px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(card||x.title||'Card')}</span><span style="display:block;font-size:9px;color:var(--muted);margin-top:2px">${escapeHtml(findTargetMoney(x.delivered))}</span></button>`;
+  }).join("");
+  host.querySelectorAll("[data-monthly-rank]").forEach(btn=>btn.onclick=()=>{
+    const next=rows[Number(btn.dataset.monthlyRank)];
+    if(!next)return;
+    monthlyState.suggestion=next;
+    monthlyWriteState(true);
+    monthlyRenderSuggestion(next);
+  });
+}
 function monthlyRenderSuggestion(s){
   if(!s)return;
   $("monthlyResult").hidden=false;
+  monthlyRenderRankStrip();
   $("monthlyResultTitle").textContent=s.title||monthlyPlayer?.name||"";
   $("monthlyResultYear").textContent=s.year||"—";
   $("monthlyResultPrice").textContent=findTargetMoney(s.price);
@@ -3050,7 +3077,8 @@ function monthlyRenderSuggestion(s){
   $("monthlyResultWhy").textContent=s.why||"";
   $("monthlyViewBtn").dataset.link=s.link||"";
 
-  const badges=["OLDEST FIRST"];
+  const monthlyRank=Math.max(1,(monthlyState?.suggestions||[]).indexOf(s)+1);
+  const badges=[monthlyRank===1?"SCOUT PICK":"RANK #"+monthlyRank,"OLDEST FIRST"];
   if(s.gradeInfo?.grader&&s.gradeInfo.grader!=="Raw")badges.push(s.gradeInfo.label||s.gradeInfo.grader);
   else if(s.traits?.graded)badges.push("GRADED");
   if(s.traits?.rookieVerified)badges.push("VERIFIED ROOKIE");
@@ -3112,6 +3140,7 @@ function monthlyInit(){
   if(monthlyState.purchase){
     monthlyRenderPurchased();
   }else if(monthlyState.suggestion){
+    if(!Array.isArray(monthlyState.suggestions)||!monthlyState.suggestions.length)monthlyState.suggestions=[monthlyState.suggestion];
     monthlyRenderSuggestion(monthlyState.suggestion);
     $("monthlyStatus").className="monthly-status ok";
     $("monthlyStatus").textContent="✓ Monthly recommendation is locked. Refreshing will not run another search.";
@@ -3175,6 +3204,7 @@ async function monthlyScout(isRetry=false){
 
     if(!data.suggestion){
       monthlyState.suggestion=null;
+      monthlyState.suggestions=[];
       monthlyWriteState(true);
       $("monthlyStatus").className="monthly-status";
       $("monthlyStatus").textContent=data.message||"Scout did not find a trustworthy listing under this budget.";
@@ -3185,6 +3215,8 @@ async function monthlyScout(isRetry=false){
 
     $("monthlyStatus").className="monthly-status";
     $("monthlyStatus").textContent="✓ Target found. Scout is checking the exact-card sold market…";
+    monthlyState.suggestions=(Array.isArray(data.suggestions)&&data.suggestions.length?data.suggestions:[data.suggestion]).slice(0,5);
+    data.suggestion=monthlyState.suggestions[0];
     data.suggestion.marketCheck=await scoutRecommendationMarketCheck(monthlyPlayer.name,data.suggestion);
     monthlyState.suggestion=data.suggestion;
     monthlyWriteState(true);
@@ -3203,10 +3235,14 @@ async function monthlyScout(isRetry=false){
 }
 async function monthlyRetry(){
   if(!monthlyState?.suggestion)return;
-  const old=String(monthlyState.suggestion.id||monthlyState.suggestion.productId||"");
-  if(old&&!monthlyState.excludedIds.includes(old))monthlyState.excludedIds.push(old);
+  const rows=Array.isArray(monthlyState.suggestions)&&monthlyState.suggestions.length?monthlyState.suggestions:[monthlyState.suggestion];
+  for(const item of rows){
+    const old=String(item?.id||item?.productId||"");
+    if(old&&!monthlyState.excludedIds.includes(old))monthlyState.excludedIds.push(old);
+  }
   monthlyState.retryCount=(monthlyState.retryCount||0)+1;
   monthlyState.suggestion=null;
+  monthlyState.suggestions=[];
   monthlyWriteState(true);
   $("monthlyResult").hidden=true;
   $("monthlyScoutBtn").textContent="🔎 SCOUT THIS MONTH'S PICK";
@@ -3366,6 +3402,7 @@ function findTargetMoney(v){
 }
 function findTargetResetResult(){
   findTargetSuggestion=null;
+  findTargetSuggestions=[];
   findTargetExcludedIds=[];
   findTargetPreviousSummary=null;
   $("findTargetResult").hidden=true;
@@ -3394,13 +3431,36 @@ function openFindTarget(){
 function closeFindTarget(){
   $("findTargetPanel").hidden=true;
 }
+function findTargetRenderRankStrip(){
+  const title=$("findTargetRecTitle");
+  if(!title)return;
+  let host=$("findTargetRankStrip");
+  if(!host){
+    host=document.createElement("div");
+    host.id="findTargetRankStrip";
+    host.style.cssText="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin:9px 0 12px";
+    title.parentNode.insertBefore(host,title);
+  }
+  const rows=(findTargetSuggestions.length?findTargetSuggestions:(findTargetSuggestion?[findTargetSuggestion]:[])).slice(0,5);
+  host.innerHTML=rows.map((x,i)=>{
+    const active=x===findTargetSuggestion||String(x.id||x.productId||"")===String(findTargetSuggestion?.id||findTargetSuggestion?.productId||"");
+    const card=[x.year,x.set].filter(Boolean).join(" ");
+    return `<button type="button" data-find-target-rank="${i}" style="min-height:58px;border-radius:11px;border:1px solid ${active?'var(--gold)':'var(--line)'};background:${active?'rgba(230,189,99,.13)':'rgba(255,255,255,.04)'};color:var(--text);padding:7px;font-weight:900;cursor:pointer"><span style="display:block;color:var(--gold);font-size:13px">#${i+1}${i===0?' · SCOUT PICK':''}</span><span style="display:block;font-size:9px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(card||x.title||'Card')}</span><span style="display:block;font-size:9px;color:var(--muted);margin-top:2px">${escapeHtml(findTargetMoney(x.delivered))}</span></button>`;
+  }).join("");
+  host.querySelectorAll("[data-find-target-rank]").forEach(btn=>btn.onclick=()=>{
+    const next=rows[Number(btn.dataset.findTargetRank)];
+    if(next)renderFindTargetSuggestion(next);
+  });
+}
 function renderFindTargetSuggestion(s){
   const p=currentPlayer;
   findTargetSuggestion=s;
   $("findTargetResult").hidden=false;
-  $("findTargetEyebrow").textContent=p.owned?"SCOUT'S UPGRADE RECOMMENDATION":"SCOUT'S TARGET RECOMMENDATION";
+  findTargetRenderRankStrip();
+  const count=Math.max(1,findTargetSuggestions.length);
+  $("findTargetEyebrow").textContent=p.owned?`SCOUT'S TOP ${count} UPGRADE TARGETS`:`SCOUT'S TOP ${count} TARGETS`;
   $("findTargetRecTitle").textContent=s.title||"";
-  const badges=[s.selectionBadge||"OLDEST BEST FIT"];
+  const badges=[s.rank===1?"SCOUT PICK":"RANK #"+(s.rank||Math.max(1,findTargetSuggestions.indexOf(s)+1)),s.selectionBadge||"OLDEST BEST FIT"];
   if(s.gradeInfo?.grader&&s.gradeInfo.grader!=="Raw")badges.push(s.gradeInfo.label||s.gradeInfo.grader);
   if(s.traits?.rookieVerified)badges.push("VERIFIED ROOKIE");
   if(s.traits?.autograph)badges.push("AUTO");
@@ -3580,12 +3640,15 @@ async function searchFindTarget(){
     if(!res.ok||!data.ok)throw new Error(data.message||data.error||("Find a Target returned "+res.status));
     if(!data.suggestion){
       findTargetSuggestion=null;
+      findTargetSuggestions=[];
       $("findTargetStatus").className="find-target-status ok";
       $("findTargetStatus").textContent=data.message||"Scout did not find a qualifying target in this search.";
       return;
     }
+    findTargetSuggestions=(Array.isArray(data.suggestions)&&data.suggestions.length?data.suggestions:[data.suggestion]).slice(0,5);
+    data.suggestion=findTargetSuggestions[0];
     $("findTargetStatus").className="find-target-status";
-    $("findTargetStatus").textContent="✓ Target found. Scout is checking the exact-card sold market…";
+    $("findTargetStatus").textContent=`✓ ${findTargetSuggestions.length} ranked choice${findTargetSuggestions.length===1?"":"s"} found. Scout is checking the #1 exact-card sold market…`;
     if(!data.suggestion.marketCheck){
       data.suggestion.marketCheck=await scoutRecommendationMarketCheck(p.name,data.suggestion);
     }
@@ -3611,11 +3674,13 @@ async function searchFindTarget(){
   }
 }
 async function retryFindTarget(){
-  if(findTargetSuggestion){
-    findTargetPreviousSummary=findTargetSanitizedSummary(findTargetSuggestion);
-    const id=findTargetSuggestion.id||findTargetSuggestion.productId;
+  if(findTargetSuggestion)findTargetPreviousSummary=findTargetSanitizedSummary(findTargetSuggestion);
+  const rows=findTargetSuggestions.length?findTargetSuggestions:(findTargetSuggestion?[findTargetSuggestion]:[]);
+  for(const item of rows){
+    const id=item?.id||item?.productId;
     if(id&&!findTargetExcludedIds.includes(String(id)))findTargetExcludedIds.push(String(id));
   }
+  findTargetSuggestions=[];
   await searchFindTarget();
 }
 function saveFindTarget(){

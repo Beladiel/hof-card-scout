@@ -53,7 +53,7 @@ async function test(name, fn) {
 
 (async () => {
   await test("ranking and cache versions are independent", () => {
-    assert.equal(api.VERSION, "3.24.0");
+    assert.equal(api.VERSION, "3.25.0");
     assert.equal(api.TARGET_RANKING_VERSION, 1);
     assert.equal(api.VALUATION_CACHE_VERSION, 1);
   });
@@ -116,16 +116,19 @@ async function test(name, fn) {
     assert.equal(res.status,200); assert.equal(calls,1);
     api.resetRouteMocks();
   });
-  await test("shortlist is capped at three and route performs at most two checks", async () => {
+  await test("shortlist returns up to five while route performs at most two market checks", async () => {
     const rows=[0,1,2,3,4].map((n)=>candidate({id:String(n),year:1961+(n?1:0),title:`${1961+(n?1:0)} Topps Sandy Koufax ${n}`}));
     const ranked=api.targetBuildCandidateShortlist(rows,100,"need","Sandy Koufax").map(x=>({ ...x, representation:x.representationInfo }));
-    assert.equal(ranked.length,3);
+    assert.equal(ranked.length,5);
     ranked[0].conditionInfo.score=30;
     let calls=0;
     api.setRouteMocks({suggestion:ranked[0],_targetShortlist:ranked},async()=>{calls++;return market("PASS");});
     const req=new Request("https://worker.test/find-target",{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":"key"},body:JSON.stringify({player:"Sandy Koufax",budget:100,mode:"need"})});
     const res=await api.workerDefault.fetch(req,{SCOUT_ACCESS_KEY:"key",SERPAPI_KEY:"serp"});
     assert.equal(res.status,200); assert.equal(calls,2);
+    const body=await res.json();
+    assert.equal(body.suggestions.length,5);
+    assert.deepEqual(body.suggestions.map(x=>x.rank),[1,2,3,4,5]);
     api.resetRouteMocks();
   });
   await test("Monthly Pick retains its established oldest-first branch", () => {

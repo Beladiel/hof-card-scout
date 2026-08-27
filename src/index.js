@@ -1,4 +1,4 @@
-const VERSION = "3.24.0";
+const VERSION = "3.25.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -405,7 +405,7 @@ export default {
         });
         if (result?.suggestion) {
           const shortlist = Array.isArray(result._targetShortlist) && result._targetShortlist.length
-            ? result._targetShortlist.slice(0, 3)
+            ? result._targetShortlist.slice(0, 5)
             : [result.suggestion];
           delete result._targetShortlist;
           const preliminary = shortlist[0];
@@ -419,7 +419,9 @@ export default {
             selected = targetChooseRecommendation(preliminary, alternative);
           }
           targetFinalizeSelection(selected, preliminary, checksPerformed);
-          result.suggestion = selected;
+          const ranked = [selected, ...shortlist.filter(candidate => candidate !== selected)].slice(0, 5);
+          result.suggestions = ranked.map((candidate, index) => ({ ...candidate, rank: index + 1 }));
+          result.suggestion = result.suggestions[0] || selected;
         } else {
           delete result._targetShortlist;
         }
@@ -2826,7 +2828,7 @@ function targetBuildCandidateShortlist(candidates, budget, mode, player) {
   const remainder = cohort.filter(x => x !== preliminary).sort((a, b) =>
     (a.year - b.year) || targetCandidateQualitySort(a, b)
   );
-  return [preliminary, ...remainder].filter(Boolean).slice(0, 3);
+  return [preliminary, ...remainder].filter(Boolean).slice(0, 5);
 }
 
 function targetMarketVerdictRank(marketCheck) {
@@ -3088,6 +3090,7 @@ async function searchMonthlyPickListing({ player, budget, mode, currentCard, exc
       searched: rawCount,
       eligible: 0,
       suggestion: null,
+      suggestions: [],
       alternatesAvailable: 0,
       checkedAt: new Date().toISOString(),
       shippingDestinationZip: ACTIVE_EBAY_SHIP_TO_ZIP,
@@ -3135,8 +3138,15 @@ async function searchMonthlyPickListing({ player, budget, mode, currentCard, exc
     }
     return suggestion;
   };
-  const suggestion = buildSuggestion(best);
   const targetShortlist = purpose === "target" ? targetCandidates.map(buildSuggestion) : [];
+  const rankedPool = purpose === "target"
+    ? targetShortlist
+    : uniqueAccepted.slice(0, 5).map(buildSuggestion);
+  const suggestions = rankedPool.slice(0, 5).map((candidate, index) => ({
+    ...candidate,
+    rank: index + 1,
+  }));
+  const suggestion = suggestions[0] || buildSuggestion(best);
 
   return {
     query: usedQueries.join(" | "),
@@ -3144,6 +3154,7 @@ async function searchMonthlyPickListing({ player, budget, mode, currentCard, exc
     searched: rawCount,
     eligible: uniqueAccepted.length,
     suggestion,
+    suggestions,
     ...(purpose === "target" ? { _targetShortlist: targetShortlist } : {}),
     alternatesAvailable: Math.max(0, uniqueAccepted.length - 1),
     checkedAt: new Date().toISOString(),
@@ -3167,7 +3178,7 @@ async function searchMonthlyPickListing({ player, budget, mode, currentCard, exc
       "After the condition and seller trust gates, age is ranked first; condition only breaks otherwise comparable choices.",
       "For an owned player, an older card qualifies automatically.",
       "For same-year upgrades, the same card at a higher numerical grade is a direct upgrade; seller rookie claims do not count as upgrade evidence.",
-      purpose === "target" ? "Try Another keeps the same player and excludes the prior listing." : "Try Another keeps the same monthly Hall of Famer and excludes the prior listing."
+      purpose === "target" ? "A new batch keeps the same player and excludes the prior ranked choices." : "A new batch keeps the same monthly Hall of Famer and excludes the prior ranked choices."
     ].filter(Boolean)
   };
 }

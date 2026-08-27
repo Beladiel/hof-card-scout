@@ -1,0 +1,14 @@
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const worker=fs.readFileSync("src/index.js","utf8");
+const app=fs.readFileSync("index.html","utf8");
+const targetLab=fs.readFileSync("phase6-find-target.html","utf8");
+const monthlyLab=fs.readFileSync("phase6-monthly-pick.html","utf8");
+assert.match(worker,/slice\(0, 5\)/);
+assert.match(worker,/result\.suggestions = ranked\.map/);
+assert.match(worker,/const suggestions = rankedPool\.slice\(0, 5\)/);
+assert.match(app,/function findTargetRenderRankStrip\(\)/);
+assert.match(app,/function monthlyRenderRankStrip\(\)/);
+assert.match(targetLab,/function renderRankStrip\(\)/);
+assert.match(monthlyLab,/function renderMonthlyRankStrip\(\)/);
+console.log("Top 5 target contract passed.");
