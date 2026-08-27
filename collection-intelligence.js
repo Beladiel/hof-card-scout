@@ -5,7 +5,7 @@
 })(typeof globalThis!=="undefined"?globalThis:this,function(){
   "use strict";
 
-  const VERSION=1;
+  const VERSION=2;
   const RETROSPECTIVE_PATTERNS=[
     {rx:/\b(?:195\d|196\d|197\d|198\d|199\d|200\d|201\d|202\d)?\s*topps\s+archives\b/i,label:"archive / reprint-style issue",points:18},
     {rx:/\b(?:archives|reprint|reprints|retro|throwback)\b/i,label:"archive / reprint-style issue",points:18},
@@ -17,13 +17,25 @@
   const ROOKIE_RX=/\b(?:rookie|rc)\b/i;
   const VERIFIED_ROOKIE_RX=/\bverified\s+rookie\b/i;
   const SHORT_PRINT_RX=/\b(?:short\s*print|\bsp\b|numbered|\b\d{1,4}\s*\/\s*\d{1,5}\b)\b/i;
+  const AUTOGRAPH_RX=/\b(?:auto|autograph|autographed|signature|signed)\b/i;
+  const AUTHENTICATED_AUTO_RX=/\b(?:authenticated|authentication|psa\s*\/\s*dna|psa\s+dna|jsa|beckett\s+authentication|\bbas\b|certified\s+(?:auto|autograph)|topps\s+certified\s+autograph|upper\s+deck\s+authenticated|\buda\b)\b/i;
+  const GRADED_RX=/\b(?:PSA|SGC|CGC|BGS|BVG|CSG|HGA|TAG|ISA|Degree)\b/i;
 
   function textOf(p){
-    return [p?.set,p?.description,p?.gradeCondition,p?.userNotes,p?.targetNotes,p?.serial].filter(Boolean).join(" ");
+    return [p?.set,p?.description,p?.gradeCondition,p?.userNotes,p?.serial].filter(Boolean).join(" ");
+  }
+  function targetTextOf(p){
+    return [p?.target,p?.targetNotes].filter(Boolean).join(" ");
   }
   function clamp(v,min,max){return Math.max(min,Math.min(max,v))}
   function targetYear(p){
     const m=String(p?.target||"").match(/\b((?:18|19|20)\d{2})\b/);
+    return m?Number(m[1]):null;
+  }
+  function candidateYear(p){
+    const direct=Number(p?.cardYear??p?.year);
+    if(Number.isInteger(direct))return direct;
+    const m=[p?.target,p?.description,p?.set].filter(Boolean).join(" ").match(/\b((?:18|19|20)\d{2})\b/);
     return m?Number(m[1]):null;
   }
   function numericGrade(p){
@@ -42,6 +54,14 @@
     }
     return "Raw";
   }
+  function isAutograph(p){
+    return Boolean(p?.autograph)||AUTOGRAPH_RX.test(textOf(p));
+  }
+  function isAuthenticatedAutograph(p){
+    if(!isAutograph(p))return false;
+    const raw=[textOf(p),p?.grader].filter(Boolean).join(" ");
+    return AUTHENTICATED_AUTO_RX.test(raw)||(grader(p)!=="Raw"&&numericGrade(p)!==null);
+  }
   function retrospectiveSignal(p){
     const raw=[p?.set,p?.description].filter(Boolean).join(" ");
     for(const item of RETROSPECTIVE_PATTERNS){
@@ -54,6 +74,54 @@
     if(score>=60)return "HIGH";
     if(score>=40)return "GOOD";
     return "WATCH";
+  }
+
+  function candidatePreferenceScore(candidate,currentCard={},options={}){
+    const budget=Number(options.budget);
+    const currentCardYear=Number(currentCard?.cardYear??currentCard?.year);
+    const year=candidateYear(candidate);
+    const factors=[];
+
+    if(Number.isInteger(year)&&Number.isInteger(currentCardYear)&&year<currentCardYear){
+      const gap=currentCardYear-year;
+      factors.push(signal(Math.min(72,gap*1.15),"candidate_age","OLDER CARD",`${year} is ${gap} year${gap===1?"":"s"} older than the current representative.`));
+    }
+
+    const candidateTargetRaw=targetTextOf(candidate);
+    const auto=isAutograph(candidate)||AUTOGRAPH_RX.test(candidateTargetRaw);
+    const authenticatedAuto=auto&&(isAuthenticatedAutograph(candidate)||AUTHENTICATED_AUTO_RX.test(candidateTargetRaw)||(grader(candidate)!=="Raw"&&numericGrade(candidate)!==null));
+    if(authenticatedAuto){
+      factors.push(signal(28,"candidate_auth_auto","AUTHENTICATED / GRADED AUTO","A certified, authenticated, or graded autograph gets a major collector-preference boost."));
+    }else if(auto){
+      factors.push(signal(14,"candidate_auto","AUTOGRAPH","An autograph gets a meaningful boost, but less than a certified/authenticated or graded autograph."));
+    }
+
+    const graded=grader(candidate)!=="Raw"&&(numericGrade(candidate)!==null||GRADED_RX.test(textOf(candidate)));
+    if(graded&&!authenticatedAuto){
+      factors.push(signal(6,"candidate_graded","GRADED","Grading helps, but only modestly so a newer slab does not automatically beat much older cardboard."));
+    }
+
+    const raw=[textOf(candidate),targetTextOf(candidate)].filter(Boolean).join(" ");
+    const verifiedRookie=VERIFIED_ROOKIE_RX.test(raw);
+    const rookie=verifiedRookie||ROOKIE_RX.test(raw);
+    const scarce=String(candidate?.serial||"").trim()||SHORT_PRINT_RX.test(raw);
+    if(verifiedRookie)factors.push(signal(16,"candidate_rookie","VERIFIED ROOKIE","Verified rookie status is a strong plus."));
+    else if(rookie)factors.push(signal(10,"candidate_rookie","ROOKIE","Rookie designation is a plus, but age still matters."));
+    if(scarce)factors.push(signal(5,"candidate_scarcity","SCARCE / NUMBERED","Scarcity or numbering adds a modest preference boost."));
+
+    const price=Number(candidate?.deliveredPrice??candidate?.totalPrice??candidate?.price);
+    if(Number.isFinite(budget)&&budget>0&&Number.isFinite(price)&&price>=0){
+      if(price>budget){
+        factors.push(signal(-45,"candidate_budget","OVER BUDGET",`Delivered price ${price.toFixed(2)} exceeds the ${budget.toFixed(2)} budget, so Scout heavily de-prioritizes it.`));
+      }else if(price<=budget*.7){
+        factors.push(signal(6,"candidate_budget","COMFORTABLY AFFORDABLE",`Delivered price is comfortably inside the stated budget.`));
+      }else{
+        factors.push(signal(3,"candidate_budget","WITHIN BUDGET",`Delivered price is within the stated budget.`));
+      }
+    }
+
+    const score=Math.round(factors.reduce((sum,s)=>sum+s.points,0)*10)/10;
+    return {score,year,authenticatedAuto,autograph:auto,graded,factors};
   }
 
   function evaluatePlayer(p,currentYear=new Date().getFullYear()){
@@ -88,6 +156,17 @@
       signals.push(signal(points,"saved_target","SAVED OLDER TARGET",`You already saved ${p.target} as a target, ${gap} year${gap===1?"":"s"} older than the current representative.`));
     }
 
+    const targetRaw=targetTextOf(p);
+    if(targetRaw&&AUTOGRAPH_RX.test(targetRaw)){
+      if(AUTHENTICATED_AUTO_RX.test(targetRaw)||GRADED_RX.test(targetRaw)){
+        signals.push(signal(18,"saved_auto_target","SAVED AUTHENTICATED AUTO TARGET",`Your saved target is an authenticated, certified, or graded autograph — a major preference boost when it fits the budget.`));
+      }else{
+        signals.push(signal(10,"saved_auto_target","SAVED AUTOGRAPH TARGET",`Your saved target is an autograph, so Scout gives that upgrade direction extra weight.`));
+      }
+    }else if(targetRaw&&GRADED_RX.test(targetRaw)){
+      signals.push(signal(5,"saved_graded_target","SAVED GRADED TARGET",`Your saved target is graded. Scout gives grading a measured boost without letting it overpower a much older card.`));
+    }
+
     const severe=SEVERE_CONDITION_RX.test(raw);
     const moderate=!severe&&MODERATE_CONDITION_RX.test(raw);
     if(severe)signals.push(signal(year<=1969?6:12,"condition","CONDITION UPGRADE",`Your saved notes flag meaningful condition issues, so condition adds upgrade pressure without overriding vintage age.`));
@@ -105,7 +184,14 @@
     const verifiedRookie=VERIFIED_ROOKIE_RX.test(raw);
     const rookie=verifiedRookie||ROOKIE_RX.test(raw);
     const serial=String(p.serial||"").trim()||SHORT_PRINT_RX.test(raw);
-    if(p.autograph||/\b(?:auto|autograph|signature)\b/i.test(raw))signals.push(signal(-12,"autograph","AUTOGRAPH VALUE",`The representative is an autograph/signature issue, so Scout protects it from being replaced merely because it is newer.`));
+    if(isAutograph(p)){
+      const protectedPoints=isAuthenticatedAutograph(p)?-20:-12;
+      const label=isAuthenticatedAutograph(p)?"AUTHENTICATED / GRADED AUTOGRAPH":"AUTOGRAPH VALUE";
+      const reason=isAuthenticatedAutograph(p)
+        ?`The representative is already an authenticated, certified, or graded autograph, which strongly lowers replacement urgency.`
+        :`The representative is an autograph/signature issue, so Scout protects it from being replaced merely because it is newer.`;
+      signals.push(signal(protectedPoints,"autograph",label,reason));
+    }
     if(p.relic||/\b(?:relic|memorabilia|piece\s+of\s+bat|jersey)\b/i.test(raw))signals.push(signal(-8,"relic","RELIC VALUE",`The representative has memorabilia/relic value, which lowers upgrade urgency.`));
     if(serial)signals.push(signal(-6,"scarcity","SCARCE / NUMBERED",`The saved card appears numbered or scarce, so Scout reduces age-only upgrade pressure.`));
     if(verifiedRookie)signals.push(signal(-16,"rookie","VERIFIED ROOKIE",`The saved notes identify a verified rookie, which Scout strongly protects.`));
@@ -150,5 +236,5 @@
       .slice(0,limit);
   }
 
-  return {VERSION,evaluatePlayer,rankCollection,targetYear,numericGrade,grader};
+  return {VERSION,evaluatePlayer,rankCollection,targetYear,candidateYear,numericGrade,grader,isAutograph,isAuthenticatedAutograph,candidatePreferenceScore};
 });
