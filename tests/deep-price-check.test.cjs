@@ -123,8 +123,8 @@ async function test(name, fn) {
 }
 
 (async () => {
-  await test("Worker version is 3.24.0", () => {
-    assert.equal(api.VERSION, "3.24.0");
+  await test("Worker version is 3.25.1", () => {
+    assert.equal(api.VERSION, "3.25.1");
   });
 
   await test("Apify adds two unique comps to a three-comp baseline", async () => {
