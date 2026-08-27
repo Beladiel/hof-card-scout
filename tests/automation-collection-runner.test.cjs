@@ -10,6 +10,9 @@ assert.match(worker,/function runOneAutomationCollectionCheck|async function run
 assert.match(worker,/kind === "collection"/,'run-once must support the explicit collection safety gate');
 assert.match(worker,/collectionRunnerEnabled: false/,'unattended collection rotation must remain off during this gate');
 assert.match(worker,/collectionCardsChecked/,'collection rotation must have its own monthly card counter');
+assert.match(worker,/function automationReliableCollectionValuation/);
+assert.match(worker,/valuationEvidenceCount\(value\)/,'collection reliability must count usable sold evidence');
+assert.match(worker,/confidence !== "insufficient"/,'collection reliability must reject insufficient evidence');
 assert.match(ui,/RUN ONE SAFE COLLECTION CHECK/);
 assert.match(ui,/kind:"collection"/);
 
@@ -20,8 +23,6 @@ const block=worker.slice(start,end);
 assert.match(block,/readValuationCache\(card, true\)/,'fresh fast cache must be checked first');
 assert.match(block,/runEbaySearch\(query, env\.SERPAPI_KEY, "Sold", false, SERP_SOLD_STRICT_TIMEOUT_MS\)/,'cache miss must use one strict sold search');
 assert.doesNotMatch(block,/buildBroadSoldQuery|runEbaySearchAsync|searchCardApi|searchApify|valueCard|getValuationWithCache/,'safe collection runner must not fan out to broad/Card API/Apify paths');
-assert.match(block,/valuationEvidenceCount\(value\)/);
-assert.match(block,/confidence !== "insufficient"/);
 
 const period=new Date().toISOString().slice(0,7);
 const soldDate=new Date(Date.now()-2*24*60*60*1000).toISOString();
