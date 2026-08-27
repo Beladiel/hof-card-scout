@@ -257,7 +257,7 @@ function renderSuggestion(){
   $("recTitle").textContent=s.title||"";
   const badges=[];
   badges.push(s.rank===1?"SCOUT PICK":"RANK #"+(s.rank||Math.max(1,suggestions.indexOf(s)+1)));
-  badges.push("OLDEST FIRST");
+  badges.push(s.rank===1?"SCOUT BEST FIT":"RANKED ALTERNATIVE");
   if(g.grader&&g.grader!=="Raw")badges.push(g.label||g.grader);
   if(s.traits?.rookie)badges.push("ROOKIE");
   if(s.traits?.autograph)badges.push("AUTO");

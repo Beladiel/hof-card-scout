@@ -1,4 +1,4 @@
-const VERSION = "3.25.0";
+const VERSION = "3.25.1";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -2789,26 +2789,33 @@ function targetClampScore(value) {
 function targetRankingInfo(candidate, oldestYear, budget, mode) {
   const yearGap = Math.max(0, Number(candidate.year) - Number(oldestYear));
   const traits = candidate.traits || {};
-  const verifiedCount = [traits.rookieVerified, traits.graded, traits.autograph, traits.shortPrint].filter(Boolean).length;
+  const verifiedTraitScore =
+    (traits.rookieVerified ? 35 : 0) +
+    (traits.graded ? 20 : 0) +
+    (traits.autograph ? 35 : 0) +
+    (traits.shortPrint ? 20 : 0);
   const components = {
-    age: yearGap === 0 ? 100 : 82,
+    // Age is deliberately the strongest factor. Each year away from the oldest
+    // qualifying card costs 8 age points, but nearby premium cards can still win.
+    age: targetClampScore(100 - yearGap * 8),
     upgradeStrength: targetClampScore(mode === "upgrade" ? Number(candidate.upgrade?.strength || 0) / 2.5 : 0),
     representation: targetClampScore(candidate.representationInfo?.score || 92),
     condition: targetClampScore(candidate.conditionInfo?.score || 0),
     sellerTrust: targetClampScore(candidate.sellerTrust?.score || 0),
-    verifiedTraits: targetClampScore(verifiedCount * 25),
+    verifiedTraits: targetClampScore(verifiedTraitScore),
     deliveredPriceEfficiency: targetClampScore((1 - Number(candidate.delivered) / Number(budget)) * 100),
   };
   const total = targetClampScore(
-    components.age * .20 + components.upgradeStrength * .05 + components.representation * .16 +
-    components.condition * .28 + components.sellerTrust * .15 + components.verifiedTraits * .06 +
-    components.deliveredPriceEfficiency * .10
+    components.age * .50 + components.upgradeStrength * .03 + components.representation * .10 +
+    components.condition * .12 + components.sellerTrust * .10 + components.verifiedTraits * .10 +
+    components.deliveredPriceEfficiency * .05
   );
   return { oldestYear, yearGap, components, total };
 }
 
 function targetCandidateQualitySort(a, b) {
   return (b.ranking.total - a.ranking.total) ||
+    (Number(a.year) - Number(b.year)) ||
     ((b.conditionInfo?.score || 0) - (a.conditionInfo?.score || 0)) ||
     ((b.sellerTrust?.score || 0) - (a.sellerTrust?.score || 0)) ||
     (a.delivered - b.delivered);
@@ -2817,18 +2824,14 @@ function targetCandidateQualitySort(a, b) {
 function targetBuildCandidateShortlist(candidates, budget, mode, player) {
   if (!candidates.length) return [];
   const oldestYear = Math.min(...candidates.map(x => Number(x.year)));
-  const cohort = candidates.filter(x => Number(x.year) <= oldestYear + 1);
-  for (const candidate of cohort) {
+  // Rank every qualifying listing from the existing discovery searches. The
+  // previous implementation discarded anything more than one year newer than
+  // the oldest result, which could collapse a "Top 5" into a single card.
+  for (const candidate of candidates) {
     candidate.representationInfo = monthlyPickRepresentationInfo(candidate.title, player);
     candidate.ranking = targetRankingInfo(candidate, oldestYear, budget, mode);
   }
-  const oldest = cohort.filter(x => Number(x.year) === oldestYear).sort(targetCandidateQualitySort);
-  const near = cohort.filter(x => Number(x.year) === oldestYear + 1).sort(targetCandidateQualitySort);
-  const preliminary = oldest[0] || near[0];
-  const remainder = cohort.filter(x => x !== preliminary).sort((a, b) =>
-    (a.year - b.year) || targetCandidateQualitySort(a, b)
-  );
-  return [preliminary, ...remainder].filter(Boolean).slice(0, 5);
+  return candidates.slice().sort(targetCandidateQualitySort).slice(0, 5);
 }
 
 function targetMarketVerdictRank(marketCheck) {
@@ -2901,10 +2904,10 @@ function targetChooseRecommendation(primary, alternative) {
 function targetFinalizeSelection(selected, preliminary, checksPerformed) {
   selected.rankingVersion = TARGET_RANKING_VERSION;
   selected.marketChecksPerformed = Math.min(2, Number(checksPerformed) || 0);
-  if (!selected.selectionMode) selected.selectionMode = "oldest_best_fit";
-  if (!selected.selectionBadge) selected.selectionBadge = "OLDEST BEST FIT";
+  if (!selected.selectionMode) selected.selectionMode = "ranked_best_fit";
+  if (!selected.selectionBadge) selected.selectionBadge = "SCOUT BEST FIT";
   if (!selected.selectionReason) {
-    selected.selectionReason = "Scout kept the oldest qualifying year because no one-year-newer alternative showed a clear enough collectible or market advantage.";
+    selected.selectionReason = "Scout ranked every qualifying listing from this search, with age carrying the most weight and collectible quality, seller trust, and price breaking close decisions.";
   }
   selected.why = `${selected.why || ""} ${selected.selectionReason}`.trim();
 }

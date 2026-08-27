@@ -53,7 +53,7 @@ async function test(name, fn) {
 
 (async () => {
   await test("ranking and cache versions are independent", () => {
-    assert.equal(api.VERSION, "3.25.0");
+    assert.equal(api.VERSION, "3.25.1");
     assert.equal(api.TARGET_RANKING_VERSION, 1);
     assert.equal(api.VALUATION_CACHE_VERSION, 1);
   });
@@ -72,11 +72,11 @@ async function test(name, fn) {
     const newer = candidate({ id:"new", year:1962, title:"1962 Topps #5 Sandy Koufax EX", condition:76 });
     assert.equal(choose(old,newer,"PASS","BUY").id,"new");
   });
-  await test("a two-year-newer bargain never enters the protected cohort", () => {
+  await test("newer qualifying cards remain visible while age keeps the older card ahead", () => {
     const old = candidate({ id:"old", year:1961, title:"1961 Topps Sandy Koufax VG", delivered:50 });
     const newer = candidate({ id:"new", year:1963, title:"1963 Topps Sandy Koufax NM", condition:94, delivered:5 });
     const list = api.targetBuildCandidateShortlist([old,newer],100,"need","Sandy Koufax");
-    assert.deepEqual(Array.from(list, x=>x.id),["old"]);
+    assert.deepEqual(Array.from(list, x=>x.id),["old","new"]);
   });
   await test("same-year GREAT BUY can beat a comparable PASS", () => {
     const first = suggestion(candidate({ id:"pass", year:1961, title:"1961 Topps Sandy Koufax VG", condition:60 }));
@@ -130,6 +130,13 @@ async function test(name, fn) {
     assert.equal(body.suggestions.length,5);
     assert.deepEqual(body.suggestions.map(x=>x.rank),[1,2,3,4,5]);
     api.resetRouteMocks();
+  });
+  await test("Top 5 can span more than one year beyond the oldest qualifying card", () => {
+    const rows=[1961,1962,1963,1964,1965,1966].map((year,i)=>candidate({id:String(i),year,title:`${year} Topps Sandy Koufax`,condition:68,delivered:20+i}));
+    const list=api.targetBuildCandidateShortlist(rows,100,"need","Sandy Koufax");
+    assert.equal(list.length,5);
+    assert.equal(list[0].year,1961);
+    assert.ok(list.some(x=>x.year>=1963));
   });
   await test("Monthly Pick retains its established oldest-first branch", () => {
     assert.match(source,/Monthly Pick deliberately keeps its established oldest-first ordering/);

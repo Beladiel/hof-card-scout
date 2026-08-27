@@ -3460,7 +3460,7 @@ function renderFindTargetSuggestion(s){
   const count=Math.max(1,findTargetSuggestions.length);
   $("findTargetEyebrow").textContent=p.owned?`SCOUT'S TOP ${count} UPGRADE TARGETS`:`SCOUT'S TOP ${count} TARGETS`;
   $("findTargetRecTitle").textContent=s.title||"";
-  const badges=[s.rank===1?"SCOUT PICK":"RANK #"+(s.rank||Math.max(1,findTargetSuggestions.indexOf(s)+1)),s.selectionBadge||"OLDEST BEST FIT"];
+  const badges=[s.rank===1?"SCOUT PICK":"RANK #"+(s.rank||Math.max(1,findTargetSuggestions.indexOf(s)+1)),s.selectionBadge||(s.rank===1?"SCOUT BEST FIT":"RANKED ALTERNATIVE")];
   if(s.gradeInfo?.grader&&s.gradeInfo.grader!=="Raw")badges.push(s.gradeInfo.label||s.gradeInfo.grader);
   if(s.traits?.rookieVerified)badges.push("VERIFIED ROOKIE");
   if(s.traits?.autograph)badges.push("AUTO");
@@ -3656,14 +3656,15 @@ async function searchFindTarget(){
     findTargetPreviousSummary=null;
     renderFindTargetSuggestion(data.suggestion);
     $("findTargetStatus").className="find-target-status ok";
+    const rankedCount=Math.max(1,findTargetSuggestions.length);
     if(data.suggestion.marketCheck?.rated){
       $("findTargetStatus").textContent=p.owned
-        ?"✓ Scout found a meaningful upgrade candidate with a listing price verdict."
-        :"✓ Scout found a target recommendation with a listing price verdict.";
+        ?`✓ Scout found ${rankedCount} ranked upgrade choice${rankedCount===1?"":"s"}. #1 has a listing price verdict.`
+        :`✓ Scout found ${rankedCount} ranked target choice${rankedCount===1?"":"s"}. #1 has a listing price verdict.`;
     }else{
       $("findTargetStatus").textContent=p.owned
-        ?"✓ Scout found a meaningful upgrade candidate. Pricing evidence is limited."
-        :"✓ Scout found a target recommendation. Pricing evidence is limited.";
+        ?`✓ Scout found ${rankedCount} ranked upgrade choice${rankedCount===1?"":"s"}. #1 pricing evidence is limited.`
+        :`✓ Scout found ${rankedCount} ranked target choice${rankedCount===1?"":"s"}. #1 pricing evidence is limited.`;
     }
   }catch(err){
     $("findTargetStatus").className="find-target-status bad";
