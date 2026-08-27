@@ -18,5 +18,20 @@
       "sizes": "512x512",
       "type": "image/png"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Collection Intelligence",
+      "short_name": "Top 5 Upgrades",
+      "description": "Review Scout's Top 5 local-data upgrade opportunities without marketplace searches.",
+      "url": "./collection-intelligence.html",
+      "icons": [
+        {
+          "src": "icon-180.png",
+          "sizes": "180x180",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }
