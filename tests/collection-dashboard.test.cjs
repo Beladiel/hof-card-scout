@@ -1,0 +1,23 @@
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const html=fs.readFileSync("index.html","utf8");
+
+assert.match(html,/v5\.3\.0/);
+assert.match(html,/id="dashboardBtn">📊 MY COLLECTION/);
+assert.match(html,/id="dashboardScreen"/);
+assert.match(html,/id="dashboardOwned"/);
+assert.match(html,/id="dashboardSpent"/);
+assert.match(html,/id="dashboardInsights"/);
+assert.match(html,/id="dashboardRecent"/);
+assert.match(html,/function dashboardTargetCount\(\)/);
+assert.match(html,/function dashboardPaidPlayers\(\)/);
+assert.match(html,/function renderDashboard\(\)/);
+assert.match(html,/function openDashboard\(\)/);
+assert.match(html,/dashboardBtn"\)\.addEventListener\("click",openDashboard\)/);
+assert.match(html,/dashboardHuntBtn"\)\.addEventListener\("click",\(\)=>openHuntList\("all"\)\)/);
+assert.match(html,/dashboardTargetsBtn"\)\.addEventListener/);
+assert.match(html,/Only purchases where you recorded an actual paid price are included/);
+assert.match(html,/Future HOF targets and stay outside Hall completion/);
+assert.doesNotMatch(html,/id="exportBtn"/);
+assert.doesNotMatch(html,/id="importBtn"/);
+console.log("Collection Dashboard tests passed.");
