@@ -35,8 +35,9 @@ function block(start,end){
   assert.ok(a>=0&&b>a,`missing block ${start}`);
   return html.slice(a,b);
 }
+const parser=block("function phase3bParseTarget(label)","function phase3bScoutTarget(p)");
 const helpers=block("function targetIdentity(p)","function purchaseSummary(p)");
-const ctx={};vm.createContext(ctx);vm.runInContext(helpers+"\nthis.api={targetIdentity,targetIdentityLabel,targetPreferenceBits,targetSearchHint,targetPrimaryStatus,applyStructuredTarget,clearStructuredTarget};",ctx);
+const ctx={};vm.createContext(ctx);vm.runInContext(parser+"\n"+helpers+"\nthis.api={targetIdentity,targetIdentityLabel,targetPreferenceBits,targetSearchHint,targetPrimaryStatus,applyStructuredTarget,clearStructuredTarget};",ctx);
 const api=ctx.api;
 const legacy={target:"1980 Topps #482",targetNotes:"favorite rookie"};
 assert.deepEqual(JSON.parse(JSON.stringify(api.targetIdentity(legacy))),{year:1980,set:"Topps",cardNum:"482"});
