@@ -16,6 +16,9 @@ assert.match(html,/function removeCurrentTarget\(\)[\s\S]*?clearStructuredTarget
 assert.match(html,/id="targetSummary"/);
 assert.match(html,/id="editTargetBtn"/);
 assert.match(html,/openTargetManage\(currentPlayer\)/);
+assert.match(html,/addTargetBtn"\)\.addEventListener\("click",\(\)=>openTargetManage\(\)\)/);
+assert.match(html,/prefill&&prefill\.name\?prefill:null/);
+assert.match(html,/targetManageOrigin===?"detail"|targetManageOrigin==="detail"/);
 assert.match(html,/source:"Scout Target Finder"/);
 assert.match(html,/source:"Card Shop Mode"/);
 assert.match(html,/huntNeedPlayers\(\)\{return PLAYERS\.filter\(p=>!p\.owned&&!p\.incoming&&!p\.target\)\}/);

@@ -4597,9 +4597,12 @@ async function shopAnalysis(e){
     renderLiveResult(card,data,ctx);
   }catch(err){renderPricingError(card,ctx,err.message||"Unknown pricing error.");}
 }
+let targetManageOrigin="targets";
 function openTargetManage(prefill=null){
   $("targetForm").reset();
-  const p=prefill||null;
+  const p=prefill&&prefill.name?prefill:null;
+  targetManageOrigin=p&&currentPlayer&&currentPlayer.name===p.name?"detail":"targets";
+  $("targetPlayer").readOnly=!!p;
   if(p){
     const t=targetIdentity(p);
     $("targetPlayer").value=p.name||"";
@@ -4700,8 +4703,11 @@ $("findTargetCloseBtn").addEventListener("click",closeFindTarget);
 $("findTargetViewBtn").addEventListener("click",()=>{const u=$("findTargetViewBtn").dataset.link;if(u)window.open(u,"_blank","noopener")});
 $("findTargetBudget").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();searchFindTarget();}});
 $("targetsBtn").addEventListener("click",showTargets);
-$("addTargetBtn").addEventListener("click",openTargetManage);
-$("targetManageBack").addEventListener("click",()=>{showScreen("homeScreen");showTargets();});
+$("addTargetBtn").addEventListener("click",()=>openTargetManage());
+$("targetManageBack").addEventListener("click",()=>{
+  if(targetManageOrigin==="detail"&&currentPlayer)openPlayer(currentPlayer,returnScreen);
+  else{showScreen("homeScreen");showTargets();}
+});
 $("targetForm").addEventListener("submit",saveTargetCard);
 $("playerSearch").addEventListener("input",()=>{activeLetter=null;document.querySelectorAll(".letter").forEach(b=>b.classList.remove("active"));renderList()});
 document.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{
