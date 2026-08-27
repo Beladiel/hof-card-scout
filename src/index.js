@@ -1,4 +1,4 @@
-const VERSION = "3.27.0";
+const VERSION = "3.28.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -46,6 +46,8 @@ const COLLECTION_MAX_BYTES = 512 * 1024;
 const COLLECTION_MAX_PLAYERS = 500;
 const CARD_PHOTO_PREFIX = "card-photo:v1:";
 const AUTOMATION_STATE_KEY = "automation:state:v1";
+const AUTOMATION_CATALOG_KEY = "automation:catalog:v1";
+const AUTOMATION_CATALOG_MAX_BYTES = 256 * 1024;
 const AUTOMATION_DEFAULT_SETTINGS = Object.freeze({
   monthlySerpCap: 30,
   targetMonitoringEnabled: true,
@@ -101,7 +103,8 @@ export default {
       }
       try {
         const state = await readAutomationState(env.SCOUT_DATA);
-        return json({ ok: true, version: VERSION, runnerEnabled: false, ...automationPublicState(state) }, 200, cors);
+        const catalog = await readAutomationCatalog(env.SCOUT_DATA);
+        return json({ ok: true, version: VERSION, runnerEnabled: false, ...automationPublicState(state), catalog: automationCatalogSummary(catalog) }, 200, cors);
       } catch (err) {
         console.error(err);
         return json({ ok: false, error: "automation_status_failed", message: "Scout could not load the automation search budget." }, 502, cors);
@@ -128,6 +131,57 @@ export default {
       } catch (err) {
         console.error(err);
         return json({ ok: false, error: "automation_settings_failed", message: "Scout could not save the automation search budget." }, 502, cors);
+      }
+    }
+
+    if (url.pathname === "/automation/catalog" && request.method === "POST") {
+      const supplied = request.headers.get("X-Scout-Key") || "";
+      if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
+        return json({ ok: false, error: "unauthorized", message: "Scout access key rejected." }, 401, cors);
+      }
+      if (!env.SCOUT_DATA) {
+        return json({ ok: false, error: "cloud_storage_not_configured", message: "SCOUT_DATA KV binding is not configured on the Worker." }, 503, cors);
+      }
+      let body;
+      try { body = await request.json(); }
+      catch { return json({ ok: false, error: "bad_json", message: "Automation catalog is not valid JSON." }, 400, cors); }
+      try {
+        const catalog = normalizeAutomationCatalog(body);
+        const serialized = JSON.stringify(catalog);
+        if (new TextEncoder().encode(serialized).byteLength > AUTOMATION_CATALOG_MAX_BYTES) {
+          return json({ ok: false, error: "automation_catalog_too_large", message: "Automation catalog is larger than Scout allows." }, 413, cors);
+        }
+        await env.SCOUT_DATA.put(AUTOMATION_CATALOG_KEY, serialized);
+        return json({ ok: true, version: VERSION, ...automationCatalogSummary(catalog), searchUsed: 0 }, 200, cors);
+      } catch (err) {
+        console.error(err);
+        return json({ ok: false, error: "automation_catalog_failed", message: err?.message || "Scout could not save the automation catalog." }, 502, cors);
+      }
+    }
+
+    if (url.pathname === "/automation/run-once" && request.method === "POST") {
+      const supplied = request.headers.get("X-Scout-Key") || "";
+      if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
+        return json({ ok: false, error: "unauthorized", message: "Scout access key rejected." }, 401, cors);
+      }
+      if (!env.SCOUT_DATA) {
+        return json({ ok: false, error: "cloud_storage_not_configured", message: "SCOUT_DATA KV binding is not configured on the Worker." }, 503, cors);
+      }
+      let body = {};
+      try { body = await request.json(); } catch {}
+      if (String(body?.kind || "target") !== "target") {
+        return json({ ok: false, error: "unsupported_automation_kind", message: "Only the one-target safety check is enabled at this gate." }, 400, cors);
+      }
+      try {
+        let state = await readAutomationState(env.SCOUT_DATA);
+        const catalog = await readAutomationCatalog(env.SCOUT_DATA);
+        const run = await runOneAutomationTargetCheck(env, state, catalog);
+        state = run.state;
+        await writeAutomationState(env.SCOUT_DATA, state);
+        return json({ ok: true, version: VERSION, runnerEnabled: false, result: run.result, ...automationPublicState(state), catalog: automationCatalogSummary(catalog) }, 200, cors);
+      } catch (err) {
+        console.error(err);
+        return json({ ok: false, error: "automation_run_failed", message: err?.message || "Scout could not complete the protected target check." }, 502, cors);
       }
     }
 
@@ -880,10 +934,11 @@ function normalizeAutomationUsage(raw={}, period=automationMonthKey()) {
 function normalizeAutomationState(raw={}) {
   const period = automationMonthKey();
   return {
-    schema: 1,
+    schema: 2,
     settings: normalizeAutomationSettings(raw?.settings || AUTOMATION_DEFAULT_SETTINGS),
     usage: normalizeAutomationUsage(raw?.usage || {}, period),
     alerts: Array.isArray(raw?.alerts) ? raw.alerts.slice(-50) : [],
+    targetChecks: raw?.targetChecks && typeof raw.targetChecks === "object" && !Array.isArray(raw.targetChecks) ? raw.targetChecks : {},
     lastRunAt: raw?.lastRunAt || "",
     updatedAt: raw?.updatedAt || "",
   };
@@ -917,7 +972,8 @@ function automationPublicState(state) {
     remaining: { serpSuccessful: automationSerpRemaining(normalized) },
     lastRunAt: normalized.lastRunAt || null,
     updatedAt: normalized.updatedAt || null,
-    note: "Background runner is not enabled yet; these server-side guardrails are installed first.",
+    alerts: normalized.alerts.slice(-20),
+    note: "Background cron is not enabled yet; the one-search runner is available for an explicit safety test.",
   };
 }
 
@@ -931,6 +987,162 @@ async function writeAutomationState(kv, state) {
   normalized.updatedAt = state?.updatedAt || new Date().toISOString();
   await kv.put(AUTOMATION_STATE_KEY, JSON.stringify(normalized));
   return normalized;
+}
+
+function automationText(value, max=220) {
+  return String(value == null ? "" : value).trim().slice(0, max);
+}
+
+function automationNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeAutomationCatalogEntry(raw={}, kind="official") {
+  return {
+    kind: kind === "future" ? "future" : "official",
+    name: automationText(raw?.name, 120),
+    owned: Boolean(raw?.owned),
+    incoming: Boolean(raw?.incoming),
+    cardYear: automationNumber(raw?.cardYear),
+    set: automationText(raw?.set, 180),
+    cardNum: automationText(raw?.cardNum, 80),
+    grader: automationText(raw?.grader || "Raw", 40) || "Raw",
+    gradeCondition: automationText(raw?.gradeCondition, 40),
+    autograph: Boolean(raw?.autograph),
+    relic: Boolean(raw?.relic),
+    serial: automationText(raw?.serial, 80),
+    cardKey: automationText(raw?.cardKey, 40),
+    median: automationNumber(raw?.median),
+    low: automationNumber(raw?.low),
+    high: automationNumber(raw?.high),
+    comps: automationNumber(raw?.comps),
+    confidence: automationText(raw?.confidence, 40),
+    lastChecked: automationText(raw?.lastChecked, 80),
+    valuationUpdatedAt: automationText(raw?.valuationUpdatedAt, 80),
+    valuationCardKey: automationText(raw?.valuationCardKey, 40),
+    valuationHistory: Array.isArray(raw?.valuationHistory) ? raw.valuationHistory.slice(-24) : [],
+    target: automationText(raw?.target, 260),
+    targetNotes: automationText(raw?.targetNotes, 500),
+    targetYear: automationNumber(raw?.targetYear),
+    targetSet: automationText(raw?.targetSet, 180),
+    targetCardNum: automationText(raw?.targetCardNum, 80),
+    targetGrader: automationText(raw?.targetGrader || "Any / Raw OK", 60) || "Any / Raw OK",
+    targetGrade: automationText(raw?.targetGrade, 40),
+    targetAutoPreference: automationText(raw?.targetAutoPreference || "No preference", 80) || "No preference",
+    targetMaxPrice: automationNumber(raw?.targetMaxPrice),
+    targetListingUrl: automationText(raw?.targetListingUrl, 500),
+    targetSource: automationText(raw?.targetSource, 120),
+    targetUpdatedAt: automationText(raw?.targetUpdatedAt, 80),
+  };
+}
+
+function normalizeAutomationCatalog(raw={}) {
+  const official = (Array.isArray(raw?.official) ? raw.official : []).slice(0, 500).map(x => normalizeAutomationCatalogEntry(x, "official")).filter(x => x.name);
+  const future = (Array.isArray(raw?.future) ? raw.future : []).slice(0, 100).map(x => normalizeAutomationCatalogEntry(x, "future")).filter(x => x.name);
+  return { schema: 1, generatedAt: automationText(raw?.generatedAt, 80) || new Date().toISOString(), official, future };
+}
+
+async function readAutomationCatalog(kv) {
+  const raw = await kv.get(AUTOMATION_CATALOG_KEY, { type: "json" });
+  return normalizeAutomationCatalog(raw || {});
+}
+
+function automationCatalogSummary(catalog) {
+  const normalized = normalizeAutomationCatalog(catalog || {});
+  const targets = [...normalized.official, ...normalized.future].filter(x => x.target && !x.incoming).length;
+  return { catalogGeneratedAt: normalized.generatedAt || null, ownedCards: normalized.official.filter(x => x.owned).length, targets };
+}
+
+function automationTargetKey(target) {
+  return [target.kind, target.name, target.targetYear || "", target.targetSet || "", target.targetCardNum || "", target.targetGrader || "", target.targetGrade || ""].join("|").toLowerCase();
+}
+
+function automationTargetSearchHint(target) {
+  const bits = [target.targetYear, target.targetSet, target.targetCardNum ? `#${target.targetCardNum}` : ""];
+  const grader = automationText(target.targetGrader);
+  if (grader && grader !== "Any / Raw OK") bits.push(grader);
+  if (target.targetGrade) bits.push(target.targetGrade);
+  if (target.targetAutoPreference === "Autograph required") bits.push("autograph");
+  return bits.filter(Boolean).join(" ").trim();
+}
+
+function automationCurrentCard(target) {
+  if (!target.owned) return null;
+  return {
+    cardYear: target.cardYear || null, year: target.cardYear || null, set: target.set || "", cardNum: target.cardNum || "",
+    description: "", notes: "", grader: target.grader || "Raw", grade: target.gradeCondition || "", gradeCondition: target.gradeCondition || "",
+    autograph: Boolean(target.autograph), relic: Boolean(target.relic), serial: target.serial || ""
+  };
+}
+
+function automationEligibleTargets(catalog) {
+  const normalized = normalizeAutomationCatalog(catalog || {});
+  return [...normalized.official, ...normalized.future].filter(x => {
+    const max = Number(x.targetMaxPrice);
+    return Boolean(x.target) && !x.incoming && Number.isFinite(max) && max > 0 && Number.isFinite(Number(x.targetYear)) && Boolean(x.targetSet);
+  });
+}
+
+function automationChooseTarget(catalog, state) {
+  const targets = automationEligibleTargets(catalog);
+  if (!targets.length) return null;
+  const checks = state?.targetChecks && typeof state.targetChecks === "object" ? state.targetChecks : {};
+  targets.sort((a,b) => {
+    const at = Date.parse(checks[automationTargetKey(a)] || "") || 0;
+    const bt = Date.parse(checks[automationTargetKey(b)] || "") || 0;
+    return at - bt || a.name.localeCompare(b.name);
+  });
+  return targets[0];
+}
+
+function automationAlertFromSuggestion(target, suggestion, now) {
+  if (!suggestion) return null;
+  const delivered = Number(suggestion.delivered);
+  const maxPrice = Number(target.targetMaxPrice);
+  if (!Number.isFinite(delivered) || !Number.isFinite(maxPrice) || delivered > maxPrice) return null;
+  const listingUrl = automationText(suggestion.link || suggestion.url || suggestion.listingUrl, 500);
+  const listingId = automationText(suggestion.productId || suggestion.id || listingUrl, 220);
+  return {
+    id: `${automationTargetKey(target)}|${listingId || now.toISOString().slice(0,10)}`,
+    targetKey: automationTargetKey(target), player: target.name,
+    cardLabel: [suggestion.year || target.targetYear, suggestion.set || target.targetSet, (suggestion.cardNum || target.targetCardNum) ? `#${suggestion.cardNum || target.targetCardNum}` : ""].filter(Boolean).join(" "),
+    delivered: Math.round(delivered * 100) / 100, maxPrice: Math.round(maxPrice * 100) / 100,
+    listingUrl, seller: automationText(suggestion?.seller?.username || suggestion?.seller || "", 120),
+    foundAt: now.toISOString(), tier: delivered <= maxPrice * 0.85 ? "unusually-affordable" : "under-max"
+  };
+}
+
+async function runOneAutomationTargetCheck(env, inputState, catalog, now=new Date()) {
+  let state = normalizeAutomationState(inputState || {});
+  if (!state.settings.targetMonitoringEnabled) return { state, result: { status: "skipped", searchUsed: 0, message: "Saved-target monitoring is turned off in your guardrails." } };
+  if (!env.SERPAPI_KEY) return { state, result: { status: "skipped", searchUsed: 0, message: "SerpApi is not configured, so Scout used zero searches." } };
+  const target = automationChooseTarget(catalog, state);
+  if (!target) return { state, result: { status: "skipped", searchUsed: 0, message: "No saved target has enough identity plus a maximum price for an automatic affordability check." } };
+  const reserved = automationReserveSerp(state, 1);
+  if (!reserved.ok) return { state: reserved.state, result: { status: "skipped", searchUsed: 0, message: "Monthly automatic-search cap reached. Scout stopped without searching." } };
+  state = reserved.state;
+  const key = automationTargetKey(target);
+  state.targetChecks[key] = now.toISOString();
+  state.lastRunAt = now.toISOString();
+  let result;
+  try {
+    const market = await searchMonthlyPickListing({
+      player: target.name, budget: Number(target.targetMaxPrice), mode: target.owned ? "upgrade" : "need", currentCard: automationCurrentCard(target),
+      excludeIds: [], preferredSellers: [], apiKey: env.SERPAPI_KEY, purpose: "target", searchHint: automationTargetSearchHint(target), futureHof: target.kind === "future", maxQueries: 1
+    });
+    const suggestion = market?.suggestion || (Array.isArray(market?.suggestions) ? market.suggestions[0] : null);
+    const alert = automationAlertFromSuggestion(target, suggestion, now);
+    if (alert) {
+      state.alerts = [...state.alerts.filter(x => x?.id !== alert.id), alert].slice(-50);
+    }
+    result = { status: "checked", searchUsed: 1, target: { name: target.name, label: target.target, maxPrice: Number(target.targetMaxPrice) }, alert };
+  } catch (err) {
+    result = { status: "error", searchUsed: 1, target: { name: target.name, label: target.target, maxPrice: Number(target.targetMaxPrice) }, message: err?.message || "Protected target search failed." };
+  }
+  state.updatedAt = now.toISOString();
+  return { state, result };
 }
 
 function json(body, status, cors) {
@@ -3165,7 +3377,7 @@ function monthlyPickWhy(suggestion, mode, currentCard, budget, purpose = "monthl
   return line;
 }
 
-async function searchMonthlyPickListing({ player, budget, mode, currentCard, excludeIds, preferredSellers, apiKey, purpose = "monthly", searchHint = "", futureHof = false }) {
+async function searchMonthlyPickListing({ player, budget, mode, currentCard, excludeIds, preferredSellers, apiKey, purpose = "monthly", searchHint = "", futureHof = false, maxQueries = 0 }) {
   // Monthly Pick intentionally remains one active-market search.
   // Find a Target may use a more focused discovery query so popular players
   // are not overwhelmed by modern cards that cannot qualify as upgrades.
@@ -3238,7 +3450,9 @@ async function searchMonthlyPickListing({ player, budget, mode, currentCard, exc
   let rawCount = 0;
   const usedQueries = [];
 
-  for (const query of queries) {
+  const queryBatch = Number(maxQueries) > 0 ? queries.slice(0, Math.max(1, Math.floor(Number(maxQueries)))) : queries;
+
+  for (const query of queryBatch) {
     const data = await runActiveEbaySearch(query, apiKey);
     usedQueries.push(query);
     const raw = Array.isArray(data.organic_results) ? data.organic_results : [];

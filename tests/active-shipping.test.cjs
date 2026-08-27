@@ -114,7 +114,7 @@ async function test(name, fn) {
 
 (async () => {
   await test("Worker version and destination ZIP are current", () => {
-    assert.equal(api.VERSION, "3.27.0");
+    assert.equal(api.VERSION, "3.28.0");
     assert.equal(api.ACTIVE_EBAY_SHIP_TO_ZIP, "87114");
   });
 
