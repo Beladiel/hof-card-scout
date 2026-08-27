@@ -22,7 +22,7 @@ jobs:
         run: sed -i "s/marker='\/\* v5\.8\.0 — representative card photos \*\/'/marker='\/\* v5.9.0 — representative card photos \*\/'/" apply_collection_value_foundation.py
       - name: Apply collection value foundation
         run: python apply_collection_value_foundation.py
-      - name: Update app version assertions
+      - name: Update integration assertions
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -30,6 +30,7 @@ jobs:
               s=p.read_text(encoding="utf-8")
               s=s.replace("5.8.0","5.9.0")
               s=s.replace(r"5\.8\.0",r"5\.9\.0")
+              s=s.replace(r"ScoutCollectionValue\.exactRepresentativeMatch\(p,card\)",r"api\.exactRepresentativeMatch\(p,card\)")
               p.write_text(s,encoding="utf-8")
           PY
       - name: Syntax-check collection value helper
