@@ -371,6 +371,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .hunt-facts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .hunt-fact{font-size:9px;font-weight:850;border:1px solid var(--line);border-radius:999px;padding:4px 7px;color:var(--muted);background:rgba(255,255,255,.025)}
 .hunt-fact.money{color:#f4d58a;border-color:rgba(230,189,99,.30)}
+.hunt-fact.stale{color:#ffaaa2;border-color:rgba(239,108,108,.35);background:rgba(239,108,108,.07)}
 .hunt-fact.future{color:#b7d8f5;border-color:rgba(117,174,233,.30)}
 .hunt-actions .danger{min-height:40px;padding:8px 11px;font-size:11px}
 @media(max-width:560px){
@@ -1162,7 +1163,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.3.1</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.4.0</div>
 </div>
 <div class="data-modal-backdrop" id="dataMenuModal" hidden>
   <div class="data-modal" role="dialog" aria-modal="true" aria-labelledby="dataMenuTitle">
@@ -1657,7 +1658,7 @@ function renderList(){
     const row=document.createElement("button");row.type="button";row.className="player-row";
 
     if(p.futureHofTarget){
-      const price=p.priceVerdict?" · "+escapeHtml(p.priceVerdict):"";
+      const price=!scoutFutureListingStale(p)&&p.priceVerdict?" · "+escapeHtml(p.priceVerdict):"";
       row.innerHTML='<span class="mark future">🔮</span>'+
         '<span><span class="pname">'+escapeHtml(p.name)+' <span class="future-target-inline-tag">NOT YET IN HALL</span></span>'+
         '<span class="psub">👁 Future HOF Watchlist · 🎯 '+escapeHtml(p.target)+price+'</span></span><span class="chev">›</span>';
@@ -1729,7 +1730,7 @@ function huntTargetFacts(p){
   if(grader&&grader!=="Any / Raw OK")facts.push('<span class="hunt-fact">'+escapeHtml(grader+(grade?" "+grade:""))+'</span>');
   else if(grade)facts.push('<span class="hunt-fact">'+escapeHtml(grade)+'</span>');
   if(auto&&auto!=="No preference")facts.push('<span class="hunt-fact">'+escapeHtml(auto)+'</span>');
-  if(p.targetListingUrl)facts.push('<span class="hunt-fact">SAVED LISTING</span>');
+  if(p.targetListingUrl)facts.push(scoutTargetListingStale(p)?'<span class="hunt-fact stale">OLD LISTING · RECHECK</span>':'<span class="hunt-fact">SAVED LISTING · RECENT</span>');
   return facts.length?'<div class="hunt-facts">'+facts.join("")+'</div>':"";
 }
 function huntFutureFacts(p){
@@ -1739,6 +1740,7 @@ function huntFutureFacts(p){
   const grader=String(t.grader||"").trim(),grade=String(t.grade||"").trim();
   if(grader&&grader!=="Any / Raw OK")facts.push('<span class="hunt-fact">'+escapeHtml(grader+(grade?" "+grade:""))+'</span>');
   if(String(t.autoPreference||"")&&String(t.autoPreference)!=="No preference")facts.push('<span class="hunt-fact">'+escapeHtml(t.autoPreference)+'</span>');
+  if(t.listingUrl)facts.push(scoutFutureListingStale(p)?'<span class="hunt-fact stale">OLD LISTING · RECHECK</span>':'<span class="hunt-fact">SAVED LISTING · RECENT</span>');
   facts.push('<span class="hunt-fact future">FUTURE HOF</span>');
   return '<div class="hunt-facts">'+facts.join("")+'</div>';
 }
@@ -1749,7 +1751,7 @@ function huntActions(p){
       '<button type="button" class="ghost" data-hunt-action="view" data-player="'+name+'">VIEW CARD</button>';
   }
   if(p.target){
-    const saved=p.targetListingUrl?'<button type="button" class="primary" data-hunt-action="listing" data-player="'+name+'">VIEW SAVED LISTING →</button>':'';
+    const saved=p.targetListingUrl&&!scoutTargetListingStale(p)?'<button type="button" class="primary" data-hunt-action="listing" data-player="'+name+'">VIEW SAVED LISTING →</button>':'';
     return '<button type="button" class="secondary" data-hunt-action="findtarget" data-player="'+name+'">🔎 FIND / REPLACE</button>'+ 
       '<button type="button" class="ghost" data-hunt-action="target" data-player="'+name+'">⚾ CHECK SAVED TARGET</button>'+ 
       '<button type="button" class="ghost" data-hunt-action="edit" data-player="'+name+'">✎ EDIT TARGET</button>'+saved+
@@ -1761,7 +1763,7 @@ function huntActions(p){
 }
 function huntFutureActions(p){
   const name=escapeHtml(p.name);
-  const listing=p.listingUrl?'<button type="button" class="primary" data-future-hunt-action="listing" data-future-url="'+encodeURIComponent(p.listingUrl)+'">VIEW SAVED LISTING →</button>':'';
+  const listing=p.listingUrl&&!scoutFutureListingStale(p)?'<button type="button" class="primary" data-future-hunt-action="listing" data-future-name="'+name+'" data-future-url="'+encodeURIComponent(p.listingUrl)+'">VIEW SAVED LISTING →</button>':'';
   return '<button type="button" class="secondary" data-future-hunt-action="find" data-future-name="'+name+'">🔎 FIND / REPLACE</button>'+ 
     '<button type="button" class="ghost" data-future-hunt-action="edit" data-future-name="'+name+'">✎ EDIT TARGET</button>'+listing+
     '<button type="button" class="danger" data-future-hunt-action="remove" data-future-name="'+name+'">REMOVE TARGET</button>'+ 
@@ -1769,7 +1771,7 @@ function huntFutureActions(p){
 }
 function huntRenderCard(p){
   if(p.futureHofTarget){
-    const targetLine=p.target+(p.priceVerdict?" · "+p.priceVerdict:"");
+    const targetLine=p.target+(!scoutFutureListingStale(p)&&p.priceVerdict?" · "+p.priceVerdict:"");
     return '<div class="hunt-card target future-target">'+
       '<div class="hunt-card-top"><div><div class="hunt-player">'+escapeHtml(p.name)+'</div>'+ 
       '<div class="hunt-cardline">'+escapeHtml(targetLine)+'</div>'+huntFutureFacts(p)+'</div>'+ 
@@ -1824,6 +1826,8 @@ function renderHuntList(){
   document.querySelectorAll("[data-future-hunt-action]").forEach(b=>b.addEventListener("click",()=>{
     const action=b.dataset.futureHuntAction,name=b.dataset.futureName||"";
     if(action==="listing"){
+      const target=futureHofGetState().targets?.[name];
+      if(!target||scoutResultIsStale(target.savedAt)){toast("That saved marketplace listing is over 24 hours old. Use Find / Replace for a fresh option.");renderHuntList();return;}
       const url=decodeURIComponent(b.dataset.futureUrl||"");
       if(url)window.open(url,"_blank","noopener");
       return;
@@ -1881,6 +1885,7 @@ function huntAction(action,name){
     return;
   }
   if(action==="listing"){
+    if(scoutTargetListingStale(p)){toast("That saved marketplace listing is over 24 hours old. Use Find / Replace for a fresh option.");renderHuntList();return;}
     if(p.targetListingUrl)window.open(p.targetListingUrl,"_blank","noopener");
     return;
   }
@@ -2354,6 +2359,7 @@ let findTargetSuggestions=[];
 let findTargetExcludedIds=[];
 let findTargetPlayerName="";
 let findTargetPreviousSummary=null;
+let findTargetCheckedAt=null;
 
 /* v5.0.3 — Monthly Pick */
 const MONTHLY_BUDGET_KEY="hofScoutMonthlyBudgetV1";
@@ -2401,6 +2407,32 @@ const HOF_FORECAST_2027=[
 let futureHofSuggestions={};
 let futureHofExcluded={};
 
+
+/* v5.4.0 — stale marketplace result cleanup */
+const SCOUT_ACTIVE_RESULT_TTL_MS=24*60*60*1000;
+function scoutResultAgeMs(iso,now=Date.now()){
+  const t=Date.parse(String(iso||""));
+  return Number.isFinite(t)?Math.max(0,now-t):null;
+}
+function scoutResultIsStale(iso,now=Date.now()){
+  const age=scoutResultAgeMs(iso,now);
+  return age===null||age>SCOUT_ACTIVE_RESULT_TTL_MS;
+}
+function scoutRememberExpiredIds(rows,excluded=[]){
+  const next=Array.isArray(excluded)?excluded:[];
+  for(const item of (Array.isArray(rows)?rows:[])){
+    const id=item?.id||item?.productId;
+    if(id&&!next.includes(String(id)))next.push(String(id));
+  }
+  return next;
+}
+function scoutTargetListingStale(p){
+  return !!p?.targetListingUrl&&scoutResultIsStale(p.targetUpdatedAt);
+}
+function scoutFutureListingStale(p){
+  const savedAt=p?.savedFutureTarget?.savedAt||p?.savedAt||"";
+  return !!p?.listingUrl&&scoutResultIsStale(savedAt);
+}
 
 /* v5.0.3 — recommendation listing price check */
 const SCOUT_RECOMMENDATION_MARKET_CHECK_VERSION=5;
@@ -3038,7 +3070,7 @@ function renderFutureHofWatchlist(){
       ? `<div class="future-hof-owned">✓ EARLY CARD OWNED${purchase.incoming?" · INCOMING":""}</div>`
       : "";
     const targetLabel=target
-      ? `<div class="future-hof-target">🎯 FUTURE TARGET: ${escapeHtml(target.label||target.title||"Saved target")}${target.priceVerdict?` · ${escapeHtml(target.priceVerdict)}`:""}
+      ? `<div class="future-hof-target">🎯 FUTURE TARGET: ${escapeHtml(target.label||target.title||"Saved target")}${!scoutResultIsStale(target.savedAt)&&target.priceVerdict?` · ${escapeHtml(target.priceVerdict)}`:""}${target.listingUrl&&scoutResultIsStale(target.savedAt)?" · OLD LISTING — RECHECK":""}
           <div class="forecast-actions" style="margin-top:8px">
             <button class="ghost" type="button" onclick='futureHofEditTarget(${JSON.stringify(name)})'>✎ EDIT TARGET</button>
             <button class="danger" type="button" onclick='futureHofRemoveTarget(${JSON.stringify(name)})'>REMOVE TARGET</button>
@@ -3498,6 +3530,16 @@ function monthlyRenderPurchased(){
   ].filter(Boolean).join(" · ");
   monthlyLockButton("✓ MONTHLY PICK PURCHASED");
 }
+function monthlyExpireStaleResult(){
+  if(!monthlyState?.suggestion||monthlyState.purchase||!scoutResultIsStale(monthlyState.checkedAt))return false;
+  const rows=Array.isArray(monthlyState.suggestions)&&monthlyState.suggestions.length?monthlyState.suggestions:[monthlyState.suggestion];
+  monthlyState.excludedIds=scoutRememberExpiredIds(rows,monthlyState.excludedIds||[]);
+  monthlyState.suggestion=null;
+  monthlyState.suggestions=[];
+  monthlyState.checkedAt=null;
+  monthlyWriteState(false);
+  return true;
+}
 function monthlyInit(){
   if(!monthlyChoosePlayer()){
     $("monthlyPlayerName").textContent="No eligible player";
@@ -3517,9 +3559,17 @@ function monthlyInit(){
       monthlyWriteState(true);
     }
   }
+  const staleMonthlyResult=monthlyExpireStaleResult();
   monthlyRenderHeader();
   if(monthlyState.purchase){
     monthlyRenderPurchased();
+  }else if(staleMonthlyResult){
+    $("monthlyResult").hidden=true;
+    $("monthlyPurchase").hidden=true;
+    $("monthlyStatus").className="monthly-status bad";
+    $("monthlyStatus").textContent="The previous marketplace recommendation is over 24 hours old. Tap Refresh Listing for a current option.";
+    $("monthlyScoutBtn").disabled=false;
+    $("monthlyScoutBtn").textContent="🔄 REFRESH LISTING";
   }else if(monthlyState.suggestion){
     if(!Array.isArray(monthlyState.suggestions)||!monthlyState.suggestions.length)monthlyState.suggestions=[monthlyState.suggestion];
     monthlyRenderSuggestion(monthlyState.suggestion);
@@ -3786,6 +3836,7 @@ function findTargetResetResult(){
   findTargetSuggestions=[];
   findTargetExcludedIds=[];
   findTargetPreviousSummary=null;
+  findTargetCheckedAt=null;
   $("findTargetResult").hidden=true;
   $("findTargetStatus").textContent="";
   $("findTargetStatus").className="find-target-status";
@@ -3793,8 +3844,22 @@ function findTargetResetResult(){
   $("findTargetSaveBtn").textContent="🎯 MAKE THIS MY TARGET";
   scoutRenderDealBox("findTargetDealCheck",null);
 }
+function findTargetExpireStaleResult(){
+  if(!findTargetSuggestion||!scoutResultIsStale(findTargetCheckedAt))return false;
+  const rows=findTargetSuggestions.length?findTargetSuggestions:[findTargetSuggestion];
+  scoutRememberExpiredIds(rows,findTargetExcludedIds);
+  findTargetSuggestion=null;
+  findTargetSuggestions=[];
+  findTargetPreviousSummary=null;
+  findTargetCheckedAt=null;
+  $("findTargetResult").hidden=true;
+  $("findTargetStatus").className="find-target-status bad";
+  $("findTargetStatus").textContent="Previous marketplace results are over 24 hours old. Run a fresh search before saving or opening a listing.";
+  return true;
+}
 function openFindTarget(){
   if(!currentPlayer)return;
+  if(findTargetPlayerName===currentPlayer.name)findTargetExpireStaleResult();
   if(findTargetPlayerName!==currentPlayer.name){
     findTargetPlayerName=currentPlayer.name;
     findTargetResetResult();
@@ -4035,6 +4100,7 @@ async function searchFindTarget(){
       return;
     }
     findTargetSuggestions=(Array.isArray(data.suggestions)&&data.suggestions.length?data.suggestions:[data.suggestion]).slice(0,5);
+    findTargetCheckedAt=data.checkedAt||new Date().toISOString();
     data.suggestion=findTargetSuggestions[0];
     $("findTargetStatus").className="find-target-status";
     $("findTargetStatus").textContent=`✓ ${findTargetSuggestions.length} ranked choice${findTargetSuggestions.length===1?"":"s"} found. Scout is checking the #1 exact-card sold market…`;
@@ -4076,6 +4142,11 @@ async function retryFindTarget(){
 function saveFindTarget(){
   const s=findTargetSuggestion,p=currentPlayer;
   if(!s||!p)return;
+  if(scoutResultIsStale(findTargetCheckedAt)){
+    findTargetExpireStaleResult();
+    toast("That marketplace result is over 24 hours old. Run a fresh search first.");
+    return;
+  }
   const label=findTargetIdentityLabel(s);
   const notes=findTargetNotes(s);
 
@@ -5170,7 +5241,10 @@ $("findTargetSearchBtn").addEventListener("click",searchFindTarget);
 $("findTargetRetryBtn").addEventListener("click",retryFindTarget);
 $("findTargetSaveBtn").addEventListener("click",saveFindTarget);
 $("findTargetCloseBtn").addEventListener("click",closeFindTarget);
-$("findTargetViewBtn").addEventListener("click",()=>{const u=$("findTargetViewBtn").dataset.link;if(u)window.open(u,"_blank","noopener")});
+$("findTargetViewBtn").addEventListener("click",()=>{
+  if(scoutResultIsStale(findTargetCheckedAt)){findTargetExpireStaleResult();toast("That marketplace result is over 24 hours old. Run a fresh search first.");return;}
+  const u=$("findTargetViewBtn").dataset.link;if(u)window.open(u,"_blank","noopener");
+});
 $("findTargetBudget").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();searchFindTarget();}});
 $("targetsBtn").addEventListener("click",showTargets);
 $("dashboardBtn").addEventListener("click",openDashboard);

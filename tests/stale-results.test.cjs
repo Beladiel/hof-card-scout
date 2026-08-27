@@ -1,0 +1,30 @@
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const vm=require("node:vm");
+const html=fs.readFileSync("index.html","utf8");
+
+assert.match(html,/v5\.4\.0/);
+assert.match(html,/const SCOUT_ACTIVE_RESULT_TTL_MS=24\*60\*60\*1000/);
+assert.match(html,/function scoutResultIsStale\(/);
+assert.match(html,/function findTargetExpireStaleResult\(/);
+assert.match(html,/findTargetCheckedAt=data\.checkedAt\|\|new Date\(\)\.toISOString\(\)/);
+assert.match(html,/function monthlyExpireStaleResult\(/);
+assert.match(html,/🔄 REFRESH LISTING/);
+assert.match(html,/OLD LISTING · RECHECK/);
+assert.match(html,/scoutTargetListingStale\(p\)/);
+assert.match(html,/scoutFutureListingStale\(p\)/);
+assert.match(html,/Use Find \/ Replace for a fresh option/);
+
+const start=html.indexOf('const SCOUT_ACTIVE_RESULT_TTL_MS=');
+const end=html.indexOf('/* v5.0.3 — recommendation listing price check */',start);
+assert.ok(start>=0&&end>start,'freshness helpers should be extractable');
+const ctx={Date};ctx.globalThis=ctx;vm.createContext(ctx);
+vm.runInContext(html.slice(start,end)+`\nglobalThis.staleApi={scoutResultIsStale,scoutRememberExpiredIds};`,ctx);
+const now=Date.now();
+assert.equal(ctx.staleApi.scoutResultIsStale(new Date(now-60*60*1000).toISOString(),now),false);
+assert.equal(ctx.staleApi.scoutResultIsStale(new Date(now-25*60*60*1000).toISOString(),now),true);
+assert.equal(ctx.staleApi.scoutResultIsStale('',now),true);
+const ids=['1'];
+ctx.staleApi.scoutRememberExpiredIds([{id:'1'},{productId:'2'}],ids);
+assert.deepEqual(Array.from(ids),['1','2']);
+console.log('Stale marketplace result tests passed.');
