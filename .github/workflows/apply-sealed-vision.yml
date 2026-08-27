@@ -19,6 +19,17 @@ jobs:
           fetch-depth: 0
       - name: Apply sealed vision migration
         run: python apply-sealed-vision.py
+      - name: Refresh Worker version expectations
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          for test in Path('tests').glob('*.test.cjs'):
+              text=test.read_text(encoding='utf-8')
+              text=text.replace("'3.34.0'", "'3.35.0'")
+              text=text.replace('"3.34.0"', '"3.35.0"')
+              text=text.replace('3\\.34\\.0', '3\\.35\\.0')
+              test.write_text(text,encoding='utf-8')
+          PY
       - name: Check JavaScript syntax
         run: |
           node --check sealed-product-scout.js
