@@ -1333,7 +1333,7 @@ function applyStructuredTarget(p,data={}){
   p.target=[p.targetYear,p.targetSet,p.targetCardNum?"#"+p.targetCardNum:""] .filter(Boolean).join(" ")||String(data.label||p.target||"").trim();
 }
 function clearStructuredTarget(p){
-  clearStructuredTarget(p);p.targetYear=null;p.targetSet="";p.targetCardNum="";p.targetGrader="Any / Raw OK";p.targetGrade="";
+  p.target="";p.targetNotes="";p.targetYear=null;p.targetSet="";p.targetCardNum="";p.targetGrader="Any / Raw OK";p.targetGrade="";
   p.targetAutoPreference="No preference";p.targetMaxPrice=null;p.targetListingUrl="";p.targetSource="";p.targetUpdatedAt="";
 }
 function purchaseSummary(p){
@@ -1836,7 +1836,7 @@ function removeCurrentTarget(){
   const p=currentPlayer;
   const ok=window.confirm("Remove "+p.name+"’s target “"+p.target+"”? Owned/Need/Incoming status and the representative card will not change.");
   if(!ok)return;
-  p.target="";p.targetNotes="";
+  clearStructuredTarget(p);
   savePlayerEdit(p);stats();rotateMission();renderList();renderHuntList();openPlayer(p,returnScreen);
   toast("Target removed for "+p.name+".");
 }
