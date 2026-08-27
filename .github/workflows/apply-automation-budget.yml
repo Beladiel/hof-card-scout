@@ -1,0 +1,43 @@
+name: Apply automation budget guardrails
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apply_automation_budget.py
+      - automation-budget.js
+      - tests/automation-budget.test.cjs
+      - .github/workflows/apply-automation-budget.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply automation budget guardrails
+        run: python apply_automation_budget.py
+      - name: Check Worker syntax
+        run: node --check src/index.js
+      - name: Run regression suite
+        run: |
+          node collection-intelligence.test.cjs
+          for f in tests/*.test.cjs; do
+            echo "Running $f"
+            node "$f"
+          done
+      - name: Commit changes
+        run: |
+          git config user.name "HOF Card Scout Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html src/index.js tests/*.test.cjs
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Add automation search budget guardrails"
+          git push
