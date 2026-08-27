@@ -1,4 +1,4 @@
-const VERSION = "3.30.0";
+const VERSION = "3.31.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -950,6 +950,7 @@ function normalizeAutomationState(raw={}) {
     alerts: Array.isArray(raw?.alerts) ? raw.alerts.slice(-50) : [],
     targetChecks: raw?.targetChecks && typeof raw.targetChecks === "object" && !Array.isArray(raw.targetChecks) ? raw.targetChecks : {},
     collectionChecks: raw?.collectionChecks && typeof raw.collectionChecks === "object" && !Array.isArray(raw.collectionChecks) ? raw.collectionChecks : {},
+    collectionCooldownUntil: raw?.collectionCooldownUntil || "",
     lastRunAt: raw?.lastRunAt || "",
     updatedAt: raw?.updatedAt || "",
   };
@@ -1166,6 +1167,24 @@ async function runOneAutomationTargetCheck(env, inputState, catalog, now=new Dat
   return { state, result };
 }
 
+const AUTOMATION_COLLECTION_MIN_GAP_MS = 3 * 24 * 60 * 60 * 1000;
+const AUTOMATION_COLLECTION_TIMEOUT_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+
+function automationLatestCollectionCheckMs(state) {
+  const checks = state?.collectionChecks && typeof state.collectionChecks === "object" ? state.collectionChecks : {};
+  const stamps = Object.values(checks).map(v => Date.parse(v || "") || 0);
+  return stamps.length ? Math.max(0, ...stamps) : 0;
+}
+
+function automationCollectionNextAllowedAt(state, now=new Date()) {
+  const nowMs = now instanceof Date ? now.getTime() : new Date(now).getTime();
+  const latest = automationLatestCollectionCheckMs(state);
+  const pacedUntil = latest ? latest + AUTOMATION_COLLECTION_MIN_GAP_MS : 0;
+  const cooldownUntil = Date.parse(state?.collectionCooldownUntil || "") || 0;
+  const next = Math.max(pacedUntil, cooldownUntil);
+  return Number.isFinite(nowMs) && next > nowMs ? new Date(next) : null;
+}
+
 function automationCollectionKey(entry) {
   return [entry?.kind || "official", entry?.name || "", entry?.cardKey || ""].join("|").toLowerCase();
 }
@@ -1243,6 +1262,10 @@ async function runOneAutomationCollectionCheck(env, inputState, catalog, now=new
   if (!state.settings.collectionRefreshEnabled) {
     return { state, result: { status: "skipped", searchUsed: 0, message: "Collection-value rotation is turned off in your guardrails." } };
   }
+  const nextAllowedAt = automationCollectionNextAllowedAt(state, now);
+  if (nextAllowedAt) {
+    return { state, result: { status: "skipped", searchUsed: 0, nextEligibleAt: nextAllowedAt.toISOString(), message: `Collection-value automation is pacing itself to protect your search budget. Next eligible check: ${nextAllowedAt.toISOString()}.` } };
+  }
   const monthlyLimit = Math.max(0, Number(state.settings.collectionCardsPerMonth) || 0);
   if (monthlyLimit < 1) {
     return { state, result: { status: "skipped", searchUsed: 0, message: "Collection cards/month is set to 0, so Scout used zero searches." } };
@@ -1314,6 +1337,7 @@ async function runOneAutomationCollectionCheck(env, inputState, catalog, now=new
     const message = saved
       ? `COLLECTION VALUE READY — ${entry.name} has ${used} reliable sold comp${used === 1 ? "" : "s"}.`
       : `VALUE NOT SAVED — only ${used} reliable sold comp${used === 1 ? "" : "s"}; Scout needs at least 2 before adding collection history.`;
+    state.collectionCooldownUntil = "";
     state.updatedAt = now.toISOString();
     return {
       state,
@@ -1333,6 +1357,11 @@ async function runOneAutomationCollectionCheck(env, inputState, catalog, now=new
       }
     };
   } catch (err) {
+    const rawMessage = err?.message || "Protected collection-value search failed.";
+    const timeoutLike = /timed out|timeout|aborted/i.test(rawMessage);
+    if (timeoutLike) {
+      state.collectionCooldownUntil = new Date(now.getTime() + AUTOMATION_COLLECTION_TIMEOUT_COOLDOWN_MS).toISOString();
+    }
     state.updatedAt = now.toISOString();
     return {
       state,
@@ -1342,8 +1371,11 @@ async function runOneAutomationCollectionCheck(env, inputState, catalog, now=new
         cacheHit,
         saved: false,
         checkedAt: now.toISOString(),
+        cooldownUntil: timeoutLike ? state.collectionCooldownUntil : null,
         card: { name: entry.name, cardKey: entry.cardKey },
-        message: err?.message || "Protected collection-value search failed."
+        message: timeoutLike
+          ? `SerpApi timed out. Scout stopped after this one search and paused collection-value automation for 7 days to protect your allowance.`
+          : rawMessage
       }
     };
   }

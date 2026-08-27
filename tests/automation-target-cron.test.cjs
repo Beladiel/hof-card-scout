@@ -5,7 +5,7 @@ const worker=fs.readFileSync('src/index.js','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 const ui=fs.readFileSync('automation-budget.js','utf8');
 
-assert.match(worker,/const VERSION = "3\.30\.0";/);
+assert.match(worker,/const VERSION = "3\.31\.0";/);
 assert.match(worker,/async scheduled\(controller, env, ctx\)/,'Worker must expose a scheduled handler');
 assert.match(worker,/runScheduledTargetMonitor\(env, now\)/,'scheduled handler must use target-only automation helper');
 assert.match(worker,/runOneAutomationTargetCheck\(env, state, catalog, now, \{ dueOnly: true \}\)/,'cron must use due-only target checks');
