@@ -4,10 +4,12 @@ const worker=fs.readFileSync('src/index.js','utf8');
 const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.36\.0"/);
+assert.match(worker,/const VERSION = "3\.36\.1"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/@cf\/moondream\/moondream3\.1-9B-A2B/,'Cloudflare-hosted vision model must be used');
+assert.match(worker,/raw\?\.answer/,'Moondream query answer envelope must be parsed');
+assert.match(worker,/stream:\s*false/,'Moondream query must use non-streaming output for deterministic parsing');
 assert.match(worker,/marketplaceSearchesUsed:\s*0/,'vision endpoint must explicitly report zero marketplace searches');
 const start=worker.indexOf('url.pathname === "/sealed/identify"');
 const end=worker.indexOf('url.pathname === "/automation/status"',start);

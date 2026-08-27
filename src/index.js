@@ -1,4 +1,4 @@
-const VERSION = "3.36.0";
+const VERSION = "3.36.1";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -67,8 +67,11 @@ const SEALED_VISION_CATEGORIES = new Set(["Pokémon", "Magic: The Gathering", "B
 const SEALED_VISION_PRODUCT_TYPES = new Set(["Blaster Box", "Mega Box", "Hobby Box", "Retail Box", "Hanger Box", "Hanger Pack", "Value / Fat Pack", "Single Pack", "Multi-Pack", "Elite Trainer Box", "Booster Box", "Booster Bundle", "Booster Pack", "Collection Box", "Tin", "Other"]);
 
 function sealedVisionJsonFromResponse(raw) {
-  let value = raw?.response ?? raw?.result ?? raw;
-  if (value && typeof value === "object" && !Array.isArray(value)) return value;
+  let value = raw?.response ?? raw?.result ?? raw?.answer ?? raw;
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    if ("category" in value || "productType" in value || "set" in value) return value;
+    throw new Error("Unexpected sealed vision response envelope.");
+  }
   let text = String(value || "").trim();
   text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
   const first = text.indexOf("{");
@@ -192,7 +195,11 @@ export default {
         const raw = await env.AI.run(SEALED_VISION_MODEL, {
           task: "query",
           image: imageDataUrl,
-          question: moondreamQuestion
+          question: moondreamQuestion,
+          reasoning: false,
+          stream: false,
+          temperature: 0.1,
+          max_tokens: 700
         });
         const parsed = sealedVisionJsonFromResponse(raw);
         const identity = sealedVisionNormalize(parsed);
