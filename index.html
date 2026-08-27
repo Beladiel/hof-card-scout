@@ -581,7 +581,24 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 }
 
 
-/* v5.8.0 — representative card photos */
+
+/* v5.9.0 — collection value foundation */
+.collection-value-panel{margin:12px 0;border:1px solid rgba(230,189,99,.38);border-radius:17px;background:linear-gradient(145deg,rgba(230,189,99,.08),rgba(255,255,255,.035));padding:13px}
+.collection-value-panel[hidden]{display:none}
+.collection-value-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
+.collection-value-title{font-size:17px;font-weight:950;margin-top:2px}
+.collection-value-sub{font-size:10px;color:var(--muted);line-height:1.45;margin-top:3px}
+.collection-value-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.collection-value-stat{border:1px solid var(--line);border-radius:13px;padding:10px;background:rgba(0,0,0,.10);min-width:0}
+.collection-value-stat .k{font-size:8px;font-weight:950;letter-spacing:.09em;color:var(--muted)}
+.collection-value-stat .v{font-size:17px;font-weight:950;margin-top:4px;overflow-wrap:anywhere}
+.collection-value-stat .v.up{color:#9ce8bb}.collection-value-stat .v.down{color:#ffaaa2}
+.collection-value-status{font-size:10px;color:var(--muted);line-height:1.5;margin-top:9px}
+.collection-value-status strong{color:var(--text)}
+.collection-snapshot-saved{margin:9px 0 0;border:1px solid rgba(86,197,138,.36);border-radius:11px;background:rgba(86,197,138,.09);color:#9ce8bb;padding:8px 10px;font-size:10px;font-weight:850;line-height:1.4}
+@media(max-width:620px){.collection-value-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* v5.9.0 — representative card photos */
 .card-photo-panel{margin:12px 0 14px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.035);padding:13px}
 .card-photo-panel[hidden]{display:none}
 .card-photo-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
@@ -1019,6 +1036,24 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
         <div class="metric"><div class="m-label">UPGRADE TARGET</div><div class="m-value" id="upgradeTarget">Scout research</div></div>
       </div>
 
+      <div class="collection-value-panel" id="collectionValuePanel" hidden>
+        <div class="collection-value-head">
+          <div>
+            <div class="section-eyebrow">📈 PERSONAL COLLECTION VALUE</div>
+            <div class="collection-value-title">What you paid vs. Scout's current estimate</div>
+            <div class="collection-value-sub">Purchase cost never changes when Scout refreshes market value. Reliable refreshes build a dated history for this exact representative card.</div>
+          </div>
+        </div>
+        <div class="collection-value-grid">
+          <div class="collection-value-stat"><div class="k">PRICE PAID</div><div class="v" id="collectionValuePaid">—</div></div>
+          <div class="collection-value-stat"><div class="k">CURRENT EST. VALUE</div><div class="v" id="collectionValueCurrent">—</div></div>
+          <div class="collection-value-stat"><div class="k">GAIN / LOSS</div><div class="v" id="collectionValueGain">—</div></div>
+          <div class="collection-value-stat"><div class="k">VALUE SNAPSHOTS</div><div class="v" id="collectionValueSnapshots">0</div></div>
+        </div>
+        <div class="collection-value-status" id="collectionValueStatus"></div>
+      </div>
+
+
       <div class="target-summary" id="targetSummary" hidden>
         <div class="purchase-title">🎯 SAVED TARGET</div>
         <div class="target-summary-main" id="targetSummaryMain"></div>
@@ -1268,7 +1303,7 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.8.0</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.9.0</div>
 </div>
 <div class="data-modal-backdrop" id="dataMenuModal" hidden>
   <div class="data-modal" role="dialog" aria-modal="true" aria-labelledby="dataMenuTitle">
@@ -1297,6 +1332,7 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<script src="collection-value.js"></script>
 <script src="card-photo.js"></script>
 <script src="shopping-report.js"></script>
 <script>
@@ -1537,7 +1573,9 @@ function savePlayerEdit(p){
     userNotes:p.userNotes||"",target:p.target||"",targetNotes:p.targetNotes||"",
     targetYear:p.targetYear??null,targetSet:p.targetSet||"",targetCardNum:p.targetCardNum||"",targetGrader:p.targetGrader||"Any / Raw OK",targetGrade:p.targetGrade||"",
     targetAutoPreference:p.targetAutoPreference||"No preference",targetMaxPrice:p.targetMaxPrice??null,targetListingUrl:p.targetListingUrl||"",targetSource:p.targetSource||"",targetUpdatedAt:p.targetUpdatedAt||"",
-    median:p.median??null,low:p.low??null,high:p.high??null,comps:p.comps??null,confidence:p.confidence||"",lastChecked:p.lastChecked||""
+    median:p.median??null,low:p.low??null,high:p.high??null,comps:p.comps??null,confidence:p.confidence||"",lastChecked:p.lastChecked||"",
+    valuationUpdatedAt:p.valuationUpdatedAt||"",valuationCardKey:p.valuationCardKey||"",
+    valuationHistory:Array.isArray(p.valuationHistory)?p.valuationHistory.slice(-24):[]
   };
   localStorage.setItem(STORAGE_KEY,JSON.stringify(edits));
   markLocalCollectionChanged();
@@ -2013,6 +2051,51 @@ function huntAction(action,name){
   }
 }
 
+
+function renderCollectionValuePanel(p){
+  const panel=$("collectionValuePanel");
+  if(!panel)return;
+  panel.hidden=!p?.owned;
+  if(!p?.owned)return;
+  const api=window.ScoutCollectionValue;
+  const paid=Number(p.pricePaid),current=Number(p.median);
+  const paidKnown=p.pricePaid!==null&&p.pricePaid!==undefined&&p.pricePaid!==""&&Number.isFinite(paid)&&paid>=0;
+  const currentKnown=Number.isFinite(current)&&current>0;
+  const snapshots=api?api.currentCardSnapshots(p):[];
+  const gain=api&&paidKnown&&currentKnown?api.gainLoss(paid,current):null;
+  $("collectionValuePaid").textContent=paidKnown?formatMoney(paid):"Not recorded";
+  $("collectionValueCurrent").textContent=currentKnown?formatMoney(current):"Not valued yet";
+  const gainEl=$("collectionValueGain");
+  gainEl.className="v";
+  if(gain){
+    const sign=gain.amount>0?"+":"";
+    const pct=gain.pct===null?"":` (${gain.pct>0?"+":""}${gain.pct.toFixed(1)}%)`;
+    gainEl.textContent=sign+formatMoney(gain.amount)+pct;
+    if(gain.amount>0)gainEl.classList.add("up");
+    if(gain.amount<0)gainEl.classList.add("down");
+  }else gainEl.textContent="—";
+  $("collectionValueSnapshots").textContent=String(snapshots.length);
+  const status=$("collectionValueStatus");
+  if(currentKnown){
+    const bits=[];
+    if(Number(p.comps)>0)bits.push(Number(p.comps)+" sold comp"+(Number(p.comps)===1?"":"s"));
+    if(p.confidence)bits.push(String(p.confidence).toUpperCase()+" confidence");
+    if(p.lastChecked)bits.push("valued "+p.lastChecked);
+    status.innerHTML="<strong>Current estimate:</strong> "+escapeHtml(bits.join(" · ")||"Saved market estimate")+". Refreshing this exact representative card updates today's snapshot without changing what you paid.";
+  }else{
+    status.innerHTML="<strong>No tracked estimate yet.</strong> Tap Refresh Value below. Scout will load this representative card's grading, autograph, relic, serial, and card details so the valuation matches the card you actually own.";
+  }
+}
+function collectionValueTrackRefresh(card,data,ctx){
+  const api=window.ScoutCollectionValue,p=ctx?.p;
+  if(!api||!p?.owned||!api.exactRepresentativeMatch(p,card))return false;
+  const patch=api.buildTrackingPatch(p,data,new Date());
+  if(!patch)return false;
+  Object.assign(p,patch);
+  savePlayerEdit(p);
+  return true;
+}
+
 function openPlayer(p,sourceScreen="homeScreen"){
   currentPlayer=p;returnScreen=sourceScreen;
   if(findTargetPlayerName!==p.name){
@@ -2039,6 +2122,7 @@ function openPlayer(p,sourceScreen="homeScreen"){
   $("medianValue").textContent=p.median?"$"+Number(p.median).toFixed(2):"Not priced yet";
   $("lastChecked").textContent=p.lastChecked||"—";
   $("upgradeTarget").textContent=p.target?targetIdentityLabel(p):(!p.owned?"First card":"Scout research");
+  renderCollectionValuePanel(p);
   $("targetScoutRow").hidden=!p.target;
   $("targetSummary").hidden=!p.target;
   $("targetSummaryMain").textContent=p.target?targetIdentityLabel(p):"";
@@ -2183,14 +2267,18 @@ function saveManagedCard(e){
   try{purchaseSource=managedPurchaseSourceValue()}
   catch(err){toast(err.message);return}
   const p=currentPlayer,wasOwned=p.owned,oldYear=p.cardYear;
+  const oldValueKey=window.ScoutCollectionValue&&wasOwned?ScoutCollectionValue.fingerprintForPlayer(p):"";
   p.owned=true;p.cardYear=year;p.set=set;p.cardNum=$("manageNum").value.trim();
   p.grader=$("manageGrader").value;p.gradeCondition=$("manageGradeCond").value.trim();p.serial=$("manageSerial").value.trim();
   p.autograph=$("manageAuto").checked;p.relic=$("manageRelic").checked;p.incoming=$("manageIncoming").checked;
   p.pricePaid=pricePaid;p.purchaseDate=$("managePurchaseDate").value;p.purchaseSource=purchaseSource;
   p.userNotes=$("manageNotes").value.trim();
   p.description=buildDescriptionFromForm();
-  // A new representative card needs a fresh valuation later.
-  if(manageMode==="upgrade" || !wasOwned){p.median=null;p.low=null;p.high=null;p.comps=null;p.confidence="";p.lastChecked="";}
+  // A new representative identity needs a fresh valuation, but old snapshots remain historical.
+  const newValueKey=window.ScoutCollectionValue?ScoutCollectionValue.fingerprintForPlayer(p):"";
+  if(manageMode==="upgrade" || !wasOwned || (oldValueKey&&newValueKey&&oldValueKey!==newValueKey)){
+    p.median=null;p.low=null;p.high=null;p.comps=null;p.confidence="";p.lastChecked="";p.valuationUpdatedAt="";p.valuationCardKey="";
+  }
   savePlayerEdit(p);stats();rotateMission();buildAlphabet();renderList();openPlayer(p);
   const remaining=needCount();
   const celebrations=[
@@ -2226,7 +2314,7 @@ function removeCurrentCard(){
   lastRemovedCard={name:p.name,snapshot:{...p}};
   p.owned=false;p.cardYear=null;p.set="";p.cardNum="";p.description="";p.grader="Raw";p.gradeCondition="";p.serial="";p.autograph=false;p.relic=false;p.userNotes="";
   p.incoming=false;p.pricePaid=null;p.purchaseDate="";p.purchaseSource="";
-  p.median=null;p.low=null;p.high=null;p.comps=null;p.confidence="";p.lastChecked="";
+  p.median=null;p.low=null;p.high=null;p.comps=null;p.confidence="";p.lastChecked="";p.valuationUpdatedAt="";p.valuationCardKey="";
   savePlayerEdit(p);stats();rotateMission();buildAlphabet();renderList();openPlayer(p);
   toast("Card removed. Scout has returned "+p.name+" to the hunt.");
 }
@@ -2267,7 +2355,7 @@ function exportUpdates(){
   if(!names.length&&!hasMonthly&&!hasFuture){toast("No Scout updates to export yet.");return}
   const payload={
     app:"HOF Card Scout",
-    version:"5.8.0",
+    version:"5.9.0",
     backupSchema:2,
     exportedAt:new Date().toISOString(),
     playerUpdates:edits,
@@ -4392,11 +4480,22 @@ function openShop(prefill){
   $("shopNum").placeholder="482";
   returnScreen=document.querySelector(".screen.active")?.id||"homeScreen";
   if(prefill){
+    const variant=window.ScoutCollectionValue?ScoutCollectionValue.representativeVariant(prefill):{
+      grader:prefill.grader||"Raw",grade:prefill.gradeCondition||"",serial:prefill.serial||"",autograph:!!prefill.autograph,relic:!!prefill.relic
+    };
     $("shopPlayer").value=prefill.name||"";
     $("shopYear").value=prefill.cardYear||"";
     setShopSetValue(prefill.set||"");
     $("shopNum").value=prefill.cardNum||"";
-    $("shopNotes").value=prefill.description||"";
+    $("shopPrice").value="";
+    const known=["Raw","PSA","SGC","CGC","BGS / Beckett","CSG","HGA","TAG","ISA"];
+    if(known.includes(variant.grader)){$("shopGrade").value=variant.grader;$("shopGradeOther").value="";}
+    else{$("shopGrade").value="__other__";$("shopGradeOther").value=variant.grader||"";}
+    $("shopGradeNum").value=variant.grader==="Raw"?"":(variant.grade||"");
+    $("shopSerial").value=variant.serial||"";
+    $("shopAuto").checked=!!variant.autograph;
+    $("shopRelic").checked=!!variant.relic;
+    $("shopNotes").value=prefill.userNotes||prefill.description||"";
   }else{
     $("shopForm").reset();
     setShopSetValue("");
@@ -4838,13 +4937,12 @@ function phase3aSavePurchasedCard(card,data,p,mode){
   p.userNotes=card.notes||"";
   p.description=phase3aCollectionDescription(card);
 
-  // We just priced this exact card, so keep that fresh valuation with the representative card.
-  p.median=Number.isFinite(Number(data.median))?Number(data.median):null;
-  p.low=Number.isFinite(Number(data.low))?Number(data.low):null;
-  p.high=Number.isFinite(Number(data.high))?Number(data.high):null;
-  p.comps=Number(data.used)||null;
-  p.confidence=data.confidence||"";
-  p.lastChecked=new Date().toLocaleDateString();
+  // The representative changed. Preserve old snapshots, clear the old current estimate, then track this exact card if the sold evidence is reliable.
+  p.median=null;p.low=null;p.high=null;p.comps=null;p.confidence="";p.lastChecked="";p.valuationUpdatedAt="";p.valuationCardKey="";
+  if(window.ScoutCollectionValue){
+    const valuePatch=ScoutCollectionValue.buildTrackingPatch(p,data,new Date());
+    if(valuePatch)Object.assign(p,valuePatch);
+  }
 
   if(phase3aTargetMatches(p,card))clearStructuredTarget(p);
 
@@ -5070,6 +5168,7 @@ function renderLiveResult(card,data,ctx){
     <div class="market-grid"><div class="market-stat"><div class="k">EBAY SOLD MEDIAN</div><div class="v">${median}</div></div><div class="market-stat"><div class="k">TYPICAL RANGE</div><div class="v">${range}</div></div><div class="market-stat"><div class="k">GOOD COMPS</div><div class="v">${comps}</div></div></div>
     <div><span class="conf-badge ${confidenceClass(conf)}">${escapeHtml(conf)} confidence</span></div>
     <p style="margin:8px 0 0;font-size:11px;color:var(--muted)"><strong>Pricing source:</strong> ${escapeHtml(provider)}${speedBits?" · "+escapeHtml(speedBits):""}</p>
+    ${data.collectionSnapshotSaved?'<div class="collection-snapshot-saved">✓ COLLECTION VALUE SNAPSHOT SAVED · This exact representative card now has a dated value point.</div>':''}
     ${labHtml}
     ${smartBuyTargetsHtml(targets)}
     <div class="verdict"><div class="tag">SCOUT SAYS</div><div class="big">${escapeHtml(v.title)}</div><div class="why"><strong>${escapeHtml(v.line)}</strong><br>${escapeHtml(v.why)}</div></div>
@@ -5128,6 +5227,7 @@ async function shopAnalysis(e){
     const res=await fetch(c.endpoint+"/value",{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":c.accessKey},body:JSON.stringify(card)});
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok) throw new Error(data.message||data.error||("Pricing service returned "+res.status));
+    data.collectionSnapshotSaved=collectionValueTrackRefresh(card,data,ctx);
     renderLiveResult(card,data,ctx);
   }catch(err){renderPricingError(card,ctx,err.message||"Unknown pricing error.");}
 }

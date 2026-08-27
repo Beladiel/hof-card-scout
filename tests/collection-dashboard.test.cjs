@@ -2,7 +2,7 @@ const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const html=fs.readFileSync("index.html","utf8");
 
-assert.match(html,/v5\.8\.0/);
+assert.match(html,/v5\.9\.0/);
 assert.match(html,/id="dashboardBtn">📊 MY COLLECTION/);
 assert.match(html,/id="dashboardScreen"/);
 assert.match(html,/id="dashboardOwned"/);
