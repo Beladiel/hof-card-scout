@@ -596,6 +596,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .collection-value-status{font-size:10px;color:var(--muted);line-height:1.5;margin-top:9px}
 .collection-value-status strong{color:var(--text)}
 .collection-snapshot-saved{margin:9px 0 0;border:1px solid rgba(86,197,138,.36);border-radius:11px;background:rgba(86,197,138,.09);color:#9ce8bb;padding:8px 10px;font-size:10px;font-weight:850;line-height:1.4}
+.collection-snapshot-skipped{margin:9px 0 0;border:1px solid rgba(230,189,99,.42);border-radius:11px;background:rgba(230,189,99,.08);color:#f4d58a;padding:8px 10px;font-size:10px;font-weight:850;line-height:1.4}
 @media(max-width:620px){.collection-value-grid{grid-template-columns:repeat(2,1fr)}}
 
 /* v5.9.0 — representative card photos */
@@ -5151,6 +5152,17 @@ function renderLiveResult(card,data,ctx){
   const median=Number.isFinite(Number(data.median))?formatMoney(data.median):"—";
   const range=Number.isFinite(Number(data.low))&&Number.isFinite(Number(data.high))?formatMoney(data.low)+"–"+formatMoney(data.high):"—";
   const comps=Number(data.used)||0;
+  const collectionValueExact=!!(ctx.p?.owned&&window.ScoutCollectionValue&&ScoutCollectionValue.exactRepresentativeMatch(ctx.p,card));
+  let collectionValueNotice="";
+  if(data.collectionSnapshotSaved){
+    collectionValueNotice='<div class="collection-snapshot-saved">✓ COLLECTION VALUE SNAPSHOT SAVED · This exact representative card now has a dated value point.</div>';
+  }else if(collectionValueExact){
+    let why="Scout did not add this market check to your collection history.";
+    if(comps<2)why=`Only ${comps} reliable sold comp${comps===1?"":"s"} found. Scout needs at least 2 before adding a value point.`;
+    else if(String(data.confidence||"").toLowerCase()==="insufficient")why="Sold evidence is still rated INSUFFICIENT. Scout did not add this result to your collection history.";
+    else if(!Number.isFinite(Number(data.median))||Number(data.median)<=0)why="No trustworthy positive market estimate was available, so Scout did not add a value point.";
+    collectionValueNotice='<div class="collection-snapshot-skipped">⚠ VALUE NOT SAVED · '+escapeHtml(why)+'</div>';
+  }
   const provider=data.provider||"eBay sold comps";
   const speedBits=[data.mode==="fast"?"⚡ Fast Mode":"Deep Check",data.cacheHit?"cached result":null].filter(Boolean).join(" · ");
   const notes=(data.notes||[]).map(n=>'<p>• '+escapeHtml(n)+'</p>').join("");
@@ -5171,7 +5183,7 @@ function renderLiveResult(card,data,ctx){
     <div class="market-grid"><div class="market-stat"><div class="k">EBAY SOLD MEDIAN</div><div class="v">${median}</div></div><div class="market-stat"><div class="k">TYPICAL RANGE</div><div class="v">${range}</div></div><div class="market-stat"><div class="k">GOOD COMPS</div><div class="v">${comps}</div></div></div>
     <div><span class="conf-badge ${confidenceClass(conf)}">${escapeHtml(conf)} confidence</span></div>
     <p style="margin:8px 0 0;font-size:11px;color:var(--muted)"><strong>Pricing source:</strong> ${escapeHtml(provider)}${speedBits?" · "+escapeHtml(speedBits):""}</p>
-    ${data.collectionSnapshotSaved?'<div class="collection-snapshot-saved">✓ COLLECTION VALUE SNAPSHOT SAVED · This exact representative card now has a dated value point.</div>':''}
+    ${collectionValueNotice}
     ${labHtml}
     ${smartBuyTargetsHtml(targets)}
     <div class="verdict"><div class="tag">SCOUT SAYS</div><div class="big">${escapeHtml(v.title)}</div><div class="why"><strong>${escapeHtml(v.line)}</strong><br>${escapeHtml(v.why)}</div></div>
