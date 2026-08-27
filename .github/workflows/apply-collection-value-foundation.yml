@@ -1,0 +1,52 @@
+name: Apply collection value foundation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apply_collection_value_foundation.py
+      - collection-value.js
+      - .github/workflows/apply-collection-value-foundation.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply collection value foundation
+        run: python apply_collection_value_foundation.py
+      - name: Update app version assertions
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          for p in Path("tests").glob("*.test.cjs"):
+              s=p.read_text(encoding="utf-8")
+              s=s.replace("5.8.0","5.9.0")
+              s=s.replace(r"5\.8\.0",r"5\.9\.0")
+              p.write_text(s,encoding="utf-8")
+          PY
+      - name: Syntax-check collection value helper
+        run: node --check collection-value.js
+      - name: Run full regression suite
+        run: |
+          node collection-intelligence.test.cjs
+          for f in tests/*.test.cjs; do
+            echo "Running $f"
+            node "$f"
+          done
+      - name: Commit changes
+        run: |
+          git config user.name "HOF Card Scout Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html tests
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Add collection value foundation"
+          git push
