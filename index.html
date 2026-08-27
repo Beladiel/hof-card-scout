@@ -295,6 +295,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .dashboard-mini .k{font-size:8px;color:var(--muted);font-weight:950;letter-spacing:.07em}
 .dashboard-mini .v{font-size:18px;font-weight:950;margin-top:4px;overflow-wrap:anywhere}
 .dashboard-mini .s{font-size:9px;color:var(--muted);line-height:1.35;margin-top:3px}
+.dashboard-value-gain.up{color:#9ce8bb}
+.dashboard-value-gain.down{color:#ffaaa2}
+.dashboard-value-note{font-size:10px;color:var(--muted);line-height:1.5;margin-top:9px}
+
 .dashboard-insights{display:grid;gap:8px;margin-top:10px}
 .dashboard-insight{display:grid;grid-template-columns:34px 1fr;gap:9px;align-items:start;border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(255,255,255,.025)}
 .dashboard-insight-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:rgba(230,189,99,.09);font-size:17px}
@@ -901,6 +905,18 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
           </div>
         </div>
 
+        <div class="dashboard-section" id="dashboardCollectionValueSection">
+          <div class="dashboard-section-title">📈 ESTIMATED COLLECTION VALUE</div>
+          <div class="dashboard-sub">Only reliable values Scout has already saved are included. Opening this dashboard never triggers a marketplace search.</div>
+          <div class="dashboard-mix-grid">
+            <div class="dashboard-mini"><div class="k">EST. VALUE</div><div class="v" id="dashboardEstimatedValue">—</div><div class="s">Total of currently valued representatives</div></div>
+            <div class="dashboard-mini"><div class="k">CARDS VALUED</div><div class="v" id="dashboardValuedCount">0 / 0</div><div class="s" id="dashboardValuedCoverage">0% of owned cards</div></div>
+            <div class="dashboard-mini"><div class="k">MATCHED COST BASIS</div><div class="v" id="dashboardMatchedCost">—</div><div class="s" id="dashboardMatchedCount">0 valued cards also have price paid</div></div>
+            <div class="dashboard-mini"><div class="k">MATCHED GAIN / LOSS</div><div class="v dashboard-value-gain" id="dashboardCollectionGain">—</div><div class="s">Compared only where both value and purchase cost are known</div></div>
+          </div>
+          <div class="dashboard-value-note" id="dashboardValueNote"></div>
+        </div>
+
         <div class="dashboard-section">
           <div class="dashboard-section-title">⚾ COLLECTION MIX</div>
           <div class="dashboard-mix-grid">
@@ -1361,6 +1377,7 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 
 <script src="collection-value-chart.js"></script>
 <script src="collection-value.js"></script>
+<script src="collection-value-dashboard.js"></script>
 <script src="card-photo.js"></script>
 <script src="shopping-report.js"></script>
 <script>
@@ -5466,6 +5483,9 @@ function renderDashboard(){
   const graded=PLAYERS.filter(p=>p.owned&&dashboardIsGraded(p)).length;
   const autos=PLAYERS.filter(p=>p.owned&&dashboardIsAuto(p)).length;
   const coverage=owned?Math.round(paid.length/owned*100):0;
+  const valueSummary=window.ScoutCollectionValueDashboard&&window.ScoutCollectionValue
+    ?ScoutCollectionValueDashboard.summarize(PLAYERS,ScoutCollectionValue)
+    :null;
 
   $("dashboardOwned").textContent=owned;
   $("dashboardNeed").textContent=need;
@@ -5481,6 +5501,35 @@ function renderDashboard(){
   $("dashboardGraded").textContent=graded;
   $("dashboardAutos").textContent=autos;
   $("dashboardPriceCoverage").textContent=coverage+"%";
+
+  const valueGainEl=$("dashboardCollectionGain");
+  if(valueSummary){
+    $("dashboardEstimatedValue").textContent=valueSummary.estimatedValue!==null?formatMoney(valueSummary.estimatedValue):"—";
+    $("dashboardValuedCount").textContent=valueSummary.valuedCount+" / "+valueSummary.ownedCount;
+    $("dashboardValuedCoverage").textContent=valueSummary.coveragePct.toFixed(1).replace(/\.0$/,'')+"% of owned cards";
+    $("dashboardMatchedCost").textContent=valueSummary.matchedCostBasis!==null?formatMoney(valueSummary.matchedCostBasis):"—";
+    $("dashboardMatchedCount").textContent=valueSummary.matchedCount+" valued card"+(valueSummary.matchedCount===1?"":"s")+" also have price paid";
+    valueGainEl.className="v dashboard-value-gain";
+    if(valueSummary.gainLoss!==null){
+      const gain=valueSummary.gainLoss;
+      const sign=gain>0?"+":gain<0?"−":"";
+      const pct=valueSummary.gainLossPct===null?"":` (${valueSummary.gainLossPct>0?"+":valueSummary.gainLossPct<0?"−":""}${Math.abs(valueSummary.gainLossPct).toFixed(1)}%)`;
+      valueGainEl.textContent=sign+formatMoney(Math.abs(gain))+pct;
+      if(gain>0)valueGainEl.classList.add("up");
+      if(gain<0)valueGainEl.classList.add("down");
+    }else valueGainEl.textContent="—";
+    $("dashboardValueNote").textContent=valueSummary.valuedCount
+      ? valueSummary.valuedCount+" of "+valueSummary.ownedCount+" owned representative card"+(valueSummary.ownedCount===1?" is":"s are")+" currently valued. The estimated total includes only those saved reliable values; "+valueSummary.unvaluedCount+" owned card"+(valueSummary.unvaluedCount===1?" remains":"s remain")+" unvalued."
+      : "No owned representative cards have a saved reliable value yet. Use Refresh Value on individual player pages; trustworthy results will begin filling this total automatically.";
+  }else{
+    $("dashboardEstimatedValue").textContent="—";
+    $("dashboardValuedCount").textContent="0 / "+owned;
+    $("dashboardValuedCoverage").textContent="0% of owned cards";
+    $("dashboardMatchedCost").textContent="—";
+    $("dashboardMatchedCount").textContent="0 valued cards also have price paid";
+    valueGainEl.textContent="—";
+    $("dashboardValueNote").textContent="Collection valuation is not available in this app version.";
+  }
 
   const milestones=[50,60,75,90,100];
   const nextMilestone=milestones.find(m=>pct<m-0.05)||100;
