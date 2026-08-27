@@ -258,6 +258,20 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .fast-mode .fast-note{display:block}
 .grade-other[hidden]{display:none}
 
+/* v5.2.1 — combined data / backup menu */
+.data-modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:18px;background:rgba(0,0,0,.68);backdrop-filter:blur(3px)}
+.data-modal-backdrop[hidden]{display:none}
+.data-modal{width:min(430px,100%);border:1px solid var(--line);border-radius:20px;background:linear-gradient(145deg,#12372c,#0b261e);box-shadow:0 22px 70px rgba(0,0,0,.55);padding:17px}
+.data-modal-head{display:flex;align-items:flex-start;gap:11px;margin-bottom:12px}
+.data-modal-icon{width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;border-radius:13px;background:rgba(230,189,99,.12);border:1px solid rgba(230,189,99,.3);font-size:21px}
+.data-modal-title{font-size:21px;font-weight:950;line-height:1.1}
+.data-modal-sub{font-size:11px;color:var(--muted);line-height:1.45;margin-top:4px}
+.data-modal-actions{display:grid;gap:9px;margin-top:13px}
+.data-modal-actions button{text-align:left;min-height:52px}
+.data-modal-actions button strong{display:block;font-size:13px}
+.data-modal-actions button span{display:block;font-size:9px;font-weight:750;opacity:.72;margin-top:2px}
+.data-modal-cancel{width:100%;margin-top:9px}
+
 /* Phase 5 — Hunt List / Shopping Mode */
 .hunt-wrap{background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:18px;padding:14px}
 .hunt-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:4px}
@@ -553,8 +567,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
         <button class="secondary" id="huntModeBtn">🛒 HUNT LIST</button>
         <button class="ghost" id="forecastBtn">🔮 HALL FORECAST (<span id="forecastWatchCount">0</span>)</button>
         <button class="ghost" id="targetsBtn">🎯 TARGET CARDS (<span id="targetCount">2</span>)</button>
-        <button class="ghost" id="exportBtn">📤 EXPORT UPDATES</button>
-        <button class="ghost" id="importBtn">📥 IMPORT UPDATES</button>
+        <button class="ghost" id="dataMenuBtn">↕️ DATA / BACKUP</button>
         <input id="importFile" type="file" accept=".json,application/json" hidden>
       </div>
 
@@ -1034,7 +1047,24 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.2.0</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v5.2.1</div>
+</div>
+<div class="data-modal-backdrop" id="dataMenuModal" hidden>
+  <div class="data-modal" role="dialog" aria-modal="true" aria-labelledby="dataMenuTitle">
+    <div class="data-modal-head">
+      <div class="data-modal-icon">↕️</div>
+      <div>
+        <div class="section-eyebrow">DATA TOOLS</div>
+        <div class="data-modal-title" id="dataMenuTitle">Export or import?</div>
+        <div class="data-modal-sub">Move your HOF Card Scout updates between this device and a backup file. Scout Cloud Backup stays separate.</div>
+      </div>
+    </div>
+    <div class="data-modal-actions">
+      <button type="button" class="secondary" id="dataExportBtn"><strong>📤 EXPORT UPDATES</strong><span>Save your current app updates to a file.</span></button>
+      <button type="button" class="primary" id="dataImportBtn"><strong>📥 IMPORT UPDATES</strong><span>Load a previously exported Scout updates file.</span></button>
+    </div>
+    <button type="button" class="ghost data-modal-cancel" id="dataMenuCancelBtn">CANCEL</button>
+  </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -4884,6 +4914,18 @@ function valueRefresh(){
   openShop(currentPlayer);
   toast("Loaded your card into Card Shop Mode.");
 }
+function openDataMenu(){
+  const modal=$("dataMenuModal");
+  if(!modal)return;
+  modal.hidden=false;
+  setTimeout(()=>$("dataExportBtn")?.focus(),0);
+}
+function closeDataMenu(){
+  const modal=$("dataMenuModal");
+  if(!modal)return;
+  modal.hidden=true;
+  $("dataMenuBtn")?.focus();
+}
 $("homeBtn").addEventListener("click",()=>showScreen("homeScreen"));
 $("detailBack").addEventListener("click",()=>showScreen(returnScreen||"homeScreen"));
 $("manageBack").addEventListener("click",()=>showScreen("detailScreen"));
@@ -4903,8 +4945,12 @@ $("removeCardBtn").addEventListener("click",removeCurrentCard);
 $("undoRemoveBtn").addEventListener("click",undoRemove);
 $("manageForm").addEventListener("submit",saveManagedCard);
 $("manageSource").addEventListener("change",()=>updateManageSourceDetail("",true));
-$("exportBtn").addEventListener("click",exportUpdates);
-$("importBtn").addEventListener("click",()=>$("importFile").click());
+$("dataMenuBtn").addEventListener("click",openDataMenu);
+$("dataMenuCancelBtn").addEventListener("click",closeDataMenu);
+$("dataExportBtn").addEventListener("click",()=>{closeDataMenu();exportUpdates();});
+$("dataImportBtn").addEventListener("click",()=>{closeDataMenu();$("importFile").click();});
+$("dataMenuModal").addEventListener("click",e=>{if(e.target===$("dataMenuModal"))closeDataMenu();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("dataMenuModal").hidden)closeDataMenu();});
 $("importFile").addEventListener("change",e=>importUpdatesFile(e.target.files&&e.target.files[0]));
 $("refreshValueBtn").addEventListener("click",valueRefresh);
 $("scoutTargetBtn").addEventListener("click",()=>phase3bScoutTarget(currentPlayer));

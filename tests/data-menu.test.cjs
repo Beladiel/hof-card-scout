@@ -1,0 +1,14 @@
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const html=fs.readFileSync("index.html","utf8");
+assert.match(html,/id="dataMenuBtn"[^>]*>↕️ DATA \/ BACKUP/);
+assert.doesNotMatch(html,/id="exportBtn"/);
+assert.doesNotMatch(html,/id="importBtn"/);
+assert.match(html,/id="dataMenuModal"[^>]*hidden/);
+assert.match(html,/id="dataExportBtn"/);
+assert.match(html,/id="dataImportBtn"/);
+assert.match(html,/dataExportBtn[\s\S]*exportUpdates\(\)/);
+assert.match(html,/dataImportBtn[\s\S]*importFile/);
+assert.match(html,/Escape/);
+assert.match(html,/v5\.2\.1/);
+console.log("Data menu tests passed.");
