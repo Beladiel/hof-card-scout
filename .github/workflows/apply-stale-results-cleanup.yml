@@ -17,6 +17,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Repair migration splice
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('apply_stale_results_cleanup.py')
+          s=p.read_text(encoding='utf-8')
+          bad="s=s[:pos]+stale_branch+s[pos+len('  }else'):]"
+          good="s=s[:pos]+stale_branch+branch+s[pos+len(branch):]"
+          if bad not in s:
+              raise SystemExit('migration splice anchor not found')
+          p.write_text(s.replace(bad,good,1),encoding='utf-8')
+          PY
       - name: Apply migration
         run: python apply_stale_results_cleanup.py
       - name: Run full regression suite
