@@ -1,0 +1,43 @@
+name: Apply readable push recap
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apply-push-readable-recap.py
+      - .github/workflows/apply-push-readable-recap.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply readable push recap
+        run: python apply-push-readable-recap.py
+      - name: Check syntax
+        run: |
+          node --check push-notifications.js
+          node --check scout-push-sw.js
+      - name: Run regression suite
+        run: |
+          node collection-intelligence.test.cjs
+          for f in tests/*.test.cjs; do
+            echo "Running $f"
+            node "$f"
+          done
+      - name: Commit changes
+        run: |
+          git config user.name "HOF Card Scout Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add push-notifications.js scout-push-sw.js tests/push-notifications.test.cjs
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Make push recaps readable without tapping"
+          git push
