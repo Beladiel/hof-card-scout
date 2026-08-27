@@ -17,8 +17,8 @@ assert old_run in s
 s=s.replace(old_run,new_run,1)
 
 # Add a scheduled helper immediately after the one-search runner.
-needle='''  state.updatedAt = now.toISOString();\n  return { state: normalizeAutomationState(state), result };\n}\n\nfunction json(body, status, cors) {'''
-replacement='''  state.updatedAt = now.toISOString();\n  return { state: normalizeAutomationState(state), result };\n}\n\nasync function runScheduledTargetMonitor(env, now=new Date()) {\n  if (!env?.SCOUT_DATA) return { status: "skipped", searchUsed: 0, message: "SCOUT_DATA is not configured." };\n  let state = await readAutomationState(env.SCOUT_DATA);\n  const catalog = await readAutomationCatalog(env.SCOUT_DATA);\n  const run = await runOneAutomationTargetCheck(env, state, catalog, now, { dueOnly: true });\n  state = run.state;\n  await writeAutomationState(env.SCOUT_DATA, state);\n  return run.result;\n}\n\nfunction json(body, status, cors) {'''
+needle='''  state.updatedAt = now.toISOString();\n  return { state, result };\n}\n\nfunction json(body, status, cors) {'''
+replacement='''  state.updatedAt = now.toISOString();\n  return { state, result };\n}\n\nasync function runScheduledTargetMonitor(env, now=new Date()) {\n  if (!env?.SCOUT_DATA) return { status: "skipped", searchUsed: 0, message: "SCOUT_DATA is not configured." };\n  let state = await readAutomationState(env.SCOUT_DATA);\n  const catalog = await readAutomationCatalog(env.SCOUT_DATA);\n  const run = await runOneAutomationTargetCheck(env, state, catalog, now, { dueOnly: true });\n  state = run.state;\n  await writeAutomationState(env.SCOUT_DATA, state);\n  return run.result;\n}\n\nfunction json(body, status, cors) {'''
 assert needle in s
 s=s.replace(needle,replacement,1)
 
@@ -70,7 +70,6 @@ assert close_pos is not None
 before=s[:close_pos]
 after=s[close_pos:]
 assert 'async scheduled(' not in before
-# Ensure preceding fetch method ends with a comma before adding next property.
 trim=before.rstrip()
 if trim.endswith('}'):
     before=trim + ',\n'
