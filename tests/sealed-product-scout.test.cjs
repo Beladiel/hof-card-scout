@@ -23,6 +23,7 @@ assert.match(js,/showScreen\(\"sealedProductScreen\"\)/,'new mode should use the
 assert.doesNotMatch(js,/\bfetch\s*\(/,'first gate must not call any network API');
 assert.doesNotMatch(js,/SerpApi|\/value|\/deals|runEbaySearch/,'first gate must not invoke marketplace pricing code');
 assert.match(html,/sealed-product-scout\.js/,'index must load the Sealed Product Scout module');
-assert.match(html,/v6\.0\.1/,'app version should identify the Sealed Product Scout launch');
+assert.match(html,/sealed-product-scout\.js\?v=6\.0\.2/,'cache-busted sealed product module should force fresh iPhone code');
+assert.match(html,/v6\.0\.2/,'app version should identify the Sealed Product Scout launch');
 
 console.log('Sealed Product Scout first-gate tests passed.');

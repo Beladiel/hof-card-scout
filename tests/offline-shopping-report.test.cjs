@@ -51,7 +51,7 @@ assert.ok(hunt.indexOf("<autoFilter")<hunt.indexOf("<mergeCells"),"autoFilter mu
 assert.ok(entries.get("xl/styles.xml").toString("utf8").includes('$#,##0.00'));
 
 const html=fs.readFileSync("index.html","utf8");
-assert.match(html,/v6\.0\.1/);
+assert.match(html,/v6\.0\.2/);
 assert.match(html,/id="dataShoppingReportBtn"/);
 assert.match(html,/OFFLINE SHOPPING REPORT \(\.XLSX\)/);
 assert.match(html,/<script src="shopping-report\.js"><\/script>/);
