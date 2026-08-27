@@ -1,4 +1,4 @@
-const VERSION = "3.31.0";
+const VERSION = "3.32.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -42,6 +42,7 @@ const DEALS_BIN_LIMIT = 8;
 const DEALS_AUCTION_LIMIT = 6;
 const DEALS_REJECT_LIMIT = 10;
 const COLLECTION_KV_KEY = "collection:primary:v1";
+const COLLECTION_VALUE_HISTORY_META_KEY = "__scoutCollectionValueHistoryV1";
 const COLLECTION_MAX_BYTES = 512 * 1024;
 const COLLECTION_MAX_PLAYERS = 500;
 const CARD_PHOTO_PREFIX = "card-photo:v1:";
@@ -104,7 +105,7 @@ export default {
       try {
         const state = await readAutomationState(env.SCOUT_DATA);
         const catalog = await readAutomationCatalog(env.SCOUT_DATA);
-        return json({ ok: true, version: VERSION, runnerEnabled: true, targetRunnerEnabled: true, collectionRunnerEnabled: false, ...automationPublicState(state), catalog: automationCatalogSummary(catalog) }, 200, cors);
+        return json({ ok: true, version: VERSION, runnerEnabled: true, targetRunnerEnabled: true, collectionRunnerEnabled: true, ...automationPublicState(state), catalog: automationCatalogSummary(catalog) }, 200, cors);
       } catch (err) {
         console.error(err);
         return json({ ok: false, error: "automation_status_failed", message: "Scout could not load the automation search budget." }, 502, cors);
@@ -127,7 +128,7 @@ export default {
         const settings = normalizeAutomationSettings(body);
         const next = { ...existing, settings, updatedAt: new Date().toISOString() };
         await writeAutomationState(env.SCOUT_DATA, next);
-        return json({ ok: true, version: VERSION, runnerEnabled: true, targetRunnerEnabled: true, collectionRunnerEnabled: false, ...automationPublicState(next) }, 200, cors);
+        return json({ ok: true, version: VERSION, runnerEnabled: true, targetRunnerEnabled: true, collectionRunnerEnabled: true, ...automationPublicState(next) }, 200, cors);
       } catch (err) {
         console.error(err);
         return json({ ok: false, error: "automation_settings_failed", message: "Scout could not save the automation search budget." }, 502, cors);
@@ -181,7 +182,7 @@ export default {
           : await runOneAutomationTargetCheck(env, state, catalog);
         state = run.state;
         await writeAutomationState(env.SCOUT_DATA, state);
-        return json({ ok: true, version: VERSION, runnerEnabled: true, targetRunnerEnabled: true, collectionRunnerEnabled: false, result: run.result, ...automationPublicState(state), catalog: automationCatalogSummary(catalog) }, 200, cors);
+        return json({ ok: true, version: VERSION, runnerEnabled: true, targetRunnerEnabled: true, collectionRunnerEnabled: true, result: run.result, ...automationPublicState(state), catalog: automationCatalogSummary(catalog) }, 200, cors);
       } catch (err) {
         console.error(err);
         return json({ ok: false, error: "automation_run_failed", message: err?.message || "Scout could not complete the protected automation check." }, 502, cors);
@@ -903,7 +904,7 @@ export default {
   },
   async scheduled(controller, env, ctx) {
     const now = new Date(Number(controller?.scheduledTime) || Date.now());
-    const task = runScheduledTargetMonitor(env, now).catch(err => console.error("Scheduled target monitor failed", err));
+    const task = runScheduledAutomation(env, now).catch(err => console.error("Scheduled Scout automation failed", err));
     if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(task);
     else await task;
   },
@@ -985,7 +986,7 @@ function automationPublicState(state) {
     lastRunAt: normalized.lastRunAt || null,
     updatedAt: normalized.updatedAt || null,
     alerts: normalized.alerts.slice(-20),
-    note: "Saved-target monitoring is scheduled with the one-search guardrail. Collection-value rotation is still disabled.",
+    note: "Saved-target monitoring and paced collection-value rotation are scheduled under the same hard monthly search cap.",
   };
 }
 
@@ -1059,6 +1060,16 @@ function normalizeAutomationCatalog(raw={}) {
 async function readAutomationCatalog(kv) {
   const raw = await kv.get(AUTOMATION_CATALOG_KEY, { type: "json" });
   return normalizeAutomationCatalog(raw || {});
+}
+
+async function writeAutomationCatalog(kv, catalog) {
+  const normalized = normalizeAutomationCatalog(catalog || {});
+  const serialized = JSON.stringify(normalized);
+  if (new TextEncoder().encode(serialized).byteLength > AUTOMATION_CATALOG_MAX_BYTES) {
+    throw new Error("Automation catalog is larger than Scout allows.");
+  }
+  await kv.put(AUTOMATION_CATALOG_KEY, serialized);
+  return normalized;
 }
 
 function automationCatalogSummary(catalog) {
@@ -1381,14 +1392,189 @@ async function runOneAutomationCollectionCheck(env, inputState, catalog, now=new
   }
 }
 
-async function runScheduledTargetMonitor(env, now=new Date()) {
+function automationCents(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+}
+
+function automationMergeCardHistory(history, snapshot, max=24) {
+  const rows = (Array.isArray(history) ? history : [])
+    .filter(x => x && x.at && x.cardKey && Number.isFinite(Number(x.value)))
+    .map(x => ({ ...x, value: automationCents(x.value) }));
+  const day = String(snapshot.at).slice(0, 10);
+  const idx = rows.findIndex(x => x.cardKey === snapshot.cardKey && String(x.at).slice(0, 10) === day);
+  if (idx >= 0) rows[idx] = snapshot;
+  else rows.push(snapshot);
+  rows.sort((a,b) => String(a.at).localeCompare(String(b.at)));
+  return rows.slice(-Math.max(3, Number(max) || 24));
+}
+
+function automationMergeCollectionHistory(history, snapshot, max=48) {
+  const rows = (Array.isArray(history) ? history : [])
+    .filter(x => x && x.at && Number.isFinite(Number(x.value)) && Number(x.value) > 0)
+    .map(x => ({ ...x, value: automationCents(x.value) }));
+  const day = String(snapshot.at).slice(0, 10);
+  const idx = rows.findIndex(x => String(x.at).slice(0, 10) === day);
+  if (idx >= 0) rows[idx] = snapshot;
+  else rows.push(snapshot);
+  rows.sort((a,b) => String(a.at).localeCompare(String(b.at)));
+  return rows.slice(-Math.max(3, Number(max) || 48));
+}
+
+function automationApplyValuationToCatalog(catalog, card, valuation, now) {
+  const normalized = normalizeAutomationCatalog(catalog || {});
+  const entry = normalized.official.find(x => x.name === card?.name && x.cardKey === card?.cardKey);
+  if (!entry) return normalized;
+  const at = now.toISOString();
+  const snapshot = {
+    at,
+    value: automationCents(valuation?.median),
+    low: automationCents(valuation?.low),
+    high: automationCents(valuation?.high),
+    comps: Math.max(0, Math.floor(Number(valuation?.used) || 0)),
+    confidence: automationText(valuation?.confidence || "low", 40).toLowerCase(),
+    cardKey: entry.cardKey,
+  };
+  entry.median = snapshot.value;
+  entry.low = snapshot.low;
+  entry.high = snapshot.high;
+  entry.comps = snapshot.comps;
+  entry.confidence = snapshot.confidence;
+  entry.lastChecked = now.toLocaleDateString("en-US");
+  entry.valuationUpdatedAt = at;
+  entry.valuationCardKey = entry.cardKey;
+  entry.valuationHistory = automationMergeCardHistory(entry.valuationHistory, snapshot, 24);
+  normalized.generatedAt = at;
+  return normalized;
+}
+
+function automationCollectionSummaryFromCatalog(catalog, playerUpdates={}) {
+  const normalized = normalizeAutomationCatalog(catalog || {});
+  const owned = normalized.official.filter(x => x.owned);
+  const valued = owned.filter(x => x.cardKey && x.valuationCardKey === x.cardKey && Number.isFinite(Number(x.median)) && Number(x.median) > 0);
+  let value = 0, matchedCostBasis = 0, matchedCount = 0;
+  for (const entry of valued) {
+    value += Number(entry.median);
+    const paid = playerUpdates?.[entry.name]?.pricePaid;
+    if (paid !== null && paid !== undefined && paid !== "" && Number.isFinite(Number(paid)) && Number(paid) >= 0) {
+      matchedCostBasis += Number(paid);
+      matchedCount++;
+    }
+  }
+  return {
+    ownedCount: owned.length,
+    valuedCount: valued.length,
+    coveragePct: owned.length ? Math.round((valued.length / owned.length) * 1000) / 10 : 0,
+    estimatedValue: valued.length ? automationCents(value) : null,
+    matchedCostBasis: matchedCount ? automationCents(matchedCostBasis) : null,
+    matchedCount,
+  };
+}
+
+async function automationPersistScheduledValuation(kv, catalog, result, now=new Date()) {
+  if (!kv || !result?.saved || !result?.card?.name || !result?.card?.cardKey || !result?.valuation) {
+    return { ok: false, catalog: normalizeAutomationCatalog(catalog || {}), reason: "nothing_to_persist" };
+  }
+  const at = now.toISOString();
+  const updatedCatalog = automationApplyValuationToCatalog(catalog, result.card, result.valuation, now);
+  const catalogEntry = updatedCatalog.official.find(x => x.name === result.card.name && x.cardKey === result.card.cardKey);
+  if (!catalogEntry) return { ok: false, catalog: updatedCatalog, reason: "catalog_card_not_found" };
+
+  const existing = await kv.get(COLLECTION_KV_KEY, { type: "json" });
+  const record = existing && typeof existing === "object" ? existing : {};
+  const playerUpdates = record.playerUpdates && typeof record.playerUpdates === "object" && !Array.isArray(record.playerUpdates)
+    ? { ...record.playerUpdates }
+    : {};
+  const prior = playerUpdates[catalogEntry.name] && typeof playerUpdates[catalogEntry.name] === "object" && !Array.isArray(playerUpdates[catalogEntry.name])
+    ? playerUpdates[catalogEntry.name]
+    : {};
+  const snapshot = catalogEntry.valuationHistory[catalogEntry.valuationHistory.length - 1];
+  playerUpdates[catalogEntry.name] = {
+    ...prior,
+    median: catalogEntry.median,
+    low: catalogEntry.low,
+    high: catalogEntry.high,
+    comps: catalogEntry.comps,
+    confidence: catalogEntry.confidence,
+    lastChecked: catalogEntry.lastChecked,
+    valuationUpdatedAt: catalogEntry.valuationUpdatedAt,
+    valuationCardKey: catalogEntry.valuationCardKey,
+    valuationHistory: automationMergeCardHistory(prior.valuationHistory || catalogEntry.valuationHistory, snapshot, 24),
+  };
+
+  const summary = automationCollectionSummaryFromCatalog(updatedCatalog, playerUpdates);
+  if (Number.isFinite(Number(summary.estimatedValue)) && Number(summary.estimatedValue) > 0 && summary.valuedCount > 0) {
+    const meta = playerUpdates[COLLECTION_VALUE_HISTORY_META_KEY] && typeof playerUpdates[COLLECTION_VALUE_HISTORY_META_KEY] === "object" && !Array.isArray(playerUpdates[COLLECTION_VALUE_HISTORY_META_KEY])
+      ? playerUpdates[COLLECTION_VALUE_HISTORY_META_KEY]
+      : { schema: 1, history: [], updatedAt: "" };
+    const collectionSnapshot = {
+      at,
+      value: summary.estimatedValue,
+      valuedCount: summary.valuedCount,
+      ownedCount: summary.ownedCount,
+      coveragePct: summary.coveragePct,
+      matchedCostBasis: summary.matchedCostBasis,
+      matchedCount: summary.matchedCount,
+    };
+    playerUpdates[COLLECTION_VALUE_HISTORY_META_KEY] = {
+      schema: 1,
+      history: automationMergeCollectionHistory(meta.history, collectionSnapshot, 48),
+      updatedAt: at,
+    };
+  }
+
+  const nextRecord = {
+    ...record,
+    schema: Math.max(3, Number(record.schema) || 3),
+    savedAt: at,
+    clientUpdatedAt: at,
+    appVersion: record.appVersion || "5.9.0",
+    playerUpdates,
+    monthlyPick: record.monthlyPick && typeof record.monthlyPick === "object" && !Array.isArray(record.monthlyPick) ? record.monthlyPick : null,
+    futureHof: record.futureHof && typeof record.futureHof === "object" && !Array.isArray(record.futureHof) ? record.futureHof : null,
+  };
+  const serialized = JSON.stringify(nextRecord);
+  if (new TextEncoder().encode(serialized).byteLength > COLLECTION_MAX_BYTES) {
+    throw new Error("Scout cloud backup is larger than the allowed safety limit after an automatic valuation.");
+  }
+
+  await kv.put(COLLECTION_KV_KEY, serialized);
+  await writeAutomationCatalog(kv, updatedCatalog);
+  return { ok: true, catalog: updatedCatalog, savedAt: at, summary };
+}
+
+async function runScheduledAutomation(env, now=new Date()) {
   if (!env?.SCOUT_DATA) return { status: "skipped", searchUsed: 0, message: "SCOUT_DATA is not configured." };
   let state = await readAutomationState(env.SCOUT_DATA);
-  const catalog = await readAutomationCatalog(env.SCOUT_DATA);
-  const run = await runOneAutomationTargetCheck(env, state, catalog, now, { dueOnly: true });
-  state = run.state;
+  let catalog = await readAutomationCatalog(env.SCOUT_DATA);
+
+  // Targets always get first claim on a scheduler wake-up. If a target actually
+  // spends the one allowed search, the collection side does not run that day.
+  const targetRun = await runOneAutomationTargetCheck(env, state, catalog, now, { dueOnly: true });
+  state = targetRun.state;
+  if (Number(targetRun.result?.searchUsed) > 0 || targetRun.result?.status === "error") {
+    await writeAutomationState(env.SCOUT_DATA, state);
+    return { kind: "target", ...targetRun.result };
+  }
+
+  // No due target spent a search. The paced collection runner may now use
+  // fresh cache for zero searches or one strict sold search maximum.
+  const collectionRun = await runOneAutomationCollectionCheck(env, state, catalog, now);
+  state = collectionRun.state;
+  if (collectionRun.result?.saved) {
+    try {
+      const persisted = await automationPersistScheduledValuation(env.SCOUT_DATA, catalog, collectionRun.result, now);
+      catalog = persisted.catalog || catalog;
+      collectionRun.result.persisted = persisted.ok === true;
+      collectionRun.result.collectionSummary = persisted.summary || null;
+    } catch (err) {
+      console.error("Scheduled collection valuation persistence failed", err);
+      collectionRun.result.persisted = false;
+      collectionRun.result.persistenceMessage = "Scout found a reliable value but could not save it to cloud history on this run.";
+    }
+  }
   await writeAutomationState(env.SCOUT_DATA, state);
-  return run.result;
+  return { kind: "collection", ...collectionRun.result };
 }
 
 function json(body, status, cors) {

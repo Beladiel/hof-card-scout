@@ -58,7 +58,7 @@
     return `<section class="screen" id="automationScreen">
       <button class="back" id="automationBack">← Back home</button>
       <div class="automation-wrap">
-        <div class="automation-hero"><div class="section-eyebrow">⚙️ AUTOMATION & SEARCH BUDGET</div><div class="automation-title">Useful automation. No runaway searches.</div><div class="automation-sub">Scout will get a hard monthly allowance before any background runner is turned on. Manual searches stay your choice and are not charged against this automation meter.</div></div>
+        <div class="automation-hero"><div class="section-eyebrow">⚙️ AUTOMATION & SEARCH BUDGET</div><div class="automation-title">Useful automation. No runaway searches.</div><div class="automation-sub">Scout uses a hard monthly allowance for background checks. Manual searches stay your choice and are not charged against this automation meter.</div></div>
         <div class="automation-card">
           <div class="automation-budget-top"><div><div class="automation-budget-label">AUTOMATIC SERPAPI SEARCHES THIS MONTH</div><div class="automation-big"><span id="automationUsed">0</span> / <span id="automationCapTop">30</span></div></div><div class="automation-chip safe" id="automationEngineChip">GUARDRAILS ONLY</div></div>
           <div class="automation-meter"><span id="automationMeterFill"></span></div>
@@ -84,7 +84,7 @@
           <div class="automation-audit-row"><div><strong>Manual Deep value refresh</strong><br><span>Can broaden sold discovery when the strict search is empty.</span></div><div class="automation-chip warn">UP TO 3</div></div>
           <div class="automation-audit-row"><div><strong>Manual Find a Target</strong><br><span>Discovery plus sold-market checks can fan out. Great manually; too expensive for a background loop.</span></div><div class="automation-chip warn">UP TO 6</div></div>
           <div class="automation-audit-row"><div><strong>Planned target monitor</strong><br><span>One strict active-listing search maximum per target check. No broad retry and no automatic sold-comps enrichment.</span></div><div class="automation-chip safe">MAX 1</div></div>
-          <div class="automation-audit-row"><div><strong>Planned collection rotation</strong><br><span>Fast valuation only; one SerpApi search maximum per card, then stop at the monthly cap.</span></div><div class="automation-chip safe">MAX 1 / CARD</div></div>
+          <div class="automation-audit-row"><div><strong>Collection value rotation</strong><br><span>One strict sold search maximum per card, spaced at least 3 days apart; timeouts pause collection checks for 7 days.</span></div><div class="automation-chip safe">MAX 1 / CARD</div></div>
         </div></div>
       </div>
     </section>`;
@@ -114,7 +114,7 @@
     document.getElementById("automationMeterFill").style.width=pct(used,s.monthlySerpCap).toFixed(1)+"%";
     document.getElementById("automationRemaining").textContent=remaining(s.monthlySerpCap,used)+" automatic searches remain in "+(latestState.period||"this monthly period")+".";
     const chip=document.getElementById("automationEngineChip");
-    chip.textContent=latestState.targetRunnerEnabled?"TARGET MONITOR ON":(latestState.runnerEnabled?"BACKGROUND RUNNER ON":"GUARDRAILS ONLY");
+    chip.textContent=latestState.targetRunnerEnabled&&latestState.collectionRunnerEnabled?"TARGET + VALUE ON":(latestState.targetRunnerEnabled?"TARGET MONITOR ON":(latestState.runnerEnabled?"BACKGROUND RUNNER ON":"GUARDRAILS ONLY"));
     chip.className="automation-chip "+(latestState.runnerEnabled?"safe":"warn");
     renderDemand();
   }
@@ -129,7 +129,7 @@
       const res=await fetch(c.endpoint+"/automation/status",{headers:{"X-Scout-Key":c.accessKey}});const data=await res.json().catch(()=>({}));
       if(!res.ok||!data.ok)throw new Error(data.message||data.error||("HTTP "+res.status));
       renderState(data);
-      status.className="automation-status ok";status.textContent=data.targetRunnerEnabled?"✓ Saved-target monitoring is scheduled and protected by this hard cap. Collection rotation is still off.":(data.runnerEnabled?"✓ Background automation is protected by this hard cap.":"✓ Search guardrails are stored on the Worker. No background searches are running yet.");
+      status.className="automation-status ok";status.textContent=data.targetRunnerEnabled&&data.collectionRunnerEnabled?"✓ Target monitoring + paced collection-value rotation are scheduled and protected by this hard cap.":(data.targetRunnerEnabled?"✓ Saved-target monitoring is scheduled and protected by this hard cap. Collection rotation is still off.":(data.runnerEnabled?"✓ Background automation is protected by this hard cap.":"✓ Search guardrails are stored on the Worker. No background searches are running yet."));
       return true;
     }catch(err){status.className="automation-status bad";status.textContent="Automation budget service unavailable: "+(err.message||"unknown error");return false;}
   }

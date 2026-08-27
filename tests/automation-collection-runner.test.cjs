@@ -5,10 +5,10 @@ const vm=require('node:vm');
 const worker=fs.readFileSync('src/index.js','utf8');
 const ui=fs.readFileSync('automation-runner-ui.js','utf8');
 
-assert.match(worker,/const VERSION = "3\.31\.0"/);
+assert.match(worker,/const VERSION = "3\.32\.0"/);
 assert.match(worker,/function runOneAutomationCollectionCheck|async function runOneAutomationCollectionCheck/);
 assert.match(worker,/kind === "collection"/,'run-once must support the explicit collection safety gate');
-assert.match(worker,/collectionRunnerEnabled: false/,'unattended collection rotation must remain off during this gate');
+assert.match(worker,/collectionRunnerEnabled: true/,'unattended collection rotation is enabled only after the safe-runner gates');
 assert.match(worker,/collectionCardsChecked/,'collection rotation must have its own monthly card counter');
 assert.match(worker,/AUTOMATION_COLLECTION_MIN_GAP_MS = 3 \* 24 \* 60 \* 60 \* 1000/,'collection checks must be spaced by at least three days');
 assert.match(worker,/AUTOMATION_COLLECTION_TIMEOUT_COOLDOWN_MS = 7 \* 24 \* 60 \* 60 \* 1000/,'timeouts must trigger a seven-day collection cooldown');
@@ -20,7 +20,7 @@ assert.match(ui,/RUN ONE SAFE COLLECTION CHECK/);
 assert.match(ui,/kind:"collection"/);
 
 const start=worker.indexOf('async function runOneAutomationCollectionCheck');
-const end=worker.indexOf('async function runScheduledTargetMonitor',start);
+const end=worker.indexOf('function automationCents',start);
 assert.ok(start>0&&end>start,'collection safety runner block must be present');
 const block=worker.slice(start,end);
 assert.match(block,/readValuationCache\(card, true\)/,'fresh fast cache must be checked first');
