@@ -19,7 +19,7 @@ assert.match(html,/ScoutCardPhotos\.init\(\{getConfig:pricingConfig,toast\}\)/);
 assert.match(html,/ScoutCardPhotos\.showPlayer\(p\)/);
 assert.match(html,/id="cardPhotoLightbox"/);
 
-assert.match(worker,/const VERSION = "3\.32\.0"/);
+assert.match(worker,/const VERSION = "3\.33\.0"/);
 assert.match(worker,/CARD_PHOTO_PREFIX/);
 assert.match(worker,/CARD_PHOTO_MAX_BYTES = 1200 \* 1024/);
 assert.match(worker,/url\.pathname === "\/card-photo"/);

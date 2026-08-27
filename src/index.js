@@ -1,4 +1,4 @@
-const VERSION = "3.32.0";
+const VERSION = "3.33.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -181,6 +181,7 @@ export default {
           ? await runOneAutomationCollectionCheck(env, state, catalog)
           : await runOneAutomationTargetCheck(env, state, catalog);
         state = run.state;
+        state = automationRecordActivity(state, kind, run.result, new Date(), "manual-test");
         await writeAutomationState(env.SCOUT_DATA, state);
         return json({ ok: true, version: VERSION, runnerEnabled: true, targetRunnerEnabled: true, collectionRunnerEnabled: true, result: run.result, ...automationPublicState(state), catalog: automationCatalogSummary(catalog) }, 200, cors);
       } catch (err) {
@@ -949,6 +950,7 @@ function normalizeAutomationState(raw={}) {
     settings: normalizeAutomationSettings(raw?.settings || AUTOMATION_DEFAULT_SETTINGS),
     usage: normalizeAutomationUsage(raw?.usage || {}, period),
     alerts: Array.isArray(raw?.alerts) ? raw.alerts.slice(-50) : [],
+    activity: Array.isArray(raw?.activity) ? raw.activity.slice(-50) : [],
     targetChecks: raw?.targetChecks && typeof raw.targetChecks === "object" && !Array.isArray(raw.targetChecks) ? raw.targetChecks : {},
     collectionChecks: raw?.collectionChecks && typeof raw.collectionChecks === "object" && !Array.isArray(raw.collectionChecks) ? raw.collectionChecks : {},
     collectionCooldownUntil: raw?.collectionCooldownUntil || "",
@@ -986,8 +988,82 @@ function automationPublicState(state) {
     lastRunAt: normalized.lastRunAt || null,
     updatedAt: normalized.updatedAt || null,
     alerts: normalized.alerts.slice(-20),
+    activity: normalized.activity.slice(-30),
     note: "Saved-target monitoring and paced collection-value rotation are scheduled under the same hard monthly search cap.",
   };
+}
+
+function automationActivityMoney(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? `$${n.toFixed(2)}` : "";
+}
+
+function automationRecordActivity(inputState, kind, result, now=new Date(), source="scheduled") {
+  const state = normalizeAutomationState(inputState || {});
+  const searchUsed = Math.max(0, Math.floor(Number(result?.searchUsed) || 0));
+  if (searchUsed < 1) return state;
+
+  const at = (now instanceof Date ? now : new Date(now || Date.now())).toISOString();
+  const safeKind = kind === "collection" ? "collection" : "target";
+  const player = automationText(safeKind === "target" ? result?.target?.name : result?.card?.name, 120) || (safeKind === "target" ? "Saved target" : "Collection card");
+  let outcome = "checked";
+  let summary = automationText(result?.message || "Search completed.", 320);
+  let updated = false;
+  let listingUrl = "";
+  let value = null;
+  let delivered = null;
+  let maxPrice = null;
+
+  if (safeKind === "target") {
+    maxPrice = Number.isFinite(Number(result?.target?.maxPrice)) ? Number(result.target.maxPrice) : null;
+    if (result?.status === "error") {
+      outcome = "error";
+      summary = automationText(result?.message || `${player} target search failed after one protected search.`, 320);
+    } else if (result?.alert) {
+      outcome = "deal-found";
+      delivered = Number.isFinite(Number(result.alert.delivered)) ? Number(result.alert.delivered) : null;
+      maxPrice = Number.isFinite(Number(result.alert.maxPrice)) ? Number(result.alert.maxPrice) : maxPrice;
+      listingUrl = automationText(result.alert.listingUrl, 500);
+      summary = `Found ${automationActivityMoney(delivered) || "an affordable listing"}${maxPrice !== null ? ` delivered vs. your ${automationActivityMoney(maxPrice)} max` : ""}.`;
+    } else {
+      outcome = "checked-no-deal";
+      summary = `${player} was checked${maxPrice !== null ? ` against your ${automationActivityMoney(maxPrice)} max` : ""}; no qualifying listing was found.`;
+    }
+  } else {
+    value = Number.isFinite(Number(result?.valuation?.median)) ? Number(result.valuation.median) : null;
+    if (result?.status === "error") {
+      outcome = "error";
+      summary = automationText(result?.message || `${player} value search failed after one protected search.`, 320);
+    } else if (result?.saved) {
+      updated = result?.persisted !== false;
+      outcome = updated ? "value-updated" : "value-found-not-saved";
+      const comps = Math.max(0, Math.floor(Number(result?.valuation?.used) || 0));
+      summary = updated
+        ? `${player} value updated${value !== null ? ` to ${automationActivityMoney(value)}` : ""}${comps ? ` using ${comps} comps` : ""}.`
+        : `${player} produced a reliable value${value !== null ? ` of ${automationActivityMoney(value)}` : ""}, but Scout could not save it to cloud history.`;
+    } else {
+      outcome = "checked-no-update";
+      summary = automationText(result?.message || `${player} was checked, but the evidence was not strong enough to update its value.`, 320);
+    }
+  }
+
+  const entry = {
+    id: `${at}|${safeKind}|${player}|${state.activity.length}`,
+    at,
+    source: source === "manual-test" ? "manual-test" : "scheduled",
+    kind: safeKind,
+    player,
+    searchUsed,
+    outcome,
+    summary,
+    updated,
+    value,
+    delivered,
+    maxPrice,
+    listingUrl,
+  };
+  state.activity = [...state.activity, entry].slice(-50);
+  return state;
 }
 
 async function readAutomationState(kv) {
@@ -1553,6 +1629,7 @@ async function runScheduledAutomation(env, now=new Date()) {
   const targetRun = await runOneAutomationTargetCheck(env, state, catalog, now, { dueOnly: true });
   state = targetRun.state;
   if (Number(targetRun.result?.searchUsed) > 0 || targetRun.result?.status === "error") {
+    state = automationRecordActivity(state, "target", targetRun.result, now, "scheduled");
     await writeAutomationState(env.SCOUT_DATA, state);
     return { kind: "target", ...targetRun.result };
   }
@@ -1573,6 +1650,7 @@ async function runScheduledAutomation(env, now=new Date()) {
       collectionRun.result.persistenceMessage = "Scout found a reliable value but could not save it to cloud history on this run.";
     }
   }
+  state = automationRecordActivity(state, "collection", collectionRun.result, now, "scheduled");
   await writeAutomationState(env.SCOUT_DATA, state);
   return { kind: "collection", ...collectionRun.result };
 }

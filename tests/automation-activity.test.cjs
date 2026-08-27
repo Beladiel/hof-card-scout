@@ -1,0 +1,36 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+
+const worker=fs.readFileSync('src/index.js','utf8');
+const ui=fs.readFileSync('automation-runner-ui.js','utf8');
+assert.match(worker,/const VERSION = "3\.33\.0"/);
+assert.match(worker,/activity: Array\.isArray\(raw\?\.activity\)/);
+assert.match(worker,/activity: normalized\.activity\.slice\(-30\)/);
+assert.match(worker,/automationRecordActivity\(state, "target", targetRun\.result, now, "scheduled"\)/);
+assert.match(worker,/automationRecordActivity\(state, "collection", collectionRun\.result, now, "scheduled"\)/);
+assert.match(ui,/AUTOMATION ACTIVITY/);
+assert.match(ui,/Zero-search wake-ups, cache hits, pacing skips, and catalog syncs stay silent/);
+
+const context={console,URL,URLSearchParams,Request,Response,Headers,AbortController,fetch:async()=>{throw new Error('network not expected')},setTimeout,clearTimeout,TextEncoder,TextDecoder,caches:{default:{match:async()=>null,put:async()=>{}}}};
+context.globalThis=context;
+vm.createContext(context);
+vm.runInContext(worker.replace('export default','const workerDefault =')+`\nglobalThis.activityApi={automationRecordActivity};`,context,{filename:'src/index.js'});
+const base={settings:{monthlySerpCap:30,targetMonitoringEnabled:true,targetCadenceDays:7,collectionRefreshEnabled:true,collectionCardsPerMonth:10},usage:{period:new Date().toISOString().slice(0,7),serpSuccessful:2,cardApiRequests:0,apifyRuns:0,collectionCardsChecked:0},alerts:[],activity:[],targetChecks:{},collectionChecks:{},collectionCooldownUntil:''};
+const now=new Date('2026-08-28T16:15:00.000Z');
+let state=context.activityApi.automationRecordActivity(base,'collection',{status:'skipped',searchUsed:0,message:'paced'},now,'scheduled');
+assert.equal(state.activity.length,0,'zero-search scheduler work must stay silent');
+state=context.activityApi.automationRecordActivity(state,'target',{status:'checked',searchUsed:1,target:{name:'Orlando Cepeda',maxPrice:30},alert:{delivered:11.38,maxPrice:30,listingUrl:'https://example.test'}},now,'scheduled');
+assert.equal(state.activity.length,1);
+assert.equal(state.activity[0].outcome,'deal-found');
+assert.match(state.activity[0].summary,/\$11\.38/);
+state=context.activityApi.automationRecordActivity(state,'collection',{status:'checked',searchUsed:1,saved:true,persisted:true,card:{name:'Carl Yastrzemski'},valuation:{median:139.99,used:3}},now,'scheduled');
+assert.equal(state.activity.length,2);
+assert.equal(state.activity[1].outcome,'value-updated');
+assert.equal(state.activity[1].updated,true);
+assert.match(state.activity[1].summary,/\$139\.99/);
+state=context.activityApi.automationRecordActivity(state,'collection',{status:'error',searchUsed:1,card:{name:'Mickey Mantle'},message:'SerpApi timed out.'},now,'scheduled');
+assert.equal(state.activity.length,3);
+assert.equal(state.activity[2].outcome,'error');
+assert.match(state.activity[2].summary,/timed out/i);
+console.log('Automation activity tests passed.');
