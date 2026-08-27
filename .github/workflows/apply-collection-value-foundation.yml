@@ -18,6 +18,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Fix migrated CSS marker
+        run: sed -i "s/marker='\/\* v5\.8\.0 — representative card photos \*\/'/marker='\/\* v5.9.0 — representative card photos \*\/'/" apply_collection_value_foundation.py
       - name: Apply collection value foundation
         run: python apply_collection_value_foundation.py
       - name: Update app version assertions
