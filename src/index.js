@@ -1,4 +1,4 @@
-const VERSION = "3.34.0";
+const VERSION = "3.35.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -61,6 +61,41 @@ const AUTOMATION_DEFAULT_SETTINGS = Object.freeze({
 });
 const CARD_PHOTO_MAX_BYTES = 1200 * 1024;
 const CARD_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const SEALED_VISION_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
+const SEALED_VISION_MAX_BYTES = 1500 * 1024;
+const SEALED_VISION_CATEGORIES = new Set(["Pokémon", "Magic: The Gathering", "Baseball", "Basketball", "Football", "Other"]);
+const SEALED_VISION_PRODUCT_TYPES = new Set(["Blaster Box", "Mega Box", "Hobby Box", "Retail Box", "Hanger Box", "Hanger Pack", "Value / Fat Pack", "Single Pack", "Multi-Pack", "Elite Trainer Box", "Booster Box", "Booster Bundle", "Booster Pack", "Collection Box", "Tin", "Other"]);
+
+function sealedVisionJsonFromResponse(raw) {
+  let value = raw?.response ?? raw?.result ?? raw;
+  if (value && typeof value === "object" && !Array.isArray(value)) return value;
+  let text = String(value || "").trim();
+  text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first >= 0 && last > first) text = text.slice(first, last + 1);
+  return JSON.parse(text);
+}
+
+function sealedVisionNormalize(raw) {
+  const categoryRaw = String(raw?.category || "").trim();
+  const typeRaw = String(raw?.productType || raw?.boxType || "").trim();
+  const confidenceRaw = String(raw?.confidence || "low").trim().toLowerCase();
+  const category = SEALED_VISION_CATEGORIES.has(categoryRaw) ? categoryRaw : (categoryRaw ? "Other" : "");
+  const productType = SEALED_VISION_PRODUCT_TYPES.has(typeRaw) ? typeRaw : (typeRaw ? "Other" : "");
+  const clues = Array.isArray(raw?.clues) ? raw.clues.map(x => String(x || "").trim()).filter(Boolean).slice(0, 4) : [];
+  return {
+    category,
+    year: String(raw?.year || "").trim().slice(0, 40),
+    set: String(raw?.set || raw?.brandSet || "").trim().slice(0, 120),
+    productType,
+    variant: String(raw?.variant || "").trim().slice(0, 120),
+    confidence: ["high", "medium", "low"].includes(confidenceRaw) ? confidenceRaw : "low",
+    clues,
+    needsAnotherPhoto: Boolean(raw?.needsAnotherPhoto),
+    followUp: String(raw?.followUp || "").trim().slice(0, 180),
+  };
+}
 
 export default {
   async fetch(request, env, ctx) {
@@ -93,8 +128,65 @@ export default {
           psa: Boolean(env.PSA_API_TOKEN),
           cardapi: Boolean(env.CARD_API_KEY),
           cloudStorage: Boolean(env.SCOUT_DATA),
+          vision: Boolean(env.AI),
         }
       }, 200, cors);
+    }
+
+    if (url.pathname === "/sealed/identify" && request.method === "POST") {
+      const supplied = request.headers.get("X-Scout-Key") || "";
+      if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
+        return json({ ok: false, error: "unauthorized", message: "Scout access key rejected." }, 401, cors);
+      }
+      if (!env.AI) {
+        return json({ ok: false, error: "vision_not_configured", message: "Scout photo identification is not configured on the Worker." }, 503, cors);
+      }
+      let body = {};
+      try { body = await request.json(); }
+      catch { return json({ ok: false, error: "bad_json", message: "Scout could not read that photo request." }, 400, cors); }
+      const imageDataUrl = String(body?.imageDataUrl || "");
+      const match = imageDataUrl.match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/i);
+      if (!match) return json({ ok: false, error: "bad_image", message: "Scout needs a JPEG, PNG, or WebP photo." }, 400, cors);
+      const approxBytes = Math.floor(match[2].length * 3 / 4);
+      if (approxBytes <= 0 || approxBytes > SEALED_VISION_MAX_BYTES) {
+        return json({ ok: false, error: "image_too_large", message: "That photo is too large for Scout to analyze. Please retake it a little closer." }, 413, cors);
+      }
+
+      const schema = {
+        type: "object",
+        properties: {
+          category: { type: "string" },
+          year: { type: "string" },
+          set: { type: "string" },
+          productType: { type: "string" },
+          variant: { type: "string" },
+          confidence: { type: "string", enum: ["high", "medium", "low"] },
+          clues: { type: "array", items: { type: "string" }, maxItems: 4 },
+          needsAnotherPhoto: { type: "boolean" },
+          followUp: { type: "string" }
+        },
+        required: ["category", "year", "set", "productType", "variant", "confidence", "clues", "needsAnotherPhoto", "followUp"]
+      };
+      const productTypes = Array.from(SEALED_VISION_PRODUCT_TYPES).join(", ");
+      const prompt = `Identify the exact sealed trading-card product shown in this front photo. Categories: Pokémon, Magic: The Gathering, Baseball, Basketball, Football, Other. Product type MUST be one of: ${productTypes}. Read visible packaging text carefully: year/season, brand/set, format, pack/card counts, retail-exclusive wording, and variant clues. Distinguish blaster, mega, hobby, retail, hanger, value/fat pack, single pack, multi-pack, booster formats, tins, and collection boxes. Do not guess when the photo does not support a field. If product type is uncertain, use Other and set needsAnotherPhoto=true. If another side/back photo would resolve ambiguity, say exactly what wording or panel to photograph in followUp. Return only the requested structured fields.`;
+      try {
+        const raw = await env.AI.run(SEALED_VISION_MODEL, {
+          messages: [
+            { role: "system", content: "You are Scout, a careful trading-card sealed-product identifier. Accuracy matters more than guessing." },
+            { role: "user", content: prompt }
+          ],
+          image: imageDataUrl,
+          guided_json: schema,
+          temperature: 0.1,
+          max_tokens: 320
+        });
+        const parsed = sealedVisionJsonFromResponse(raw);
+        const identity = sealedVisionNormalize(parsed);
+        return json({ ok: true, version: VERSION, identity, searchUsed: 0, marketplaceSearchesUsed: 0 }, 200, cors);
+      } catch (err) {
+        console.error("sealed vision identify failed", err);
+        return json({ ok: false, error: "vision_identify_failed", message: "Scout could not confidently read that photo. Try another front photo or enter the product manually.", searchUsed: 0, marketplaceSearchesUsed: 0 }, 502, cors);
+      }
     }
 
     if (url.pathname === "/automation/status" && request.method === "GET") {

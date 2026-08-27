@@ -6,7 +6,7 @@ const script=html.match(/<script>([\s\S]*)<\/script>/);
 assert.ok(script,"inline app script missing");
 new vm.Script(script[1]);
 
-assert.match(html,/v6\.0\.2/);
+assert.match(html,/v6\.1\.0/);
 
 // Manual backup now covers every locally persistent collection/activity store.
 assert.match(html,/function backupReadJson\(key\)/);

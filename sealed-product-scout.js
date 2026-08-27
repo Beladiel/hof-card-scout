@@ -1,6 +1,8 @@
 (function(){
   const DRAFT_KEY="scoutSealedProductDraftV1";
   let activePhotoUrl="";
+  let activePhotoFile=null;
+  let lastVisionIdentity=null;
 
   function esc(value){return String(value??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));}
   function byId(id){return document.getElementById(id);}
@@ -19,9 +21,10 @@
       .sealed-hero:after{content:"📦";position:absolute;right:-5px;top:-18px;font-size:84px;opacity:.08;transform:rotate(8deg);pointer-events:none}.sealed-title{font-size:26px;font-weight:950;line-height:1.05;margin-top:4px}.sealed-sub{font-size:12px;color:var(--muted);line-height:1.5;margin-top:7px;max-width:680px}
       .sealed-category-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.sealed-category{font-size:10px;font-weight:900;border:1px solid var(--line);border-radius:999px;padding:6px 8px;background:rgba(255,255,255,.035);color:var(--muted)}
       .sealed-card{border:1px solid var(--line);border-radius:18px;padding:14px;background:rgba(255,255,255,.04)}.sealed-card-title{font-size:17px;font-weight:950;margin-top:3px}.sealed-card-sub{font-size:11px;line-height:1.5;color:var(--muted);margin-top:5px}
-      .sealed-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}.sealed-actions.three{grid-template-columns:1fr 1fr 1fr}.sealed-actions button{min-height:48px}
+      .sealed-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}.sealed-actions.three{grid-template-columns:1fr 1fr 1fr}.sealed-actions.one{grid-template-columns:1fr}.sealed-actions button{min-height:48px}
       .sealed-photo-stage{margin-top:12px;border:1px dashed rgba(230,189,99,.4);border-radius:16px;min-height:155px;display:grid;place-items:center;overflow:hidden;background:rgba(0,0,0,.12);position:relative}.sealed-photo-stage img{display:block;width:100%;max-height:420px;object-fit:contain;background:#111}.sealed-photo-empty{text-align:center;padding:24px;color:var(--muted);font-size:11px;line-height:1.5}.sealed-photo-empty .big{font-size:34px;display:block;margin-bottom:5px}
       .sealed-status{margin-top:10px;border-radius:13px;border:1px solid var(--line);padding:10px 11px;font-size:11px;line-height:1.5;color:var(--muted);background:rgba(0,0,0,.08)}.sealed-status.ok{border-color:rgba(86,197,138,.35);color:#aee9c8}.sealed-status.warn{border-color:rgba(230,189,99,.38);color:#f4d58a}
+      .sealed-vision-result{margin-top:12px;border:1px solid rgba(230,189,99,.38);border-radius:16px;padding:12px;background:rgba(230,189,99,.07)}.sealed-vision-result[hidden]{display:none}.sealed-vision-guess{font-size:17px;font-weight:950;line-height:1.35;margin-top:4px}.sealed-vision-meta{font-size:10px;color:var(--muted);line-height:1.5;margin-top:6px}.sealed-ai-badge{display:inline-flex;margin-top:8px;border-radius:999px;padding:5px 8px;background:rgba(117,174,233,.13);color:#b7d8f5;border:1px solid rgba(117,174,233,.28);font-size:9px;font-weight:950;letter-spacing:.04em}
       .sealed-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.sealed-field{min-width:0}.sealed-field.full{grid-column:1/-1}.sealed-field label{display:block;font-size:10px;font-weight:900;color:var(--muted);margin-bottom:5px}.sealed-field input,.sealed-field select{width:100%;min-height:46px;border-radius:12px;border:1px solid #3a5d52;background:#f9f4e8;color:var(--ink);padding:9px 11px;font-size:16px}
       .sealed-confirmed{margin-top:12px;border:1px solid rgba(86,197,138,.38);border-radius:16px;padding:12px;background:rgba(86,197,138,.07)}.sealed-confirmed[hidden]{display:none}.sealed-confirmed-label{font-size:16px;font-weight:950;line-height:1.35}.sealed-confirmed-meta{font-size:10px;color:var(--muted);line-height:1.5;margin-top:5px}.sealed-zero{display:inline-flex;margin-top:8px;border-radius:999px;padding:5px 8px;background:rgba(86,197,138,.13);color:#aee9c8;border:1px solid rgba(86,197,138,.28);font-size:9px;font-weight:950;letter-spacing:.04em}
       .sealed-next{opacity:.72}.sealed-next strong{color:var(--gold)}
@@ -37,14 +40,14 @@
         <div class="sealed-hero">
           <div class="section-eyebrow">📦 SEALED PRODUCT SCOUT</div>
           <div class="sealed-title">Too many sealed choices. One simple decision.</div>
-          <div class="sealed-sub">Scan a pack, hanger, tin, bundle, box, or other sealed product. Scout will confirm exactly what you mean before any pricing research happens. This first gate uses <strong>0 marketplace searches</strong>.</div>
+          <div class="sealed-sub">Scan a pack, hanger, tin, bundle, box, or other sealed product. Scout can read the photo and propose the exact product for you to confirm before any pricing research happens. Photo identification uses <strong>0 marketplace searches</strong>.</div>
           <div class="sealed-category-row"><span class="sealed-category">⚡ Pokémon</span><span class="sealed-category">🧙 Magic: The Gathering</span><span class="sealed-category">⚾ Baseball</span><span class="sealed-category">🏀 Basketball</span><span class="sealed-category">🏈 Football</span></div>
         </div>
 
         <div class="sealed-card">
           <div class="section-eyebrow">STEP 1 · SHOW SCOUT THE PRODUCT</div>
           <div class="sealed-card-title">Start with a clear photo of the front.</div>
-          <div class="sealed-card-sub">Photo capture is ready now. Visual auto-identification will be connected in the next gate; until then, the manual confirmation fields below let us test the full in-store flow without guessing.</div>
+          <div class="sealed-card-sub">Take or choose a photo, then tap Identify Product. Scout sends a compressed copy to Cloudflare Workers AI for identification only when you ask. Manual entry remains available if the packaging is unclear.</div>
           <div class="sealed-actions three">
             <button type="button" class="primary" id="sealedTakePhotoBtn">📷 TAKE PHOTO</button>
             <button type="button" class="secondary" id="sealedChoosePhotoBtn">🖼️ CHOOSE PHOTO</button>
@@ -53,13 +56,25 @@
           <input type="file" id="sealedCameraInput" accept="image/*" capture="environment" hidden>
           <input type="file" id="sealedPhotoInput" accept="image/*" hidden>
           <div class="sealed-photo-stage" id="sealedPhotoStage"><div class="sealed-photo-empty"><span class="big">📦</span>No sealed-product photo yet.<br>Try to fill the frame with the front panel.</div></div>
-          <div class="sealed-status" id="sealedPhotoStatus">No searches used. Scout is waiting for a photo or manual product details.</div>
+          <div class="sealed-status" id="sealedPhotoStatus">No marketplace searches used. Scout is waiting for a photo or manual product details.</div>
+          <div class="sealed-actions one"><button type="button" class="secondary" id="sealedAnalyzeBtn" disabled>🔍 IDENTIFY PRODUCT FROM PHOTO · 0 MARKETPLACE SEARCHES</button></div>
         </div>
 
         <div class="sealed-card" id="sealedIdentityCard">
           <div class="section-eyebrow">STEP 2 · CONFIRM THE PRODUCT</div>
           <div class="sealed-card-title">What exactly is on the shelf?</div>
           <div class="sealed-card-sub">Confirming identity is free. Scout will not research prices, checklists, chase cards, or collector feedback until the product is confirmed.</div>
+          <div class="sealed-vision-result" id="sealedVisionResult" hidden>
+            <div class="section-eyebrow">🔍 SCOUT'S PHOTO MATCH</div>
+            <div class="sealed-vision-guess" id="sealedVisionGuess"></div>
+            <div class="sealed-vision-meta" id="sealedVisionMeta"></div>
+            <span class="sealed-ai-badge">CLOUDFLARE AI · 0 MARKETPLACE SEARCHES</span>
+            <div class="sealed-actions three">
+              <button type="button" class="secondary" id="sealedVisionAcceptBtn">✓ YES, THAT'S IT</button>
+              <button type="button" class="ghost" id="sealedVisionEditBtn">✏️ NEEDS CORRECTION</button>
+              <button type="button" class="ghost" id="sealedVisionRetakeBtn">📷 ANOTHER PHOTO</button>
+            </div>
+          </div>
           <div class="sealed-form">
             <div class="sealed-field"><label for="sealedCategory">CATEGORY</label><select id="sealedCategory"><option value="">Choose one…</option><option>Pokémon</option><option>Magic: The Gathering</option><option>Baseball</option><option>Basketball</option><option>Football</option><option>Other</option></select></div>
             <div class="sealed-field"><label for="sealedYear">YEAR / SEASON</label><input id="sealedYear" placeholder="2025-26, 2026, etc."></div>
@@ -145,13 +160,62 @@
     if(!file)return;
     if(!String(file.type||"").startsWith("image/")){byId("sealedPhotoStatus").textContent="That file is not an image. Try a photo of the sealed product front.";return;}
     clearPhotoUrl();
+    activePhotoFile=file;lastVisionIdentity=null;
     activePhotoUrl=URL.createObjectURL(file);
     byId("sealedPhotoStage").innerHTML=`<img src="${esc(activePhotoUrl)}" alt="Sealed product photo preview">`;
     const mb=(file.size/1024/1024).toFixed(1);
     const status=byId("sealedPhotoStatus");status.className="sealed-status ok";
-    status.textContent=`✓ Photo captured (${mb} MB). It stays on this device for this session. 0 marketplace searches used.`;
-    saveDraft({hasPhoto:true,photoName:String(file.name||"sealed product photo")});
-    byId("sealedIdentityCard")?.scrollIntoView({behavior:"smooth",block:"start"});
+    status.textContent=`✓ Photo captured (${mb} MB). Tap Identify Product and Scout will analyze a compressed copy. 0 marketplace searches used.`;
+    const analyze=byId("sealedAnalyzeBtn");if(analyze){analyze.disabled=false;analyze.textContent="🔍 IDENTIFY PRODUCT FROM PHOTO · 0 MARKETPLACE SEARCHES";}
+    const vr=byId("sealedVisionResult");if(vr)vr.hidden=true;
+    saveDraft({hasPhoto:true,photoName:String(file.name||"sealed product photo"),confirmed:false});
+  }
+
+  function fileToDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||""));r.onerror=()=>reject(new Error("Scout could not read that photo."));r.readAsDataURL(file);});}
+  function loadPhoto(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("Scout could not open that photo."));img.src=src;});}
+  async function visionImageDataUrl(file){
+    const source=await fileToDataUrl(file);
+    const img=await loadPhoto(source);
+    const maxDim=1200,scale=Math.min(1,maxDim/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height));
+    const canvas=document.createElement("canvas");canvas.width=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));canvas.height=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));
+    canvas.getContext("2d",{alpha:false}).drawImage(img,0,0,canvas.width,canvas.height);
+    let out=canvas.toDataURL("image/jpeg",.78);
+    if(out.length>1900000)out=canvas.toDataURL("image/jpeg",.62);
+    return out;
+  }
+  function visionGuessLabel(identity){return [identity.year,identity.set,identity.productType,identity.variant].filter(Boolean).join(" · ")||"Sealed product";}
+  function applyVisionIdentity(identity){
+    lastVisionIdentity=identity||null;if(!identity)return;
+    if(byId("sealedCategory")&&identity.category)byId("sealedCategory").value=identity.category;
+    if(byId("sealedYear"))byId("sealedYear").value=identity.year||"";
+    if(byId("sealedSet"))byId("sealedSet").value=identity.set||"";
+    if(byId("sealedBoxType")&&identity.productType)byId("sealedBoxType").value=identity.productType;
+    if(byId("sealedVariant"))byId("sealedVariant").value=identity.variant||"";
+    const result=byId("sealedVisionResult");if(result)result.hidden=false;
+    byId("sealedVisionGuess").textContent=visionGuessLabel(identity);
+    const bits=[];bits.push(`Confidence: ${String(identity.confidence||"low").toUpperCase()}.`);
+    if(Array.isArray(identity.clues)&&identity.clues.length)bits.push(`Visible clues: ${identity.clues.join(" · ")}`);
+    if(identity.needsAnotherPhoto)bits.push(identity.followUp||"Scout would like another angle before you rely on this match.");
+    byId("sealedVisionMeta").textContent=bits.join(" ");
+    const complete=!!identity.category&&!!identity.set&&!!identity.productType&&identity.productType!=="Other";
+    byId("sealedVisionAcceptBtn").disabled=!complete;
+    result?.scrollIntoView({behavior:"smooth",block:"center"});
+  }
+  async function analyzePhoto(){
+    const status=byId("sealedPhotoStatus"),btn=byId("sealedAnalyzeBtn");
+    if(!activePhotoFile){status.className="sealed-status warn";status.textContent="Take or choose a photo first.";return;}
+    const cfg=typeof pricingConfig==="function"?pricingConfig():{endpoint:"",accessKey:""};
+    if(!cfg.endpoint||!cfg.accessKey){status.className="sealed-status warn";status.textContent="Scout's live connection is not configured on this device.";return;}
+    btn.disabled=true;btn.textContent="🔍 SCOUT IS READING THE PRODUCT…";status.className="sealed-status";status.textContent="Reading packaging text and sealed format with Cloudflare AI. 0 marketplace searches.";
+    try{
+      const imageDataUrl=await visionImageDataUrl(activePhotoFile);
+      const res=await fetch(`${String(cfg.endpoint).replace(/\/+$/,"")}/sealed/identify`,{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":cfg.accessKey},body:JSON.stringify({imageDataUrl})});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||!data.ok)throw new Error(data.message||"Scout could not identify that photo.");
+      applyVisionIdentity(data.identity||{});
+      status.className="sealed-status ok";status.textContent="✓ Photo analyzed. Review Scout's match below before confirming. 0 marketplace searches used.";
+    }catch(err){status.className="sealed-status warn";status.textContent=err?.message||"Scout could not identify that photo. Try another angle or enter it manually.";}
+    finally{btn.disabled=false;btn.textContent="🔍 IDENTIFY PRODUCT FROM PHOTO · 0 MARKETPLACE SEARCHES";}
   }
 
   function confirmIdentity(){
@@ -175,12 +239,14 @@
   }
 
   function startOver(){
-    clearPhotoUrl();
+    clearPhotoUrl();activePhotoFile=null;lastVisionIdentity=null;
     localStorage.removeItem(DRAFT_KEY);
     ["sealedCategory","sealedYear","sealedSet","sealedBoxType","sealedVariant","sealedShelfPrice","sealedStore"].forEach(id=>{const el=byId(id);if(el)el.value="";});
     byId("sealedCameraInput").value="";byId("sealedPhotoInput").value="";
     byId("sealedPhotoStage").innerHTML='<div class="sealed-photo-empty"><span class="big">📦</span>No sealed-product photo yet.<br>Try to fill the frame with the front panel.</div>';
-    const ps=byId("sealedPhotoStatus");ps.className="sealed-status";ps.textContent="No searches used. Scout is waiting for a photo or manual product details.";
+    const ps=byId("sealedPhotoStatus");ps.className="sealed-status";ps.textContent="No marketplace searches used. Scout is waiting for a photo or manual product details.";
+    const analyze=byId("sealedAnalyzeBtn");if(analyze){analyze.disabled=true;analyze.textContent="🔍 IDENTIFY PRODUCT FROM PHOTO · 0 MARKETPLACE SEARCHES";}
+    const vr=byId("sealedVisionResult");if(vr)vr.hidden=true;
     renderConfirmed({});
     byId("sealedPhotoStage")?.scrollIntoView({behavior:"smooth",block:"center"});
   }
@@ -201,6 +267,10 @@
     byId("sealedManualBtn").addEventListener("click",()=>{byId("sealedIdentityCard")?.scrollIntoView({behavior:"smooth",block:"start"});setTimeout(()=>byId("sealedCategory")?.focus(),250);});
     byId("sealedCameraInput").addEventListener("change",e=>handlePhoto(e.target.files?.[0]));
     byId("sealedPhotoInput").addEventListener("change",e=>handlePhoto(e.target.files?.[0]));
+    byId("sealedAnalyzeBtn").addEventListener("click",analyzePhoto);
+    byId("sealedVisionAcceptBtn").addEventListener("click",()=>confirmIdentity());
+    byId("sealedVisionEditBtn").addEventListener("click",()=>{byId("sealedIdentityCard")?.scrollIntoView({behavior:"smooth",block:"start"});setTimeout(()=>byId("sealedCategory")?.focus(),250);});
+    byId("sealedVisionRetakeBtn").addEventListener("click",()=>byId("sealedCameraInput").click());
     byId("sealedConfirmBtn").addEventListener("click",confirmIdentity);
     byId("sealedResetBtn").addEventListener("click",startOver);
     byId("sealedSavePriceBtn").addEventListener("click",saveShelfPrice);

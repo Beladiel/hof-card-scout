@@ -20,10 +20,10 @@ assert.match(js,/SAVE SHELF PRICE · 0 SEARCHES/,'shelf-price capture must be ex
 assert.match(js,/GOOD BUY \/ FAIR \/ PASS/,'next verdict stage should be clearly previewed');
 assert.match(js,/localStorage\.setItem\(DRAFT_KEY/,'confirmed product details should persist locally');
 assert.match(js,/showScreen\(\"sealedProductScreen\"\)/,'new mode should use the existing app navigation');
-assert.doesNotMatch(js,/\bfetch\s*\(/,'first gate must not call any network API');
-assert.doesNotMatch(js,/SerpApi|\/value|\/deals|runEbaySearch/,'first gate must not invoke marketplace pricing code');
+assert.match(js,/\/sealed\/identify/,'photo identification should call only the sealed vision endpoint');
+assert.doesNotMatch(js,/SerpApi|\/value|\/deals|runEbaySearch/,'photo identification must not invoke marketplace pricing code');
 assert.match(html,/sealed-product-scout\.js/,'index must load the Sealed Product Scout module');
-assert.match(html,/sealed-product-scout\.js\?v=6\.0\.2/,'cache-busted sealed product module should force fresh iPhone code');
-assert.match(html,/v6\.0\.2/,'app version should identify the Sealed Product Scout launch');
+assert.match(html,/sealed-product-scout\.js\?v=6\.1\.0/,'cache-busted sealed product module should force fresh iPhone code');
+assert.match(html,/v6\.1\.0/,'app version should identify the Sealed Product Scout launch');
 
 console.log('Sealed Product Scout first-gate tests passed.');

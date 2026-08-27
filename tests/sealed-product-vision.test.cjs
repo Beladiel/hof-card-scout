@@ -1,0 +1,22 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const worker=fs.readFileSync('src/index.js','utf8');
+const app=fs.readFileSync('sealed-product-scout.js','utf8');
+const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
+
+assert.match(worker,/const VERSION = "3\.35\.0"/);
+assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
+assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
+assert.match(worker,/@cf\/meta\/llama-4-scout-17b-16e-instruct/,'Cloudflare-hosted vision model must be used');
+assert.match(worker,/marketplaceSearchesUsed:\s*0/,'vision endpoint must explicitly report zero marketplace searches');
+const start=worker.indexOf('url.pathname === "/sealed/identify"');
+const end=worker.indexOf('url.pathname === "/automation/status"',start);
+const route=worker.slice(start,end);
+assert.ok(start>=0&&end>start,'sealed route should be isolated before automation route');
+assert.doesNotMatch(route,/SERPAPI_KEY|runEbaySearch|serpapi\.com|APIFY_TOKEN|CARD_API_KEY/i,'vision route must not call marketplace providers');
+assert.match(app,/IDENTIFY PRODUCT FROM PHOTO · 0 MARKETPLACE SEARCHES/);
+assert.match(app,/YES, THAT'S IT/);
+assert.match(app,/ANOTHER PHOTO/);
+assert.match(app,/Cloudflare Workers AI/i);
+assert.match(app,/fetch\(`\$\{String\(cfg\.endpoint\).*\/sealed\/identify/s,'front end should send photo only to Scout sealed-identify endpoint');
+console.log('Sealed Product Scout vision tests passed.');
