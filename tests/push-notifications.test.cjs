@@ -21,5 +21,10 @@ assert.doesNotMatch(ui,/runEbaySearch\(|c\.endpoint\+"\/value"|api\("\/value"/,'
 assert.match(sw,/addEventListener\("push"/);
 assert.match(sw,/showNotification/);
 assert.match(sw,/\/push\/latest\?token=/);
+assert.match(sw,/skipWaiting\(\)/,'updated push click handler activates immediately');
+assert.match(sw,/searchParams\.set\("push"/,'each notification carries a deep-link id');
+assert.match(sw,/visibilityState==="visible"/,'foreground PWA taps use visible feedback instead of a silent no-op');
+assert.match(ui,/markOpened\(pushId\)/,'notification tap gives visible in-app feedback');
+assert.match(ui,/scrollIntoView/,'notification tap scrolls to the relevant activity area');
 assert.match(html,/push-notifications\.js/);
 console.log('Push notification tests passed.');
