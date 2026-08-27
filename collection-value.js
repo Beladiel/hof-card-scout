@@ -8,6 +8,7 @@
   function clean(v){return String(v==null?"":v).trim()}
   function norm(v){return clean(v).toLowerCase().replace(/[^a-z0-9]+/g,"")}
   function cents(v){
+    if(v===null||v===undefined||v==="")return null;
     const n=Number(v);
     return Number.isFinite(n)?Math.round(n*100)/100:null;
   }
@@ -145,6 +146,7 @@
     return (Array.isArray(p?.valuationHistory)?p.valuationHistory:[]).filter(x=>x&&x.cardKey===key&&Number.isFinite(Number(x.value))).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
   }
   function gainLoss(pricePaid,currentValue){
+    if(pricePaid===null||pricePaid===undefined||pricePaid===""||currentValue===null||currentValue===undefined||currentValue==="")return null;
     const paid=Number(pricePaid),value=Number(currentValue);
     if(!Number.isFinite(paid)||paid<0||!Number.isFinite(value)||value<=0)return null;
     const amount=cents(value-paid);
