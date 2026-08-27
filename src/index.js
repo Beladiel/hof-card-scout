@@ -1,4 +1,4 @@
-const VERSION = "3.35.0";
+const VERSION = "3.36.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -61,7 +61,7 @@ const AUTOMATION_DEFAULT_SETTINGS = Object.freeze({
 });
 const CARD_PHOTO_MAX_BYTES = 1200 * 1024;
 const CARD_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const SEALED_VISION_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
+const SEALED_VISION_MODEL = "@cf/moondream/moondream3.1-9B-A2B";
 const SEALED_VISION_MAX_BYTES = 1500 * 1024;
 const SEALED_VISION_CATEGORIES = new Set(["Pokémon", "Magic: The Gathering", "Baseball", "Basketball", "Football", "Other"]);
 const SEALED_VISION_PRODUCT_TYPES = new Set(["Blaster Box", "Mega Box", "Hobby Box", "Retail Box", "Hanger Box", "Hanger Pack", "Value / Fat Pack", "Single Pack", "Multi-Pack", "Elite Trainer Box", "Booster Box", "Booster Bundle", "Booster Pack", "Collection Box", "Tin", "Other"]);
@@ -81,19 +81,37 @@ function sealedVisionNormalize(raw) {
   const categoryRaw = String(raw?.category || "").trim();
   const typeRaw = String(raw?.productType || raw?.boxType || "").trim();
   const confidenceRaw = String(raw?.confidence || "low").trim().toLowerCase();
-  const category = SEALED_VISION_CATEGORIES.has(categoryRaw) ? categoryRaw : (categoryRaw ? "Other" : "");
-  const productType = SEALED_VISION_PRODUCT_TYPES.has(typeRaw) ? typeRaw : (typeRaw ? "Other" : "");
+  const visibleText = String(raw?.visibleText || raw?.text || "").trim().slice(0, 800);
   const clues = Array.isArray(raw?.clues) ? raw.clues.map(x => String(x || "").trim()).filter(Boolean).slice(0, 4) : [];
+  const evidence = [visibleText, raw?.set, raw?.brandSet, raw?.variant, ...clues].map(x => String(x || "")).join(" ");
+  let category = SEALED_VISION_CATEGORIES.has(categoryRaw) ? categoryRaw : (categoryRaw ? "Other" : "");
+  if (/\bNBA\b|\bbasketball\b|\bNBA\s+Hoops\b/i.test(evidence)) category = "Basketball";
+  else if (/\bNFL\b|\bfootball\b/i.test(evidence)) category = "Football";
+  else if (/\bMLB\b|\bbaseball\b/i.test(evidence)) category = "Baseball";
+  else if (/Pok[eé]mon|Trading Card Game|\bTCG\b/i.test(evidence)) category = "Pokémon";
+  else if (/Magic:\s*The Gathering|\bMTG\b|Wizards of the Coast/i.test(evidence)) category = "Magic: The Gathering";
+
+  let year = String(raw?.year || "").trim().slice(0, 40);
+  if (!year) {
+    const ym = evidence.match(/\b(20\d{2})(?:\s*[-–/]\s*(\d{2,4}))?\b/);
+    if (ym) year = ym[2] ? `${ym[1]}-${ym[2].length === 2 ? ym[2] : ym[2].slice(-2)}` : ym[1];
+  }
+  let set = String(raw?.set || raw?.brandSet || "").trim().slice(0, 120);
+  if (!set && /\bNBA\s+Hoops\b/i.test(evidence)) set = "NBA Hoops";
+
+  const productType = SEALED_VISION_PRODUCT_TYPES.has(typeRaw) ? typeRaw : (typeRaw ? "Other" : "");
+  const incomplete = !category || !set || !productType || productType === "Other";
   return {
     category,
-    year: String(raw?.year || "").trim().slice(0, 40),
-    set: String(raw?.set || raw?.brandSet || "").trim().slice(0, 120),
+    year,
+    set,
     productType,
     variant: String(raw?.variant || "").trim().slice(0, 120),
     confidence: ["high", "medium", "low"].includes(confidenceRaw) ? confidenceRaw : "low",
     clues,
-    needsAnotherPhoto: Boolean(raw?.needsAnotherPhoto),
-    followUp: String(raw?.followUp || "").trim().slice(0, 180),
+    visibleText,
+    needsAnotherPhoto: Boolean(raw?.needsAnotherPhoto) || incomplete,
+    followUp: String(raw?.followUp || (incomplete ? "Take another straight-on photo closer to the product name, year/season, and pack-count wording." : "")).trim().slice(0, 180),
   };
 }
 
@@ -168,17 +186,13 @@ export default {
         required: ["category", "year", "set", "productType", "variant", "confidence", "clues", "needsAnotherPhoto", "followUp"]
       };
       const productTypes = Array.from(SEALED_VISION_PRODUCT_TYPES).join(", ");
-      const prompt = `Identify the exact sealed trading-card product shown in this front photo. Categories: Pokémon, Magic: The Gathering, Baseball, Basketball, Football, Other. Product type MUST be one of: ${productTypes}. Read visible packaging text carefully: year/season, brand/set, format, pack/card counts, retail-exclusive wording, and variant clues. Distinguish blaster, mega, hobby, retail, hanger, value/fat pack, single pack, multi-pack, booster formats, tins, and collection boxes. Do not guess when the photo does not support a field. If product type is uncertain, use Other and set needsAnotherPhoto=true. If another side/back photo would resolve ambiguity, say exactly what wording or panel to photograph in followUp. Return only the requested structured fields.`;
+      const prompt = `Identify the exact sealed trading-card product shown in this front photo. Categories: Pokémon, Magic: The Gathering, Baseball, Basketball, Football, Other. Product type MUST be one of: ${productTypes}. Read visible packaging text carefully and use those words as primary evidence: year/season, league/category, brand/set, format, pack/card counts, retail-exclusive wording, and variant clues. Distinguish blaster, mega, hobby, retail, hanger, value/fat pack, single pack, multi-pack, booster formats, tins, and collection boxes. Do not guess when the photo does not support a field. If product type is uncertain, use Other and set needsAnotherPhoto=true. If another side/back photo would resolve ambiguity, say exactly what wording or panel to photograph in followUp. Return only the requested structured fields.`;
       try {
+        const moondreamQuestion = `${prompt} First transcribe ALL readable packaging text you can see, especially league/category words (NBA, NFL, MLB, Pokémon, Magic), the year/season, product/set name, and pack/card counts. Then return ONLY one JSON object with keys category, year, set, productType, variant, confidence, clues, visibleText, needsAnotherPhoto, followUp. Never infer Pokémon from artwork alone. NBA or NBA Hoops means Basketball. If a required field is unreadable, leave it blank and request another photo instead of guessing.`;
         const raw = await env.AI.run(SEALED_VISION_MODEL, {
-          messages: [
-            { role: "system", content: "You are Scout, a careful trading-card sealed-product identifier. Accuracy matters more than guessing." },
-            { role: "user", content: prompt }
-          ],
+          task: "query",
           image: imageDataUrl,
-          guided_json: schema,
-          temperature: 0.1,
-          max_tokens: 320
+          question: moondreamQuestion
         });
         const parsed = sealedVisionJsonFromResponse(raw);
         const identity = sealedVisionNormalize(parsed);

@@ -53,7 +53,7 @@ async function test(name, fn) {
 
 (async () => {
   await test("ranking and cache versions are independent", () => {
-    assert.equal(api.VERSION, "3.35.0");
+    assert.equal(api.VERSION, "3.36.0");
     assert.equal(api.TARGET_RANKING_VERSION, 1);
     assert.equal(api.VALUATION_CACHE_VERSION, 1);
   });

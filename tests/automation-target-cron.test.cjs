@@ -5,7 +5,7 @@ const worker=fs.readFileSync('src/index.js','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 const ui=fs.readFileSync('automation-budget.js','utf8');
 
-assert.match(worker,/const VERSION = "3\.35\.0";/);
+assert.match(worker,/const VERSION = "3\.36\.0";/);
 assert.match(worker,/async scheduled\(controller, env, ctx\)/,'Worker must expose a scheduled handler');
 assert.match(worker,/runScheduledAutomation\(env, now\)/,'scheduled handler must use the combined protected scheduler');
 assert.match(worker,/runOneAutomationTargetCheck\(env, state, catalog, now, \{ dueOnly: true \}\)/,'cron must give due targets first priority');
