@@ -23,7 +23,7 @@ jobs:
           node --check src/index.js
           node tests/sealed-product-vision.test.cjs
           grep -q 'const VERSION = "3.38.1"' src/index.js
-          grep -q 'rip\\s*(?:&|and)\\s*ship' src/index.js
+          grep -Fq 'rip\s*(?:&|and)\s*ship' src/index.js
           git diff --check
       - name: Commit filter fix
         shell: bash
