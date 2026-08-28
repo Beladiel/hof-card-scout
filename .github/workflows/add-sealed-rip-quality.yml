@@ -16,8 +16,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply rip-quality feature
-        run: python3 scripts/add-sealed-rip-quality.py
+      - name: Repair migration target and apply feature
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/add-sealed-rip-quality.py')
+          text=p.read_text(encoding='utf-8')
+          old="app = replace_once(app, 'renderConfirmed(draft);renderMarketResearch(draft.marketResearch);', 'renderConfirmed(draft);renderMarketResearch(draft.marketResearch);renderRipQuality(draft.ripQuality);', 'restore rip result')"
+          new="app = replace_once(app, '    renderConfirmed(draft);\\n    renderMarketResearch(draft.marketResearch);', '    renderConfirmed(draft);\\n    renderMarketResearch(draft.marketResearch);\\n    renderRipQuality(draft.ripQuality);', 'restore rip result')"
+          if old not in text:
+              raise SystemExit('Could not repair restore-rip migration target')
+          p.write_text(text.replace(old,new,1),encoding='utf-8')
+          PY
+          python3 scripts/add-sealed-rip-quality.py
 
       - name: Validate changes
         shell: bash
