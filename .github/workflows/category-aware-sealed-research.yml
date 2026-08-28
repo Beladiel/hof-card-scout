@@ -1,0 +1,49 @@
+name: Category-Aware Sealed Research
+
+on:
+  push:
+    paths:
+      - '.github/workflows/category-aware-sealed-research.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply category-aware sealed research
+        run: python3 scripts/category-aware-sealed-research.py
+
+      - name: Validate category router
+        shell: bash
+        run: |
+          node --check src/index.js
+          node --check sealed-product-scout.js
+          node tests/sealed-product-vision.test.cjs
+          grep -q 'const VERSION = "3.40.0"' src/index.js
+          grep -q 'sealed:intel:v2:' src/index.js
+          grep -q 'sealedRipCategoryGuidance' src/index.js
+          grep -q 'sealedRipWeightProfile' src/index.js
+          grep -q 'special illustration rare' src/index.js
+          grep -q 'PLAYABLE/VALUE QUALITY' src/index.js
+          grep -q 'researchProfile' sealed-product-scout.js
+          grep -q 'sealed-product-scout.js?v=6.3.0' index.html
+          git diff --check
+
+      - name: Commit feature
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'No changes needed.'
+            exit 0
+          fi
+          git config user.name 'HOF Card Scout Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/index.js sealed-product-scout.js index.html tests/sealed-product-vision.test.cjs
+          git commit -m 'Route sealed research by card category'
+          git push
