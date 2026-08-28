@@ -1,4 +1,4 @@
-const VERSION = "3.40.3";
+const VERSION = "3.40.4";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -340,7 +340,7 @@ function sealedRipIntelligenceCacheKey(identity) {
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v5:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v6:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -942,11 +942,86 @@ function sealedRipEvidenceRowMatchesIdentity(row, identity = {}) {
   return true;
 }
 
+function sealedRipExactFormatKey(identity = {}) {
+  const type = String(identity?.boxType || identity?.productType || "").trim().toLowerCase();
+  if (/blaster/.test(type)) return "blaster";
+  if (/mega/.test(type)) return "mega";
+  if (/hobby/.test(type)) return "hobby";
+  if (/retail\s+box/.test(type)) return "retail_box";
+  if (/hanger\s+box/.test(type)) return "hanger_box";
+  if (/hanger\s+pack/.test(type)) return "hanger_pack";
+  if (/(?:value|fat)\s+pack/.test(type)) return "value_pack";
+  if (/elite\s+trainer|\betb\b/.test(type)) return "etb";
+  if (/booster\s+bundle/.test(type)) return "booster_bundle";
+  if (/booster\s+box/.test(type)) return "booster_box";
+  if (/booster\s+pack/.test(type)) return "booster_pack";
+  if (/collection\s+box/.test(type)) return "collection_box";
+  if (/\btin\b/.test(type)) return "tin";
+  if (/multi[- ]?pack/.test(type)) return "multi_pack";
+  if (/single\s+pack/.test(type)) return "single_pack";
+  return "";
+}
+
+function sealedRipExplicitFormatKeys(value) {
+  const text = String(value || "").toLowerCase().replace(/[–—]/g, "-");
+  const keys = new Set();
+  const rules = [
+    ["value_box", /\bvalue\s+box\b/],
+    ["blaster", /\bblaster(?:\s+box)?\b/],
+    ["mega", /\bmega(?:\s+box)?\b/],
+    ["hobby", /\bhobby(?:\s+box)?\b/],
+    ["retail_box", /\bretail\s+box\b/],
+    ["hanger_box", /\bhanger\s+box\b/],
+    ["hanger_pack", /\bhanger\s+pack\b/],
+    ["value_pack", /\b(?:value|fat)\s+pack\b/],
+    ["etb", /\belite\s+trainer\s+box\b|\betb\b/],
+    ["booster_bundle", /\bbooster\s+bundle\b/],
+    ["booster_box", /\bbooster\s+box\b/],
+    ["booster_pack", /\bbooster\s+pack\b/],
+    ["collection_box", /\bcollection\s+box\b/],
+    ["tin", /\btin\b/],
+    ["multi_pack", /\bmulti[- ]?pack\b/],
+    ["single_pack", /\bsingle\s+pack\b/],
+  ];
+  for (const [key, pattern] of rules) if (pattern.test(text)) keys.add(key);
+  return keys;
+}
+
+function sealedRipCompatibleFormatKeys(identity = {}) {
+  const exact = sealedRipExactFormatKey(identity);
+  const keys = new Set(exact ? [exact] : []);
+  const category = String(identity?.category || "");
+  // UPC catalogs often call ordinary sports retail blasters "Value Box".
+  // Treat that wording as the same retail configuration, but never Hanger/Hobby/Mega.
+  if (exact === "blaster" && ["Baseball", "Basketball", "Football"].includes(category)) keys.add("value_box");
+  return keys;
+}
+
+function sealedRipFormatTextCompatible(value, identity = {}) {
+  const explicit = sealedRipExplicitFormatKeys(value);
+  if (!explicit.size) return true;
+  const compatible = sealedRipCompatibleFormatKeys(identity);
+  if (!compatible.size) return true;
+  return Array.from(explicit).some(key => compatible.has(key));
+}
+
+function sealedRipVariantTextCompatible(value, identity = {}) {
+  const text = String(value || "").toLowerCase();
+  const identityText = `${identity?.variant || ""} ${identity?.boxType || identity?.productType || ""}`.toLowerCase();
+  for (const marker of ["fanatics", "walmart", "target"]) {
+    if (new RegExp(`\\b${marker}\\b`, "i").test(text) && !identityText.includes(marker)) return false;
+  }
+  return true;
+}
+
 function sealedRipOddsRowSupported(row, evidenceRows, identity = {}) {
   const simplify = value => String(value || "").toLowerCase().replace(/\s+/g, "").replace(/[–—]/g, "-");
   const item = simplify(row?.item);
   const odds = simplify(row?.odds);
   if (!item || !odds) return false;
+  const rowFormatText = `${row?.note || ""} ${row?.item || ""}`;
+  if (!sealedRipFormatTextCompatible(rowFormatText, identity)) return false;
+  if (!sealedRipVariantTextCompatible(rowFormatText, identity)) return false;
   const wantsAuthority = /official|checklist|manufacturer/i.test(String(row?.sourceType || ""));
   return (Array.isArray(evidenceRows) ? evidenceRows : []).some(source => {
     if (!sealedRipEvidenceRowMatchesIdentity(source, identity)) return false;
@@ -1477,7 +1552,7 @@ export default {
 
 ${sealedRipCategoryGuidance(identity?.category)}
 
-Use ONLY the research evidence below. Do not rely on memory. NEVER invent, estimate, calculate, or extrapolate an exact pull odd. Only include an odds string in pullOdds when that exact odds text is literally supported by the supplied evidence and applies to this exact product format. If reliable format-specific odds are not supported, set pullEvidenceAvailable=false and return an empty pullOdds array. Clearly distinguish official/checklist odds from community-reported observations; community anecdotes are not official odds.
+Use ONLY the research evidence below. Do not rely on memory. NEVER invent, estimate, calculate, or extrapolate an exact pull odd. Only include an odds string in pullOdds when that exact odds text is literally supported by the supplied evidence and applies to this exact product format. Every pullOdds.note MUST name the applicable sealed format/configuration when the source distinguishes formats (for example Value Box, Blaster, Hanger Box, Hobby, Mega, Fanatics, Booster Box, Bundle, or ETB). Never return odds labeled for a different format or retailer-exclusive variant. If reliable format-specific odds are not supported, set pullEvidenceAvailable=false and return an empty pullOdds array. Clearly distinguish official/checklist odds from community-reported observations; community anecdotes are not official odds.
 
 Named items in chaseCards must be explicitly supported by the supplied evidence; do not invent card names, players, Pokémon, treatments, inserts, or variants. Use the CATEGORY PLAYBOOK above to decide what counts as strong chase/set quality for this product. chaseCards may contain named chase cards, characters/players, treatment or insert families, or other category-appropriate named targets when the evidence supports them. Separately, set chaseEvidenceAvailable=true when trustworthy official/checklist/editorial evidence supports meaningful chase or set structure for this category even if individual names cannot be safely validated. Score chaseScore 0-100 only when chaseEvidenceAvailable=true, following the category playbook rather than a universal sports-card rubric. Preserve any exact pull-rate/odds notation literally as written in evidence. Community-reported pull rates are allowed only when clearly labeled as community/reported and supported by the exact evidence; they are never official manufacturer odds unless an official source says so. Missing exact odds are not by themselves a reason to withhold a recommendation. For collector/player sentiment, summarize recurring product-specific themes rather than one lucky or angry opening. Set sentimentEvidenceAvailable=false when community evidence is too thin; require recurring support from at least two independent community sources. Product/checklist facts are not collector sentiment by themselves. collectorTake, positives, and negatives must describe opinions, complaints, praise, price/value reactions, quality-control reports, collation reports, or opening experiences that are actually present in COMMUNITY EVIDENCE. Do not copy checklist features into the collector-sentiment fields. Never say "many collectors", "most collectors", "collector consensus", or make another broad consensus claim unless at least three independent community sources support the same recurring theme. Keep conclusions conservative when evidence is thin.
 
@@ -1522,7 +1597,7 @@ High-signal excerpts extracted from the best sources (read these first):\n${evid
           },
           required: ["chaseScore", "pullScore", "chaseCards", "pullOdds"]
         };
-        const recoveryPrompt = `Extract only source-supported category-appropriate CHASES / SET VALUE signals and literal PULL ODDS or PULL-RATE samples for ${productLabel} (${String(identity?.productType || identity?.boxType || "")}). ${sealedRipCategoryGuidance(identity?.category)} Use ONLY the excerpts below. Preserve any rate exactly as written (for example 1:7 or 1 hit per 8 packs) and label community samples as community/reported, never official. Do not estimate, infer, or invent names or rates. If no literal rate is present, return pullOdds=[].\
+        const recoveryPrompt = `Extract only source-supported category-appropriate CHASES / SET VALUE signals and literal PULL ODDS or PULL-RATE samples for ${productLabel} (${String(identity?.productType || identity?.boxType || "")}). ${sealedRipCategoryGuidance(identity?.category)} Use ONLY the excerpts below. Preserve any rate exactly as written (for example 1:7 or 1 hit per 8 packs) and label community samples as community/reported, never official. For every pullOdds row, note MUST name the format/configuration the excerpt assigns to that rate; omit rows for Hanger/Hobby/Mega/Fanatics or any other format that does not match the requested exact product. Do not estimate, infer, or invent names or rates. If no literal rate is present, return pullOdds=[].\
 \
 ${evidenceSignals}`;
         try {

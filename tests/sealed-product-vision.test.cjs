@@ -5,7 +5,7 @@ const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const index=fs.readFileSync('index.html','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.40\.3"/);
+assert.match(worker,/const VERSION = "3\.40\.4"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
@@ -66,7 +66,7 @@ assert.match(ripRoute,/marketplaceSearchesUsed:\s*0/,'rip-quality research must 
 assert.doesNotMatch(ripRoute,/engine", "ebay|APIFY_TOKEN|CARD_API_KEY/i,'rip-quality route must not spend marketplace-provider calls');
 assert.ok(worker.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),'rip-quality synthesis must use the Cloudflare text model');
 assert.ok(worker.includes('NEVER invent, estimate, calculate, or extrapolate an exact pull odd'),'rip-quality prompt must prohibit invented pull odds');
-assert.match(worker,/sealed:intel:v5:/,'sealed product intelligence must use a reusable product cache');
+assert.match(worker,/sealed:intel:v6:/,'sealed product intelligence must use a reusable product cache');
 assert.match(worker,/sealedRipWeightedScore/,'final verdict must combine price, chases, pull evidence, and sentiment');
 assert.match(worker,/sealedRipProductEvidenceCount/,'buy recommendation must count the three product-quality evidence pillars');
 assert.match(worker,/sealedRipProductEvidenceCount\(parts\) < 2/,'buy recommendation must require two of three product-quality pillars');
@@ -157,5 +157,9 @@ assert.match(worker,/function sealedRipOddsRowSupported/,'pull odds must be vali
 assert.match(worker,/sealedRipEvidenceRowMatchesIdentity/,'pull-odds evidence must match the scanned set identity');
 assert.match(worker,/COMMUNITY EVIDENCE — use ONLY this section/,'collector sentiment must be isolated from checklist evidence');
 assert.match(worker,/sealedRipTemperCollectorSummary/,'collector copy must suppress unsupported promotional conclusions');
+assert.match(worker,/function sealedRipFormatTextCompatible/,'pull odds must enforce exact sealed-format compatibility');
+assert.match(worker,/function sealedRipVariantTextCompatible/,'retailer-exclusive pull odds must match the scanned variant');
+assert.ok(worker.includes('keys.add("value_box")'),'sports Value Box wording must remain compatible with standard Blaster classification');
+assert.ok(worker.includes('Every pullOdds.note MUST name the applicable sealed format'),'AI extraction must label the format attached to every supported odd');
 
 console.log('Sealed Product Scout vision tests passed.');
