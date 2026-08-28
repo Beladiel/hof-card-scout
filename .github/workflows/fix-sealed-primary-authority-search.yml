@@ -44,3 +44,5 @@ jobs:
           git add src/index.js tests/sealed-product-vision.test.cjs
           git commit -m 'Force sports rip research to primary authority source'
           git push
+
+# retry after aligning migration with current 3.38.9 query
