@@ -1,4 +1,4 @@
-const VERSION = "3.45.0";
+const VERSION = "3.46.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -344,7 +344,7 @@ function sealedRipIntelligenceCacheKey(identity, mode = "single") {
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v16:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v17:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -1077,32 +1077,58 @@ function sealedRipExactFormatKey(identity = {}) {
   return "";
 }
 
-function sealedRipExplicitFormatKeys(value) {
-  const text = String(value || "").toLowerCase().replace(/[–—]/g, "-");
-  const keys = new Set();
-  const rules = [
-    ["collector_booster", /\bcollector\s+boosters?(?:\s+(?:box|pack|display))?\b/],
-    ["play_booster", /\bplay\s+boosters?(?:\s+(?:box|pack|display))?\b/],
-    ["jumpstart_booster", /\bjumpstart\s+boosters?(?:\s+(?:box|pack|display))?\b/],
-    ["value_box", /\bvalue\s+box\b/],
-    ["blaster", /\bblaster(?:\s+box)?\b/],
-    ["mega", /\bmega(?:\s+box)?\b/],
-    ["hobby", /\bhobby(?:\s+box)?\b/],
-    ["retail_box", /\bretail\s+box\b/],
-    ["hanger_box", /\bhanger\s+box\b/],
-    ["hanger_pack", /\bhanger\s+pack\b/],
-    ["value_pack", /\b(?:value|fat)\s+pack\b/],
-    ["etb", /\belite\s+trainer\s+box\b|\betb\b/],
-    ["booster_bundle", /\bbooster\s+bundle\b/],
-    ["booster_box", /\bbooster\s+box\b/],
-    ["booster_pack", /\bbooster\s+pack\b/],
-    ["collection_box", /\bcollection\s+box\b/],
-    ["tin", /\btin\b/],
-    ["multi_pack", /\bmulti[- ]?pack\b/],
-    ["single_pack", /\bsingle\s+pack\b/],
+function sealedRipFormatMentionRules() {
+  // Specialized Magic booster phrases intentionally come before generic booster
+  // box/pack rules. Overlapping generic matches are discarded so "Play Booster
+  // Box" remains Play Booster evidence rather than simultaneously becoming a
+  // generic Booster Box claim.
+  return [
+    ["collector_booster", /\bcollector\s+boosters?(?:\s+(?:box|pack|display))?\b/i],
+    ["play_booster", /\bplay\s+boosters?(?:\s+(?:box|pack|display))?\b/i],
+    ["jumpstart_booster", /\bjumpstart\s+boosters?(?:\s+(?:box|pack|display))?\b/i],
+    ["value_box", /\bvalue\s+box\b/i],
+    ["blaster", /\bblaster(?:\s+box)?\b/i],
+    ["mega", /\bmega(?:\s+box)?\b/i],
+    ["hobby", /\bhobby(?:\s+box)?\b/i],
+    ["retail_box", /\bretail\s+box\b/i],
+    ["hanger_box", /\bhanger\s+box\b/i],
+    ["hanger_pack", /\bhanger\s+pack\b/i],
+    ["value_pack", /\b(?:value|fat)\s+pack\b/i],
+    ["etb", /\belite\s+trainer\s+box\b|\betb\b/i],
+    ["booster_bundle", /\bbooster\s+bundle\b/i],
+    ["booster_box", /\bbooster\s+box\b/i],
+    ["booster_pack", /\bbooster\s+pack\b/i],
+    ["collection_box", /\bcollection\s+box\b/i],
+    ["tin", /\btin\b/i],
+    ["multi_pack", /\bmulti[- ]?pack\b/i],
+    ["single_pack", /\bsingle\s+pack\b/i],
   ];
-  for (const [key, pattern] of rules) if (pattern.test(text)) keys.add(key);
-  return keys;
+}
+
+function sealedRipFormatMentions(value) {
+  const text = String(value || "").replace(/[–—]/g, "-");
+  const hits = [];
+  sealedRipFormatMentionRules().forEach(([key, pattern], priority) => {
+    const flags = pattern.flags.includes("i") ? "ig" : "g";
+    const rx = new RegExp(pattern.source, flags);
+    let match;
+    while ((match = rx.exec(text))) {
+      hits.push({ key, index: match.index, end: match.index + match[0].length, priority });
+      if (rx.lastIndex === match.index) rx.lastIndex += 1;
+      if (hits.length >= 120) break;
+    }
+  });
+  hits.sort((a, b) => a.index - b.index || a.priority - b.priority || (b.end - b.index) - (a.end - a.index));
+  const kept = [];
+  for (const hit of hits) {
+    if (kept.some(prev => hit.index < prev.end && hit.end > prev.index)) continue;
+    kept.push(hit);
+  }
+  return kept.sort((a, b) => a.index - b.index);
+}
+
+function sealedRipExplicitFormatKeys(value) {
+  return new Set(sealedRipFormatMentions(value).map(hit => hit.key));
 }
 
 function sealedRipCompatibleFormatKeys(identity = {}) {
@@ -1132,35 +1158,100 @@ function sealedRipVariantTextCompatible(value, identity = {}) {
   return true;
 }
 
-function sealedRipFormatAccessContextSupported(evidenceRows, identity = {}) {
+function sealedRipFormatAccessSignalPattern(category = "") {
+  const key = sealedRipCategoryKey(category);
+  if (key === "magic") return /\b(?:mythic(?: rare)?|borderless|showcase|serialized|special guests?|bonus sheet|foil|headliner|extended art|source material|cosmic foil)\b/i;
+  if (key === "pokemon") return /\b(?:special illustration rare|illustration rare|hyper rare|secret rare|ultra rare|promo|special treatment|full art)\b/i;
+  return /\b(?:rookies?|autographs?|signatures?|parallel|exclusive|numbered|case hit|ssp|short print|insert|green hoops|light burst|rainbow|pandora)\b|\b1\s*:\s*\d{1,7}\b/i;
+}
+
+function sealedRipRegexHitRanges(pattern, value) {
+  const text = String(value || "");
+  const flags = pattern.flags.includes("i") ? "ig" : "g";
+  const rx = new RegExp(pattern.source, flags);
+  const hits = [];
+  let match;
+  while ((match = rx.exec(text))) {
+    hits.push({ index: match.index, end: match.index + match[0].length });
+    if (rx.lastIndex === match.index) rx.lastIndex += 1;
+    if (hits.length >= 120) break;
+  }
+  return hits;
+}
+
+function sealedRipSpanDistance(a, b) {
+  if (a.end < b.index) return b.index - a.end;
+  if (b.end < a.index) return a.index - b.end;
+  return 0;
+}
+
+function sealedRipFormatAccessSections(row = {}) {
+  const sections = [];
+  const seen = new Set();
+  const add = value => {
+    const text = String(value || "").replace(/[ \t]+/g, " ").trim().slice(0, 5000);
+    if (!text) return;
+    const key = text.toLowerCase().replace(/[^a-z0-9]+/g, " ").slice(0, 500);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    sections.push(text);
+  };
+  add(`${row?.title || ""}\n${row?.snippet || ""}`);
+  const pageText = String(row?.pageText || "");
+  for (const piece of pageText.split(/\n\s*---\s*\n+/)) add(piece);
+  return sections.slice(0, 40);
+}
+
+function sealedRipFormatAccessSectionSupported(value, identity = {}) {
+  const text = String(value || "").trim();
+  if (!text || !sealedRipVariantTextCompatible(text, identity)) return false;
   const compatible = sealedRipCompatibleFormatKeys(identity);
   if (!compatible.size) return false;
-  const key = sealedRipCategoryKey(identity?.category);
-  const signal = key === "magic"
-    ? /\b(?:mythic(?: rare)?|borderless|showcase|serialized|special guests?|bonus sheet|foil|headliner|extended art|source material)\b/i
-    : key === "pokemon"
-      ? /\b(?:special illustration rare|illustration rare|hyper rare|secret rare|ultra rare|promo|special treatment)\b/i
-      : /\b(?:rookies?|autographs?|signatures?|parallel|exclusive|numbered|case hit|ssp|short print|insert|green hoops|light burst|rainbow)\b|\b1\s*:\s*\d{1,7}\b/i;
-  return sealedRipAuthorityRows(evidenceRows, identity).some(row => {
-    const text = `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`;
-    if (!sealedRipVariantTextCompatible(text, identity)) return false;
-    const explicit = sealedRipExplicitFormatKeys(text);
-    if (!explicit.size || !Array.from(explicit).some(format => compatible.has(format))) return false;
-    return signal.test(text);
-  });
+  const mentions = sealedRipFormatMentions(text);
+  if (!mentions.some(hit => compatible.has(hit.key))) return false;
+  const signals = sealedRipRegexHitRanges(sealedRipFormatAccessSignalPattern(identity?.category), text);
+  if (!signals.length) return false;
+
+  // A chase/treatment signal belongs to this exact format only when the nearest
+  // explicit sealed-format label in the same local excerpt is compatible and no
+  // more than 950 characters away. This prevents a Play Booster heading near the
+  // top of a Wizards page from inheriting a Headliner/Cosmic Foil claim in a later
+  // Collector Booster section, and likewise blocks Hobby-only sports claims from
+  // leaking into Blaster/Mega access.
+  for (const signal of signals) {
+    const distances = mentions.map(hit => ({ hit, distance: sealedRipSpanDistance(hit, signal) }));
+    const nearestDistance = Math.min(...distances.map(row => row.distance));
+    if (!Number.isFinite(nearestDistance) || nearestDistance > 950) continue;
+    const nearest = distances.filter(row => row.distance === nearestDistance);
+    if (nearest.some(row => compatible.has(row.hit.key))) return true;
+  }
+  return false;
+}
+
+function sealedRipFormatAccessLocalEvidence(evidenceRows, identity = {}) {
+  const out = [];
+  const seen = new Set();
+  for (const row of sealedRipAuthorityRows(evidenceRows, identity)) {
+    for (const section of sealedRipFormatAccessSections(row)) {
+      if (!sealedRipFormatAccessSectionSupported(section, identity)) continue;
+      const key = section.toLowerCase().replace(/[^a-z0-9]+/g, " ").slice(0, 600);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(section);
+      if (out.length >= 16) return out;
+    }
+  }
+  return out;
+}
+
+function sealedRipFormatAccessContextSupported(evidenceRows, identity = {}) {
+  return sealedRipFormatAccessLocalEvidence(evidenceRows, identity).length > 0;
 }
 
 function sealedRipFormatAccessFallbackScore(evidenceRows, identity = {}) {
-  const compatible = sealedRipCompatibleFormatKeys(identity);
-  if (!compatible.size) return 0;
-  const key = sealedRipCategoryKey(identity?.category);
-  const texts = sealedRipAuthorityRows(evidenceRows, identity).filter(row => {
-    const text = `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`;
-    if (!sealedRipVariantTextCompatible(text, identity)) return false;
-    const explicit = sealedRipExplicitFormatKeys(text);
-    return explicit.size && Array.from(explicit).some(format => compatible.has(format));
-  }).map(row => `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`).join(" ");
+  const texts = sealedRipFormatAccessLocalEvidence(evidenceRows, identity).join(" ");
   if (!texts) return 0;
+  const key = sealedRipCategoryKey(identity?.category);
   const families = key === "magic" ? [
     /\b(?:mythic(?: rare)?|rare)\b/i,
     /\b(?:borderless|showcase|extended art|source material)\b/i,
@@ -1175,13 +1266,12 @@ function sealedRipFormatAccessFallbackScore(evidenceRows, identity = {}) {
   ] : [
     /\brookies?\b/i,
     /\b(?:autographs?|signatures?)\b/i,
-    /\b(?:parallel|exclusive|numbered|green hoops|light burst|rainbow)\b/i,
+    /\b(?:parallel|exclusive|numbered|green hoops|light burst|rainbow|pandora)\b/i,
     /\b(?:case hit|ssp|short print)\b/i,
     /\b1\s*:\s*\d{1,7}\b/i,
   ];
   const count = families.filter(pattern => pattern.test(texts)).length;
-  if (!count) return 45;
-  return Math.min(80, 42 + count * 8);
+  return Math.min(80, 42 + Math.max(1, count) * 8);
 }
 
 function sealedRipOddsRowSupported(row, evidenceRows, identity = {}) {
@@ -1652,14 +1742,11 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}, researchMo
   const pullEvidenceAvailable = pullOdds.length > 0;
   const formatAccessContextAvailable = sealedRipFormatAccessContextSupported(authorityRows, identity);
   const formatAccessEvidenceAvailable = formatAccessContextAvailable;
-  const aiFormatAccessScore = sealedRipClampScore(raw?.formatAccessScore);
   const formatAccessScore = formatAccessEvidenceAvailable
-    ? (Boolean(raw?.formatAccessEvidenceAvailable) && aiFormatAccessScore > 0
-      ? aiFormatAccessScore
-      : sealedRipFormatAccessFallbackScore(authorityRows, identity))
+    ? sealedRipFormatAccessFallbackScore(authorityRows, identity)
     : null;
   const rawFormatSummary = String(raw?.formatAccessSummary || "").trim().slice(0, 500);
-  const formatAccessSummary = formatAccessEvidenceAvailable && sealedRipFormatTextCompatible(rawFormatSummary, identity) && sealedRipVariantTextCompatible(rawFormatSummary, identity)
+  const formatAccessSummary = formatAccessEvidenceAvailable && sealedRipFormatAccessSectionSupported(rawFormatSummary, identity)
     ? rawFormatSummary
     : (formatAccessContextAvailable ? "Scout verified exact-format authority evidence, but could not safely summarize how deeply this configuration reaches the set's desirable cards." : "Scout could not verify exact-format access from the authority lane.");
   const communitySourceCount = evidenceRows.filter(row => sealedRipCommunityRowCompatible(row, identity)).length;

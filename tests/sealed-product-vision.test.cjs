@@ -5,7 +5,7 @@ const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const index=fs.readFileSync('index.html','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.45\.0"/);
+assert.match(worker,/const VERSION = "3\.46\.0"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
@@ -66,7 +66,7 @@ assert.match(ripRoute,/marketplaceSearchesUsed:\s*0/,'rip-quality research must 
 assert.doesNotMatch(ripRoute,/engine", "ebay|APIFY_TOKEN|CARD_API_KEY/i,'rip-quality route must not spend marketplace-provider calls');
 assert.ok(worker.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),'rip-quality synthesis must use the Cloudflare text model');
 assert.ok(worker.includes('NEVER invent, estimate, calculate, or extrapolate an exact pull odd'),'rip-quality prompt must prohibit invented pull odds');
-assert.match(worker,/sealed:intel:v16:/,'sealed product intelligence must use a reusable mode-scoped product cache');
+assert.match(worker,/sealed:intel:v17:/,'sealed product intelligence must use a reusable mode-scoped product cache');
 assert.match(worker,/sealedRipWeightedScore/,'final verdict must combine price, chases, pull evidence, and sentiment');
 assert.match(worker,/sealedRipProductEvidenceCount/,'buy recommendation must count the three product-quality evidence pillars');
 assert.match(worker,/sealedRipProductEvidenceCount\(parts\) < 2/,'buy recommendation must require two of three product-quality pillars');
@@ -111,6 +111,10 @@ assert.ok(worker.includes('cosmic foil'),'Magic signal extraction must understan
 assert.ok(worker.includes('special illustration rare'),'category-aware extraction must retain Pokémon chase vocabulary');
 assert.match(worker,/function sealedRipVerifiedChaseScore/,'verified Magic structure must protect against contradictory zero set-value scores');
 assert.match(worker,/function sealedRipFormatAccessContextSupported/,'Shelf Showdown must locally verify exact-format chase access');
+assert.match(worker,/function sealedRipFormatMentions/,'exact-format validation must retain location-aware format mentions');
+assert.match(worker,/function sealedRipFormatAccessSectionSupported/,'exact-format validation must bind chase signals to the same local product section');
+assert.match(worker,/function sealedRipFormatAccessLocalEvidence/,'exact-format scoring must use only section-local authority evidence');
+assert.ok(worker.includes('const nearestDistance = Math.min') && worker.includes('nearest.some(row => compatible.has(row.hit.key))'),'format access must reject a chase signal whose nearest format label belongs to another product configuration');
 assert.match(worker,/function sealedRipPriceGuideQuery/,'Shelf Showdown must use one aggregate singles price-guide search');
 assert.ok(worker.includes('site:tcgplayer.com'),'Magic Chase Depth should use TCGplayer set pricing');
 assert.ok(worker.includes('site:tcgplayer.com'),'Pokemon Chase Depth should use TCGplayer set pricing');
@@ -153,6 +157,8 @@ assert.ok(app.includes('Evidence lanes:'),'Showdown UI must display evidence-lan
 assert.ok(app.includes('lanes:row.analysis?.lanes||{}'),'Showdown persistence must preserve lane status');
 assert.ok(worker.includes('const chaseEvidenceAvailable = chaseCards.length > 0 || chaseContextAvailable'),'Set/chase evidence must come only from the authority lane');
 assert.match(worker,/function sealedRipFormatAccessFallbackScore/,'exact-format context must have a deterministic fallback score');
+assert.ok(worker.includes('const formatAccessScore = formatAccessEvidenceAvailable\n    ? sealedRipFormatAccessFallbackScore(authorityRows, identity)'),'exact-format score must be deterministic from locally verified authority evidence rather than the AI score');
+assert.ok(worker.includes('sealedRipFormatAccessSectionSupported(rawFormatSummary, identity)'),'format-access summary must itself name the exact format next to a chase/treatment signal');
 assert.ok(worker.includes('const formatAccessEvidenceAvailable = formatAccessContextAvailable'),'locally verified exact-format evidence must not depend on an AI boolean flag');
 assert.ok(worker.includes('researchMode === "showdown"'),'Showdown must swap community research for aggregate price-guide research');
 assert.ok(app.includes('researchMode:"showdown"'),'front end must request Showdown research mode');
