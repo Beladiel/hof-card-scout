@@ -5,7 +5,7 @@ const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const index=fs.readFileSync('index.html','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.40\.0"/);
+assert.match(worker,/const VERSION = "3\.40\.1"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
@@ -66,7 +66,7 @@ assert.match(ripRoute,/marketplaceSearchesUsed:\s*0/,'rip-quality research must 
 assert.doesNotMatch(ripRoute,/engine", "ebay|APIFY_TOKEN|CARD_API_KEY/i,'rip-quality route must not spend marketplace-provider calls');
 assert.ok(worker.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),'rip-quality synthesis must use the Cloudflare text model');
 assert.ok(worker.includes('NEVER invent, estimate, calculate, or extrapolate an exact pull odd'),'rip-quality prompt must prohibit invented pull odds');
-assert.match(worker,/sealed:intel:v2:/,'sealed product intelligence must use a reusable product cache');
+assert.match(worker,/sealed:intel:v3:/,'sealed product intelligence must use a reusable product cache');
 assert.match(worker,/sealedRipWeightedScore/,'final verdict must combine price, chases, pull evidence, and sentiment');
 assert.match(worker,/sealedRipProductEvidenceCount/,'buy recommendation must count the three product-quality evidence pillars');
 assert.match(worker,/sealedRipProductEvidenceCount\(parts\) < 2/,'buy recommendation must require two of three product-quality pillars');
@@ -121,6 +121,12 @@ assert.match(worker,/NEED MORE DATA/,'rip verdict must refuse BUY recommendation
 assert.match(worker,/site:reddit\.com\/r\/basketballcards/,'basketball sentiment search must target the basketball-card community');
 assert.match(app,/Product evidence: <strong>/,'rip UI must show product-evidence completeness');
 assert.match(app,/v===null\|\|v===undefined/,'rip UI must render missing component scores as N/A, not zero');
+
+assert.match(worker,/sealedRipEvidenceYearConflict/,'sealed research must reject explicitly wrong-season authority results');
+assert.match(worker,/sealedRipEvidenceBrandConflict/,'sealed research must reject conflicting manufacturer results');
+assert.ok(worker.includes('["Baseball", "Basketball", "Football"].includes(category) && /\\bvalue\\s+box\\b/i.test(text)'),'sports UPC titles using Value Box must auto-fill Product Type');
+assert.match(worker,/positives: sentimentEvidenceAvailable \?/,'collector positives must be hidden when collector evidence is unavailable');
+assert.match(worker,/negatives: sentimentEvidenceAvailable \?/,'collector negatives must be hidden when collector evidence is unavailable');
 
 assert.match(worker,/sealedRipCategoryGuidance/,'sealed analysis prompt must inject a category-specific playbook');
 assert.match(worker,/sealedRipScoreLabels/,'sealed response must expose category-specific score labels');

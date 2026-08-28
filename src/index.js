@@ -1,4 +1,4 @@
-const VERSION = "3.40.0";
+const VERSION = "3.40.1";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -340,7 +340,7 @@ function sealedRipIntelligenceCacheKey(identity) {
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v2:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v3:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -639,11 +639,36 @@ function sealedRipSetKeywords(identity) {
   return sealedRipResearchSet(identity).toLowerCase().match(/[a-z0-9]+/g)?.filter(token => token.length >= 3 && !/^\d+$/.test(token) && !stop.has(token)) || [];
 }
 
+function sealedRipEvidenceYearConflict(text, identity) {
+  const wanted = String(identity?.year || "").match(/\b(20\d{2})\b/);
+  if (!wanted) return false;
+  const rowYears = Array.from(String(text || "").matchAll(/\b(20\d{2})\b/g), match => match[1]);
+  return rowYears.length > 0 && !rowYears.includes(wanted[1]);
+}
+
+function sealedRipEvidenceBrandConflict(text, identity) {
+  const wantedText = String(identity?.set || "").toLowerCase();
+  const rowText = String(text || "").toLowerCase();
+  const groups = [
+    { key: "topps", re: /\b(?:topps|bowman)\b/i },
+    { key: "panini", re: /\b(?:panini|donruss|prizm|select|mosaic)\b/i },
+    { key: "upperdeck", re: /\b(?:upper\s+deck|o-pee-chee|opc)\b/i },
+  ];
+  const wantedGroups = groups.filter(group => group.re.test(wantedText)).map(group => group.key);
+  if (!wantedGroups.length) return false;
+  const rowGroups = groups.filter(group => group.re.test(rowText)).map(group => group.key);
+  if (!rowGroups.length) return false;
+  return !rowGroups.some(group => wantedGroups.includes(group));
+}
+
 function sealedRipFilterRelevantEvidence(rows, identity) {
   const tokens = sealedRipSetKeywords(identity);
   if (!tokens.length) return Array.isArray(rows) ? rows : [];
   const requiredMatches = Math.min(2, tokens.length);
   return (Array.isArray(rows) ? rows : []).filter(row => {
+    const hardIdentityText = `${row?.title || ""} ${row?.link || ""}`;
+    if (sealedRipEvidenceYearConflict(hardIdentityText, identity)) return false;
+    if (sealedRipEvidenceBrandConflict(hardIdentityText, identity)) return false;
     const text = `${row?.title || ""} ${row?.snippet || ""} ${row?.link || ""}`.toLowerCase();
     const matched = tokens.filter(token => text.includes(token)).length;
     return matched >= requiredMatches;
@@ -939,8 +964,8 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
     chaseCards,
     pullOdds,
     collectorTake: sentimentEvidenceAvailable ? String(raw?.collectorTake || "").trim().slice(0, 700) : "Scout did not find enough recurring exact-product collector discussion to score sentiment.",
-    positives: (Array.isArray(raw?.positives) ? raw.positives : []).map(x => String(x || "").trim().slice(0, 220)).filter(Boolean).slice(0, 4),
-    negatives: (Array.isArray(raw?.negatives) ? raw.negatives : []).map(x => String(x || "").trim().slice(0, 220)).filter(Boolean).slice(0, 4),
+    positives: sentimentEvidenceAvailable ? (Array.isArray(raw?.positives) ? raw.positives : []).map(x => String(x || "").trim().slice(0, 220)).filter(Boolean).slice(0, 4) : [],
+    negatives: sentimentEvidenceAvailable ? (Array.isArray(raw?.negatives) ? raw.negatives : []).map(x => String(x || "").trim().slice(0, 220)).filter(Boolean).slice(0, 4) : [],
     confidence: evidenceCount < 2 ? "low" : (["high", "medium", "low"].includes(confidenceRaw) ? confidenceRaw : recommendationConfidence),
   };
 }
@@ -991,6 +1016,12 @@ function sealedBarcodeIdentity(item, barcode) {
   ];
   for (const [re, type] of productRules) {
     if (re.test(text)) { productType = type; break; }
+  }
+  // Topps and other sports manufacturers sometimes call the ordinary retail blaster
+  // a "Value Box" in UPC catalogs. Preserve the scanner's supported taxonomy while
+  // still filling Product Type automatically for those sports products.
+  if (!productType && ["Baseball", "Basketball", "Football"].includes(category) && /\bvalue\s+box\b/i.test(text)) {
+    productType = "Blaster Box";
   }
 
   return {
