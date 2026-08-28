@@ -1,4 +1,4 @@
-const VERSION = "3.43.0";
+const VERSION = "3.44.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -344,7 +344,7 @@ function sealedRipIntelligenceCacheKey(identity, mode = "single") {
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v14:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v15:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -768,6 +768,47 @@ function sealedRipPageExcerpt(html) {
   return (chunks.length ? chunks.join("\n---\n") : text.slice(0, 5000)).slice(0, 9000);
 }
 
+function sealedRipPriceGuideExcerpt(raw) {
+  let text = String(raw || "")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<\/(?:tr|p|div|li|section|article|h[1-6])>/gi, "\n")
+    .replace(/<(?:br|hr)\b[^>]*>/gi, "\n")
+    .replace(/<\/(?:td|th)>/gi, " | ")
+    .replace(/<[^>]+>/g, " ");
+  text = sealedRipDecodeHtml(text).replace(/\r/g, "\n");
+  const lines = text
+    .split(/\n+/)
+    .map(line => line.replace(/[ \t]+/g, " ").trim())
+    .filter(Boolean)
+    .slice(0, 6000);
+  const blocks = [];
+  const seen = new Set();
+  const hasPrice = value => /(?:\$|usd\s*)\s*\d+(?:\.\d{1,2})?\b/i.test(String(value || ""));
+  const hasBasis = value => /\b(?:market\s+price|ungraded|near\s+mint)\b/i.test(String(value || ""));
+  const add = value => {
+    const block = String(value || "").replace(/[ \t]+/g, " ").trim().slice(0, 900);
+    if (!block || !hasPrice(block)) return;
+    const key = block.toLowerCase().replace(/[^a-z0-9$]+/g, " ").slice(0, 320);
+    if (seen.has(key)) return;
+    seen.add(key);
+    blocks.push(block);
+  };
+  for (let i = 0; i < lines.length && blocks.length < 60; i++) {
+    const line = lines[i];
+    if (hasPrice(line)) {
+      const prev = i > 0 ? lines[i - 1] : "";
+      add(!hasBasis(line) && hasBasis(prev) && prev.length <= 260 ? `${prev} | ${line}` : line);
+      continue;
+    }
+    if (hasBasis(line) && i + 1 < lines.length && hasPrice(lines[i + 1])) {
+      add(`${line} | ${lines[i + 1]}`);
+    }
+  }
+  return blocks.join("\n---\n").slice(0, 14000);
+}
+
 function sealedRipPageHasUsefulSignals(text) {
   const value = String(text || "");
   return /\b1\s*:\s*\d{1,7}\b|\$\s*\d+(?:\.\d{1,2})?|\b(?:market price|most expensive|ungraded|price guide|value box|blaster|retail[- ]only|case hit|rookie|autograph|parallel|ssp|short print|sir|special illustration rare|illustration rare|hyper rare|pull rate|hit rate|mythic|borderless|showcase|serialized|special guests?|bonus sheet|foil|playable|staple)\b/i.test(value);
@@ -793,7 +834,7 @@ async function sealedRipReaderPageText(row) {
     });
     if (!response.ok) return "";
     const text = (await response.text()).slice(0, 1200000);
-    return sealedRipPageExcerpt(text);
+    return row?.queryKind === "singles-price-guide" ? sealedRipPriceGuideExcerpt(text) : sealedRipPageExcerpt(text);
   } catch {
     return "";
   } finally {
@@ -820,7 +861,7 @@ async function sealedRipFetchPageText(row) {
         const contentType = String(response.headers.get("content-type") || "").toLowerCase();
         if (!contentType || /text\/(?:html|plain)|application\/xhtml/.test(contentType)) {
           const body = (await response.text()).slice(0, 1000000);
-          const excerpt = sealedRipPageExcerpt(body);
+          const excerpt = row?.queryKind === "singles-price-guide" ? sealedRipPriceGuideExcerpt(body) : sealedRipPageExcerpt(body);
           if (excerpt.length > bestExcerpt.length) bestExcerpt = excerpt;
           if (sealedRipPageHasUsefulSignals(excerpt)) return excerpt;
         }
@@ -1329,35 +1370,108 @@ function sealedRipChaseValueNameTokens(value) {
   return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").split(/\s+/).filter(token => token.length >= 2 && !stop.has(token));
 }
 
-function sealedRipPriceTextSupported(price, text) {
+function sealedRipPriceTextPositions(price, text) {
   const n = Number(price);
-  if (!Number.isFinite(n) || n <= 0) return false;
-  const fixed = n.toFixed(2).replace(/\./g, "\\.");
-  const whole = Math.round(n);
-  const rx = new RegExp(`(?:\\$|usd\\s*)\\s*${fixed}\\b|(?:market\\s+price\\s*:?\\s*)\\$?\\s*${fixed}\\b${Math.abs(n-whole)<0.001?`|(?:\\$|usd\\s*)\\s*${whole}\\b`:""}`, "i");
-  return rx.test(String(text || ""));
+  if (!Number.isFinite(n) || n <= 0) return [];
+  const values = new Set([n.toFixed(2)]);
+  if (Math.abs(n - Math.round(n)) < 0.001) values.add(String(Math.round(n)));
+  const source = String(text || "");
+  const hits = [];
+  for (const value of values) {
+    const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const rx = new RegExp(`(?:\\$|usd\\s*)\\s*${escaped}\\b|(?:market\\s+price\\s*:?\\s*)\\$?\\s*${escaped}\\b`, "ig");
+    let match;
+    while ((match = rx.exec(source))) {
+      hits.push(match.index + Math.floor(match[0].length / 2));
+      if (hits.length >= 12) break;
+    }
+  }
+  return [...new Set(hits)].sort((a, b) => a - b);
 }
 
-function sealedRipChaseValueSupported(candidate, evidenceRows = [], identity = {}) {
+function sealedRipPriceTextSupported(price, text) {
+  return sealedRipPriceTextPositions(price, text).length > 0;
+}
+
+function sealedRipPriceGuideHost(row) {
+  try { return new URL(String(row?.link || "")).hostname.toLowerCase().replace(/^www\./, ""); }
+  catch { return ""; }
+}
+
+function sealedRipPriceGuideAtomicBlocks(row) {
+  const out = [];
+  const seen = new Set();
+  const add = (value, origin) => {
+    const block = String(value || "").replace(/[ \t]+/g, " ").replace(/\n+/g, " ").trim().slice(0, 1000);
+    if (!block || !/(?:\$|usd\s*)\s*\d+(?:\.\d{1,2})?\b/i.test(block)) return;
+    const key = block.toLowerCase().replace(/[^a-z0-9$]+/g, " ").slice(0, 360);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ text: block, origin });
+  };
+  const page = String(row?.pageText || "");
+  for (const block of page.split(/\n\s*---\s*\n|\n{2,}/)) add(block, "page");
+  add(`${row?.title || ""} | ${row?.snippet || ""}`, "search");
+  return out.slice(0, 80);
+}
+
+function sealedRipPriceGuideBlockLooksSealed(value) {
+  const text = String(value || "");
+  return /\b(?:factory\s+sealed|sealed\s+(?:box|pack|case)|booster\s+(?:box|pack|bundle|display)|blaster\s+box|mega\s+box|hobby\s+box|hanger\s+(?:box|pack)|value\s+box|retail\s+box|elite\s+trainer\s+box|\betb\b|display\s+box|case\s+of|box\s+of\s+\d+\s+packs?)\b/i.test(text);
+}
+
+function sealedRipPriceGuideGradedContext(value) {
+  return /\b(?:psa|bgs|sgc|cgc|graded|grading|gem\s+mint|grade\s*(?:7|8|9|10)|mint\s*(?:9|10))\b/i.test(String(value || ""));
+}
+
+function sealedRipPriceGuidePriceBasis(context, row) {
+  const text = String(context || "");
+  const host = sealedRipPriceGuideHost(row);
+  if (host.endsWith("sportscardspro.com")) return /\bungraded\b/i.test(text) ? "ungraded" : "";
+  if (host.endsWith("tcgplayer.com")) return /\bmarket\s+price\b/i.test(text) ? "market_price" : "";
+  if (/\bmarket\s+price\b/i.test(text)) return "market_price";
+  if (/\bungraded\b/i.test(text)) return "ungraded";
+  return "";
+}
+
+function sealedRipChaseNameSupportedInBlock(tokens, block) {
+  const lower = String(block || "").toLowerCase();
+  const matched = tokens.filter(token => lower.includes(token)).length;
+  const required = tokens.length <= 2 ? tokens.length : Math.min(4, Math.max(2, Math.ceil(tokens.length * 0.55)));
+  return matched >= required;
+}
+
+function sealedRipChaseValueProof(candidate, evidenceRows = [], identity = {}) {
   const name = String(candidate?.name || "").trim();
   const price = Number(candidate?.marketPrice);
   const tokens = sealedRipChaseValueNameTokens(name);
-  if (!name || !Number.isFinite(price) || price < 3 || price > 25000 || !tokens.length) return false;
-  return sealedRipPriceGuideRows(evidenceRows, identity).some(row => {
-    const rawText = `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`.replace(/\s+/g, " ");
-    const lower = rawText.toLowerCase();
-    const first = tokens.find(token => lower.includes(token));
-    if (!first) return false;
-    let at = lower.indexOf(first);
-    while (at >= 0) {
-      const window = rawText.slice(Math.max(0, at - 500), Math.min(rawText.length, at + 850));
-      const windowLower = window.toLowerCase();
-      const matched = tokens.filter(token => windowLower.includes(token)).length;
-      if (matched >= Math.min(2, tokens.length) && sealedRipPriceTextSupported(price, window)) return true;
-      at = lower.indexOf(first, at + first.length);
+  if (!name || !Number.isFinite(price) || price < 3 || price > 25000 || !tokens.length) return null;
+  for (const row of sealedRipPriceGuideRows(evidenceRows, identity)) {
+    for (const record of sealedRipPriceGuideAtomicBlocks(row)) {
+      const block = record.text;
+      if (sealedRipPriceGuideBlockLooksSealed(block)) continue;
+      if (!sealedRipChaseNameSupportedInBlock(tokens, block)) continue;
+      const pricePositions = sealedRipPriceTextPositions(price, block);
+      for (const at of pricePositions) {
+        const basisContext = block.slice(Math.max(0, at - 280), Math.min(block.length, at + 280));
+        const tightContext = block.slice(Math.max(0, at - 130), Math.min(block.length, at + 130));
+        if (sealedRipPriceGuideGradedContext(tightContext)) continue;
+        const priceBasis = sealedRipPriceGuidePriceBasis(basisContext, row);
+        if (!priceBasis) continue;
+        return {
+          priceBasis,
+          sourceHost: sealedRipPriceGuideHost(row),
+          sourceLink: String(row?.link || "").slice(0, 500),
+          evidenceOrigin: record.origin,
+        };
+      }
     }
-    return false;
-  });
+  }
+  return null;
+}
+
+function sealedRipChaseValueSupported(candidate, evidenceRows = [], identity = {}) {
+  return Boolean(sealedRipChaseValueProof(candidate, evidenceRows, identity));
 }
 
 function sealedRipNormalizeChaseValues(raw, evidenceRows = [], identity = {}) {
@@ -1370,7 +1484,10 @@ function sealedRipNormalizeChaseValues(raw, evidenceRows = [], identity = {}) {
       treatment: String(row?.treatment || "").trim().slice(0, 120),
       sourceType: String(row?.sourceType || "price guide").trim().slice(0, 60),
     };
-    if (!sealedRipChaseValueSupported(item, evidenceRows, identity)) continue;
+    const proof = sealedRipChaseValueProof(item, evidenceRows, identity);
+    if (!proof) continue;
+    item.priceBasis = proof.priceBasis;
+    item.verifiedSource = proof.sourceHost;
     const key = `${item.name}|${item.treatment}`.toLowerCase().replace(/\s+/g, " ");
     if (seen.has(key)) continue;
     seen.add(key);

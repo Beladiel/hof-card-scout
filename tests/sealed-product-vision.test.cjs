@@ -5,7 +5,7 @@ const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const index=fs.readFileSync('index.html','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.43\.0"/);
+assert.match(worker,/const VERSION = "3\.44\.0"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
@@ -66,7 +66,7 @@ assert.match(ripRoute,/marketplaceSearchesUsed:\s*0/,'rip-quality research must 
 assert.doesNotMatch(ripRoute,/engine", "ebay|APIFY_TOKEN|CARD_API_KEY/i,'rip-quality route must not spend marketplace-provider calls');
 assert.ok(worker.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),'rip-quality synthesis must use the Cloudflare text model');
 assert.ok(worker.includes('NEVER invent, estimate, calculate, or extrapolate an exact pull odd'),'rip-quality prompt must prohibit invented pull odds');
-assert.match(worker,/sealed:intel:v14:/,'sealed product intelligence must use a reusable mode-scoped product cache');
+assert.match(worker,/sealed:intel:v15:/,'sealed product intelligence must use a reusable mode-scoped product cache');
 assert.match(worker,/sealedRipWeightedScore/,'final verdict must combine price, chases, pull evidence, and sentiment');
 assert.match(worker,/sealedRipProductEvidenceCount/,'buy recommendation must count the three product-quality evidence pillars');
 assert.match(worker,/sealedRipProductEvidenceCount\(parts\) < 2/,'buy recommendation must require two of three product-quality pillars');
@@ -116,6 +116,19 @@ assert.ok(worker.includes('site:tcgplayer.com'),'Magic Chase Depth should use TC
 assert.ok(worker.includes('site:tcgplayer.com'),'Pokemon Chase Depth should use TCGplayer set pricing');
 assert.ok(worker.includes('site:sportscardspro.com'),'sports Chase Depth should use SportsCardsPro set pricing');
 assert.match(worker,/function sealedRipChaseValueSupported/,'candidate card prices must be locally validated against price-guide evidence');
+assert.match(worker,/function sealedRipPriceGuideExcerpt/,'price-guide page reading must preserve local price records');
+assert.match(worker,/function sealedRipPriceGuideAtomicBlocks/,'Chase Depth verification must operate on bounded local records');
+assert.match(worker,/function sealedRipChaseValueProof/,'accepted singles values must carry a local evidence proof');
+assert.match(worker,/function sealedRipPriceGuidePriceBasis/,'price validation must distinguish Market Price from Ungraded evidence');
+assert.match(worker,/sportscardspro\.com.*ungraded/s,'SportsCardsPro values must require ungraded context');
+assert.match(worker,/tcgplayer\.com.*market\\s\+price/s,'TCGplayer values must require Market Price context');
+assert.match(worker,/psa\|bgs\|sgc\|cgc/i,'atomic price validation must recognize graded-price contamination');
+const atomicStart=worker.indexOf('function sealedRipChaseValueProof');
+const atomicEnd=worker.indexOf('function sealedRipNormalizeChaseValues',atomicStart);
+const atomicBlock=worker.slice(atomicStart,atomicEnd);
+assert.ok(atomicStart>=0&&atomicEnd>atomicStart,'atomic Chase Depth validator block must exist');
+assert.doesNotMatch(atomicBlock,/at - 500|at \+ 850/,'Chase Depth must not use the old broad nearby-price window');
+
 assert.match(worker,/function sealedRipChaseDepthMetrics/,'verified singles values must produce a deterministic Chase Depth score');
 assert.ok(worker.includes('sportscardspro\\.com'),'SportsCardsPro must be allowed as a readable price-guide source');
 assert.match(worker,/function sealedRipAuthorityRows/,'authority evidence must have an explicit typed lane');
