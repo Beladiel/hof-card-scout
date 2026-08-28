@@ -17,7 +17,19 @@ jobs:
           fetch-depth: 0
 
       - name: Apply rip evidence refinement
-        run: python3 scripts/refine-sealed-rip-evidence.py
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/refine-sealed-rip-evidence.py')
+          text=p.read_text(encoding='utf-8')
+          old='out, count = re.subn(pattern, repl, text, count=1, flags=flags)'
+          new='out, count = re.subn(pattern, lambda _m: repl, text, count=1, flags=flags)'
+          if old not in text:
+              raise SystemExit('Could not repair regex replacement escaping')
+          p.write_text(text.replace(old,new,1),encoding='utf-8')
+          PY
+          python3 scripts/refine-sealed-rip-evidence.py
 
       - name: Validate refinement
         shell: bash
