@@ -64,6 +64,7 @@ if old in test:
 else:
     anchor="assert.match(worker,/sealedRipEvidencePriority/,'rip research must prioritize official and checklist sources for page expansion');\n"
     test=replace_once(test,anchor,anchor+new,'authority regression assertions')
-# Remove the 3.38.9 query-shape assertion if present; the new test above is stronger.
-test=test.replace("assert.match(worker,/\\(odds OR checklist OR \\\"collector guide\\\"\\) -reddit -facebook -ebay -amazon/,'authoritative research query must be broad enough to return valid non-community sources');\n","")
+old_query_test="assert.match(worker,/\\(odds OR checklist OR \\\"collector guide\\\"\\) -reddit -facebook -ebay -amazon/,'authoritative rip search must be broad enough to return product sources without mixing community/shop results');\n"
+if old_query_test in test:
+    test=test.replace(old_query_test,"assert.match(worker,/const checklistQuery = `\\\"\\$\\{exactSet\\}\\\" \\$\\{formatTerms\\} \\$\\{authoritySite\\}`\\.trim\\(\\)/,'authoritative search must use the single primary authority site');\n",1)
 test_path.write_text(test,encoding='utf-8')
