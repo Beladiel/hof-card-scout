@@ -1,0 +1,45 @@
+name: Fix Sealed Authority Query V2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-sealed-authority-query-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply authority query fix
+        run: python3 scripts/fix-sealed-authority-query-v2.py
+
+      - name: Validate fix
+        shell: bash
+        run: |
+          node --check src/index.js
+          node --check sealed-product-scout.js
+          node tests/sealed-product-vision.test.cjs
+          grep -q 'const VERSION = "3.38.11"' src/index.js
+          grep -q 'sealed:rip:v8:' src/index.js
+          grep -q 'const authorityYear' src/index.js
+          grep -q 'sealedRipGoogleSearch(checklistQuery, env.SERPAPI_KEY, 18000)' src/index.js
+          git diff --check
+
+      - name: Commit fix
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'No changes needed.'
+            exit 0
+          fi
+          git config user.name 'HOF Card Scout Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/index.js tests/sealed-product-vision.test.cjs
+          git commit -m 'Broaden sealed authority set discovery'
+          git push
