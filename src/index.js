@@ -1,4 +1,4 @@
-const VERSION = "3.41.1";
+const VERSION = "3.42.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -64,7 +64,7 @@ const CARD_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const SEALED_VISION_MODEL = "@cf/moondream/moondream3.1-9B-A2B";
 const SEALED_VISION_MAX_BYTES = 1500 * 1024;
 const SEALED_VISION_CATEGORIES = new Set(["Pokémon", "Magic: The Gathering", "Baseball", "Basketball", "Football", "Other"]);
-const SEALED_VISION_PRODUCT_TYPES = new Set(["Blaster Box", "Mega Box", "Hobby Box", "Retail Box", "Hanger Box", "Hanger Pack", "Value / Fat Pack", "Single Pack", "Multi-Pack", "Elite Trainer Box", "Booster Box", "Booster Bundle", "Booster Pack", "Collection Box", "Tin", "Other"]);
+const SEALED_VISION_PRODUCT_TYPES = new Set(["Blaster Box", "Mega Box", "Hobby Box", "Retail Box", "Hanger Box", "Hanger Pack", "Value / Fat Pack", "Single Pack", "Multi-Pack", "Elite Trainer Box", "Collector Booster", "Play Booster", "Jumpstart Booster", "Booster Box", "Booster Bundle", "Booster Pack", "Collection Box", "Tin", "Other"]);
 
 function sealedVisionJsonFromResponse(raw) {
   let value = raw?.response ?? raw?.result ?? raw?.answer ?? raw;
@@ -192,6 +192,9 @@ function sealedMarketTypeMatches(title, type) {
     "Single Pack": /\b(?:single|1)\s*pack\b|\bpack\b/i,
     "Multi-Pack": /\bmulti[- ]?pack\b|\b\d+\s*pack\b/i,
     "Elite Trainer Box": /\belite\s+trainer\s+box\b|\bETB\b/i,
+    "Collector Booster": /\bcollector\s+boosters?(?:\s+(?:box|pack|display))?\b/i,
+    "Play Booster": /\bplay\s+boosters?(?:\s+(?:box|pack|display))?\b/i,
+    "Jumpstart Booster": /\bjumpstart\s+boosters?(?:\s+(?:box|pack|display))?\b/i,
     "Booster Box": /\bbooster\s+box\b/i,
     "Booster Bundle": /\bbooster\s+bundle\b/i,
     "Booster Pack": /\bbooster\s+pack\b/i,
@@ -332,15 +335,16 @@ function sealedRipProductLabel(identity, lookupTitle = "") {
     .replace(/\s+/g, " ").trim().slice(0, 220);
 }
 
-function sealedRipIntelligenceCacheKey(identity) {
+function sealedRipIntelligenceCacheKey(identity, mode = "single") {
   const parts = [
+    String(mode || "single").trim(),
     String(identity?.category || "").trim(),
     String(identity?.year || "").trim(),
     sealedRipResearchSet(identity),
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v10:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v11:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -425,6 +429,25 @@ function sealedRipResearchTerms(category) {
   };
 }
 
+function sealedRipPriceGuideSite(category) {
+  const key = sealedRipCategoryKey(category);
+  if (key === "magic") return "site:mtggoldfish.com/sets";
+  if (key === "pokemon") return "site:tcgplayer.com";
+  if (key === "sports") return "site:pricecharting.com";
+  return "";
+}
+
+function sealedRipPriceGuideQuery(identity, researchSet = "") {
+  const key = sealedRipCategoryKey(identity?.category);
+  const year = String(identity?.year || "").replace(/[^0-9]+/g, " ").trim();
+  const cleanSet = String(researchSet || sealedRipResearchSet(identity)).replace(/\b(?:trading|cards?|nba|nfl|mlb)\b/gi, " ").replace(/\s+/g, " ").trim();
+  const site = sealedRipPriceGuideSite(identity?.category);
+  if (key === "magic") return `"${cleanSet}" ${site} prices tabletop "All Cards"`.replace(/\s+/g, " ").trim();
+  if (key === "pokemon") return `${year} "${cleanSet}" ${site} "price guide" "Market Price"`.replace(/\s+/g, " ").trim();
+  if (key === "sports") return `${year} "${cleanSet}" ${String(identity?.category || "").toLowerCase()} ${site} Ungraded price`.replace(/\s+/g, " ").trim();
+  return `${year} "${cleanSet}" ${site} card prices`.replace(/\s+/g, " ").trim();
+}
+
 function sealedRipCategoryGuidance(category) {
   const key = sealedRipCategoryKey(category);
   if (key === "pokemon") {
@@ -493,7 +516,7 @@ function sealedRipSourceType(row) {
   const text = `${link} ${source}`;
   if (/topps\.com|paniniamerica\.net|pokemon\.com|magic\.wizards\.com|wizards\.com/.test(text)) return "official";
   if (/reddit\.com|blowoutforums\.com|sportscardforum\.com|elitefourum\.com/.test(text)) return "community";
-  if (/checklist|beckett|cardboardconnection|tcgplayer|sportscollectorsdaily|pokebeach|justinbasil|mtggoldfish|scryfall/.test(text)) return "checklist/editorial";
+  if (/checklist|beckett|cardboardconnection|tcgplayer|pricecharting|sportscollectorsdaily|pokebeach|justinbasil|mtggoldfish|scryfall/.test(text)) return "checklist/editorial";
   return "editorial";
 }
 
@@ -645,6 +668,7 @@ function sealedRipResearchSet(identity) {
   const year = String(identity?.year || "").trim();
   if (year) text = text.replace(new RegExp(year.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "ig"), " ");
   text = text
+    .replace(/\b(?:collector|play|jumpstart)\s+booster(?:\s+(?:box|pack|display))?\b/gi, " ")
     .replace(/\b20\d{2}(?:\s*[-–/]\s*\d{2,4})?\b/g, " ")
     .replace(/\b(?:basketball|baseball|football|trading\s+cards?|cards?)\b/gi, " ")
     .replace(/\b(?:value|retail|hobby|mega|blaster|hanger|booster|collection)\s*(?:box|pack|bundle)?\b/gi, " ")
@@ -719,7 +743,8 @@ function sealedRipPageExcerpt(html) {
   const needles = [
     "1:", "odds", "blaster", "value box", "what to expect in a value box", "rookie", "signature", "hyper signatures", "autograph", "case hit", "block by block", "boom shaka laka", "green hoops", "light burst", "parallel", "exclusive", "short print", "ssp",
     "mythic", "rare", "borderless", "showcase", "serialized", "special guest", "bonus sheet", "foil", "collector booster", "play booster", "booster contents", "headliner", "extended art", "source material", "commander",
-    "special illustration rare", "illustration rare", "hyper rare", "secret rare", "ultra rare", "pull rate", "hit rate"
+    "special illustration rare", "illustration rare", "hyper rare", "secret rare", "ultra rare", "pull rate", "hit rate",
+    "market price", "most expensive", "ungraded", "price guide", "$"
   ];
   const chunks = [];
   const used = new Set();
@@ -745,12 +770,12 @@ function sealedRipPageExcerpt(html) {
 
 function sealedRipPageHasUsefulSignals(text) {
   const value = String(text || "");
-  return /\b1\s*:\s*\d{1,7}\b|\b(?:value box|blaster|retail[- ]only|case hit|rookie|autograph|parallel|ssp|short print|sir|special illustration rare|illustration rare|hyper rare|pull rate|hit rate|mythic|borderless|showcase|serialized|special guests?|bonus sheet|foil|playable|staple)\b/i.test(value);
+  return /\b1\s*:\s*\d{1,7}\b|\$\s*\d+(?:\.\d{1,2})?|\b(?:market price|most expensive|ungraded|price guide|value box|blaster|retail[- ]only|case hit|rookie|autograph|parallel|ssp|short print|sir|special illustration rare|illustration rare|hyper rare|pull rate|hit rate|mythic|borderless|showcase|serialized|special guests?|bonus sheet|foil|playable|staple)\b/i.test(value);
 }
 
 function sealedRipCanUseReader(row) {
   const link = String(row?.link || "").toLowerCase();
-  return /https?:\/\/(?:www\.)?(?:beckett\.com|topps\.com|checklistinsider\.com|cardboardconnection\.com|pokemon\.com|pokebeach\.com|justinbasil\.com|magic\.wizards\.com|wizards\.com|mtggoldfish\.com|scryfall\.com)\//.test(link);
+  return /https?:\/\/(?:www\.)?(?:beckett\.com|topps\.com|checklistinsider\.com|cardboardconnection\.com|pokemon\.com|pokebeach\.com|justinbasil\.com|magic\.wizards\.com|wizards\.com|mtggoldfish\.com|tcgplayer\.com|pricecharting\.com|scryfall\.com)\//.test(link);
 }
 
 async function sealedRipReaderPageText(row) {
@@ -813,6 +838,7 @@ async function sealedRipFetchPageText(row) {
 }
 
 function sealedRipEvidencePriority(row) {
+  if (row?.queryKind === "singles-price-guide") return 0.5;
   const type = String(row?.sourceType || "");
   const link = String(row?.link || "").toLowerCase();
   if (type === "official") return 0;
@@ -828,7 +854,7 @@ async function sealedRipExpandEvidenceRows(rows) {
     .map((row, index) => ({ row, index }))
     .filter(x => x.row.sourceType !== "community")
     .sort((a, b) => sealedRipEvidencePriority(a.row) - sealedRipEvidencePriority(b.row) || a.index - b.index)
-    .slice(0, 6);
+    .slice(0, 8);
   const expanded = await Promise.all(fetchable.map(async ({ row, index }) => ({ index, pageText: await sealedRipFetchPageText(row) })));
   const byIndex = new Map(expanded.map(x => [x.index, x.pageText]));
   return list.map((row, index) => ({ ...row, pageText: byIndex.get(index) || "" }));
@@ -1062,7 +1088,7 @@ function sealedRipFormatAccessContextSupported(evidenceRows, identity = {}) {
     ? /\b(?:mythic(?: rare)?|borderless|showcase|serialized|special guests?|bonus sheet|foil|headliner|extended art|source material)\b/i
     : key === "pokemon"
       ? /\b(?:special illustration rare|illustration rare|hyper rare|secret rare|ultra rare|promo|special treatment)\b/i
-      : /\b(?:rookies?|autographs?|signatures?|parallel|exclusive|numbered|case hit|ssp|short print|insert)\b/i;
+      : /\b(?:rookies?|autographs?|signatures?|parallel|exclusive|numbered|case hit|ssp|short print|insert|green hoops|light burst|rainbow)\b|\b1\s*:\s*\d{1,7}\b/i;
   return (Array.isArray(evidenceRows) ? evidenceRows : []).some(row => {
     if (row?.sourceType === "community") return false;
     if (!sealedRipEvidenceRowMatchesIdentity(row, identity)) return false;
@@ -1227,6 +1253,101 @@ function sealedRipVerifiedChaseScore(rawScore, evidenceRows = [], category = "")
   return Math.max(aiScore, floor);
 }
 
+function sealedRipPriceGuideRows(evidenceRows = [], identity = {}) {
+  return (Array.isArray(evidenceRows) ? evidenceRows : []).filter(row =>
+    row?.queryKind === "singles-price-guide" &&
+    row?.sourceType !== "community" &&
+    sealedRipEvidenceRowMatchesIdentity(row, identity)
+  );
+}
+
+function sealedRipChaseValueNameTokens(value) {
+  const stop = new Set(["the", "and", "card", "cards", "foil", "market", "price", "showcase", "borderless", "parallel", "autograph", "auto", "rookie"]);
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").split(/\s+/).filter(token => token.length >= 2 && !stop.has(token));
+}
+
+function sealedRipPriceTextSupported(price, text) {
+  const n = Number(price);
+  if (!Number.isFinite(n) || n <= 0) return false;
+  const fixed = n.toFixed(2).replace(/\./g, "\\.");
+  const whole = Math.round(n);
+  const rx = new RegExp(`(?:\\$|usd\\s*)\\s*${fixed}\\b|(?:market\\s+price\\s*:?\\s*)\\$?\\s*${fixed}\\b${Math.abs(n-whole)<0.001?`|(?:\\$|usd\\s*)\\s*${whole}\\b`:""}`, "i");
+  return rx.test(String(text || ""));
+}
+
+function sealedRipChaseValueSupported(candidate, evidenceRows = [], identity = {}) {
+  const name = String(candidate?.name || "").trim();
+  const price = Number(candidate?.marketPrice);
+  const tokens = sealedRipChaseValueNameTokens(name);
+  if (!name || !Number.isFinite(price) || price < 3 || price > 25000 || !tokens.length) return false;
+  return sealedRipPriceGuideRows(evidenceRows, identity).some(row => {
+    const rawText = `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`.replace(/\s+/g, " ");
+    const lower = rawText.toLowerCase();
+    const first = tokens.find(token => lower.includes(token));
+    if (!first) return false;
+    let at = lower.indexOf(first);
+    while (at >= 0) {
+      const window = rawText.slice(Math.max(0, at - 500), Math.min(rawText.length, at + 850));
+      const windowLower = window.toLowerCase();
+      const matched = tokens.filter(token => windowLower.includes(token)).length;
+      if (matched >= Math.min(2, tokens.length) && sealedRipPriceTextSupported(price, window)) return true;
+      at = lower.indexOf(first, at + first.length);
+    }
+    return false;
+  });
+}
+
+function sealedRipNormalizeChaseValues(raw, evidenceRows = [], identity = {}) {
+  const seen = new Set();
+  const out = [];
+  for (const row of (Array.isArray(raw?.chaseValueCards) ? raw.chaseValueCards : []).slice(0, 20)) {
+    const item = {
+      name: String(row?.name || "").trim().slice(0, 150),
+      marketPrice: Number(Number(row?.marketPrice).toFixed(2)),
+      treatment: String(row?.treatment || "").trim().slice(0, 120),
+      sourceType: String(row?.sourceType || "price guide").trim().slice(0, 60),
+    };
+    if (!sealedRipChaseValueSupported(item, evidenceRows, identity)) continue;
+    const key = `${item.name}|${item.treatment}`.toLowerCase().replace(/\s+/g, " ");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out.sort((a,b) => b.marketPrice - a.marketPrice).slice(0, 15);
+}
+
+function sealedRipChaseDepthMetrics(cards = []) {
+  const rows = (Array.isArray(cards) ? cards : []).filter(row => Number.isFinite(Number(row?.marketPrice)) && Number(row.marketPrice) > 0).slice().sort((a,b) => Number(b.marketPrice)-Number(a.marketPrice));
+  if (rows.length < 2) return { available:false, score:null, label:"N/A", summary:"Scout could not verify enough set-level singles prices to measure chase depth yet.", count20:0, count50:0, count100:0, top5Total:null, top10Total:null, concentration:null };
+  const prices = rows.map(row => Number(row.marketPrice));
+  const count20 = prices.filter(x => x >= 20).length;
+  const count50 = prices.filter(x => x >= 50).length;
+  const count100 = prices.filter(x => x >= 100).length;
+  const top5Total = Number(prices.slice(0,5).reduce((a,b)=>a+b,0).toFixed(2));
+  const top10Total = Number(prices.slice(0,10).reduce((a,b)=>a+b,0).toFixed(2));
+  const concentration = top10Total > 0 ? prices[0] / top10Total : 1;
+  let score = 20;
+  score += Math.min(24, count20 * 3);
+  score += Math.min(18, count50 * 5);
+  score += Math.min(14, count100 * 7);
+  score += top10Total >= 1500 ? 20 : top10Total >= 750 ? 16 : top10Total >= 400 ? 12 : top10Total >= 200 ? 8 : top10Total >= 100 ? 4 : 0;
+  if (concentration >= .75) score -= 18;
+  else if (concentration >= .60) score -= 12;
+  else if (concentration >= .45) score -= 6;
+  if (rows.length < 4) score = Math.min(score, 58);
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const label = concentration >= .68 && count20 <= 4 ? "LOTTERY-TICKET" : score >= 78 ? "DEEP" : score >= 62 ? "SOLID" : score >= 45 ? "MODERATE" : "THIN";
+  const top = rows[0];
+  const summary = `${label} set-level chase pool · ${count100} verified at $100+ · ${count50} at $50+ · ${count20} at $20+ · top 10 verified values total $${top10Total.toFixed(2)}${top?.name?` · top verified card: ${top.name} ($${Number(top.marketPrice).toFixed(2)})`:""}. Exact-format access is scored separately.`;
+  return { available:true, score, label, summary, count20, count50, count100, top5Total, top10Total, concentration:Number(concentration.toFixed(3)) };
+}
+
+function sealedRipPriceGuideEvidenceText(evidenceRows = [], identity = {}) {
+  return sealedRipPriceGuideRows(evidenceRows, identity)
+    .map(row => `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`.trim())
+    .filter(Boolean).join("\n---\n").slice(0, 18000);
+}
+
 function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
   const evidenceText = evidenceRows.map(row => `${row.title} ${row.snippet} ${row.pageText || ""}`).join("\n");
   const chaseCards = (Array.isArray(raw?.chaseCards) ? raw.chaseCards : []).slice(0, 5).map(row => ({
@@ -1239,6 +1360,8 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
     sourceType: String(row?.sourceType || "reported").trim().slice(0, 50),
     note: String(row?.note || "").trim().slice(0, 260),
   })).filter(row => row.item && row.odds && sealedRipOddsRowSupported(row, evidenceRows, identity));
+  const chaseValueCards = sealedRipNormalizeChaseValues(raw, evidenceRows, identity);
+  const chaseDepth = sealedRipChaseDepthMetrics(chaseValueCards);
 
   const chaseContextAvailable = sealedRipChaseContextSupported(evidenceRows, identity?.category);
   const chaseEvidenceAvailable = chaseCards.length > 0 || chaseContextAvailable;
@@ -1291,6 +1414,17 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
     chaseEvidenceAvailable,
     chaseContextAvailable,
     namedChasesVerified: chaseCards.length,
+    chaseDepthScore: chaseDepth.score,
+    chaseDepthEvidenceAvailable: chaseDepth.available,
+    chaseDepthLabel: chaseDepth.label,
+    chaseDepthSummary: chaseDepth.summary,
+    chaseDepthCount20: chaseDepth.count20,
+    chaseDepthCount50: chaseDepth.count50,
+    chaseDepthCount100: chaseDepth.count100,
+    chaseDepthTop5Total: chaseDepth.top5Total,
+    chaseDepthTop10Total: chaseDepth.top10Total,
+    chaseDepthConcentration: chaseDepth.concentration,
+    chaseValueCards,
     formatAccessScore,
     formatAccessEvidenceAvailable,
     formatAccessContextAvailable,
@@ -1605,6 +1739,8 @@ export default {
       catch { return json({ ok: false, error: "bad_json", message: "Scout could not read that rip-quality request.", researchSearchesUsed: 0, marketplaceSearchesUsed: 0 }, 400, cors); }
 
       const identity = body?.identity && typeof body.identity === "object" ? body.identity : {};
+      const researchMode = body?.researchMode === "showdown" ? "showdown" : "single";
+      const intelligenceTtlDays = researchMode === "showdown" ? 3 : 14;
       const lookupTitle = String(body?.lookupTitle || "").trim().slice(0, 220);
       const productLabel = sealedRipProductLabel(identity, lookupTitle);
       const market = body?.market && typeof body.market === "object" ? {
@@ -1619,13 +1755,13 @@ export default {
         return json({ ok: false, error: "missing_market", message: "Run the market-price check first so Scout can combine price and rip quality.", researchSearchesUsed: 0, marketplaceSearchesUsed: 0 }, 400, cors);
       }
 
-      const cacheKey = sealedRipIntelligenceCacheKey(identity);
+      const cacheKey = sealedRipIntelligenceCacheKey(identity, researchMode);
       if (env.SCOUT_DATA) {
         try {
           const cached = await env.SCOUT_DATA.get(cacheKey, { type: "json" });
           if (cached?.analysis) {
             const analysis = sealedRipNormalize(cached.analysis, Array.isArray(cached.evidenceRows) ? cached.evidenceRows : [], market, identity);
-            return json({ ok: true, version: VERSION, productLabel, market, analysis, sources: cached.sources || [], checkedAt: cached.checkedAt || new Date().toISOString(), cacheHit: true, intelligenceCacheHit: true, intelligenceTtlDays: 14, researchSearchesUsed: 0, marketplaceSearchesUsed: 0 }, 200, cors);
+            return json({ ok: true, version: VERSION, productLabel, market, analysis, sources: cached.sources || [], checkedAt: cached.checkedAt || new Date().toISOString(), cacheHit: true, intelligenceCacheHit: true, intelligenceTtlDays, researchMode, researchSearchesUsed: 0, marketplaceSearchesUsed: 0 }, 200, cors);
           }
         } catch {}
       }
@@ -1647,21 +1783,24 @@ export default {
       const researchTerms = sealedRipResearchTerms(identity?.category);
       const checklistQuery = sealedRipAuthorityQuery(identity, researchSet, authoritySite, formatTerms, researchTerms);
       const communityQuery = `"${exactSet}" ${formatTerms} ${researchTerms.community} ${sealedRipCommunitySite(identity?.category)}`;
-      let checklistData = {}, communityData = {};
+      const priceGuideQuery = sealedRipPriceGuideQuery(identity, researchSet);
+      const secondaryQuery = researchMode === "showdown" ? priceGuideQuery : communityQuery;
+      const secondaryKind = researchMode === "showdown" ? "singles-price-guide" : "collector-reports";
+      let checklistData = {}, secondaryData = {};
       let researchSearchesUsed = 0;
       try {
         const results = await Promise.allSettled([
           sealedRipGoogleSearch(checklistQuery, env.SERPAPI_KEY, 18000, "mobile"),
-          sealedRipGoogleSearch(communityQuery, env.SERPAPI_KEY, 12000),
+          sealedRipGoogleSearch(secondaryQuery, env.SERPAPI_KEY, 14000),
         ]);
         researchSearchesUsed = 2;
         if (results[0].status === "fulfilled") checklistData = results[0].value;
-        if (results[1].status === "fulfilled") communityData = results[1].value;
+        if (results[1].status === "fulfilled") secondaryData = results[1].value;
       } catch {}
 
       let evidenceRows = [
         ...sealedRipEvidenceRows(checklistData, "checklist-and-odds"),
-        ...sealedRipEvidenceRows(communityData, "collector-reports"),
+        ...sealedRipEvidenceRows(secondaryData, secondaryKind),
       ];
       evidenceRows = sealedRipFilterRelevantEvidence(evidenceRows, identity);
       evidenceRows = await sealedRipExpandEvidenceRows(evidenceRows);
@@ -1678,6 +1817,19 @@ export default {
           synthetic: true,
         });
       }
+      const secondarySerpEvidence = sealedRipSerpEvidenceText(secondaryData);
+      if (researchMode === "showdown" && secondarySerpEvidence) {
+        evidenceRows.push({
+          title: "Singles price-guide search evidence",
+          link: "",
+          snippet: secondarySerpEvidence.slice(0, 1800),
+          pageText: secondarySerpEvidence,
+          source: "Google structured result",
+          sourceType: "checklist/editorial",
+          queryKind: "singles-price-guide",
+          synthetic: true,
+        });
+      }
       if (!evidenceRows.length) {
         return json({ ok: false, error: "rip_research_too_thin", message: "Scout could not find even one trustworthy product-specific rip source yet. Try again later or judge this one manually.", researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);
       }
@@ -1689,9 +1841,11 @@ export default {
       const researchMix = {
         authoritative: evidenceRows.filter(row => row.queryKind === "checklist-and-odds").length,
         community: evidenceRows.filter(row => row.queryKind === "collector-reports" && sealedRipCommunityRowCompatible(row, identity)).length,
+        priceGuides: evidenceRows.filter(row => row.queryKind === "singles-price-guide").length,
         expandedPages: evidenceRows.filter(row => String(row.pageText || "").trim()).length,
       };
       const evidenceSignals = sealedRipPromptSignals(evidenceRows, identity?.category);
+      const priceGuideSignals = sealedRipPriceGuideEvidenceText(evidenceRows, identity);
       const evidenceForPrompt = evidenceRows.slice(0, 18).map((row, index) =>
         `[${index + 1}] TYPE=${row.sourceType}; SEARCH=${row.queryKind}; TITLE=${row.title}; SOURCE=${row.source}; URL=${row.link}; SNIPPET=${row.snippet}; PAGE=${row.pageText || ""}`
       ).join("\n\n").slice(0, 34000);
@@ -1711,13 +1865,14 @@ export default {
           sentimentEvidenceAvailable: { type: "boolean" },
           sentimentLabel: { type: "string", enum: ["positive", "mixed", "negative", "unknown"] },
           chaseCards: { type: "array", items: { type: "object", properties: { name: { type: "string" }, why: { type: "string" } }, required: ["name", "why"] }, maxItems: 5 },
+          chaseValueCards: { type: "array", items: { type: "object", properties: { name: { type: "string" }, marketPrice: { type: "number" }, treatment: { type: "string" }, sourceType: { type: "string" } }, required: ["name", "marketPrice", "treatment", "sourceType"] }, maxItems: 15 },
           pullOdds: { type: "array", items: { type: "object", properties: { item: { type: "string" }, odds: { type: "string" }, sourceType: { type: "string" }, note: { type: "string" } }, required: ["item", "odds", "sourceType", "note"] }, maxItems: 8 },
           collectorTake: { type: "string" },
           positives: { type: "array", items: { type: "string" }, maxItems: 4 },
           negatives: { type: "array", items: { type: "string" }, maxItems: 4 },
           confidence: { type: "string", enum: ["high", "medium", "low"] }
         },
-        required: ["qualitySummary", "chaseScore", "chaseEvidenceAvailable", "formatAccessScore", "formatAccessEvidenceAvailable", "formatAccessSummary", "pullScore", "pullEvidenceAvailable", "sentimentScore", "sentimentEvidenceAvailable", "sentimentLabel", "chaseCards", "pullOdds", "collectorTake", "positives", "negatives", "confidence"]
+        required: ["qualitySummary", "chaseScore", "chaseEvidenceAvailable", "formatAccessScore", "formatAccessEvidenceAvailable", "formatAccessSummary", "pullScore", "pullEvidenceAvailable", "sentimentScore", "sentimentEvidenceAvailable", "sentimentLabel", "chaseCards", "chaseValueCards", "pullOdds", "collectorTake", "positives", "negatives", "confidence"]
       };
       const prompt = `You are evaluating whether a collector should OPEN/RIP an exact sealed trading-card product, not whether it is good for sealed resale. Product: ${productLabel}. Exact format: ${String(identity?.productType || identity?.boxType || "")}. Category: ${String(identity?.category || "")}. Year: ${String(identity?.year || "")}. Set: ${String(identity?.set || "")}.
 
@@ -1726,6 +1881,8 @@ ${sealedRipCategoryGuidance(identity?.category)}
 Use ONLY the research evidence below. Do not rely on memory. NEVER invent, estimate, calculate, or extrapolate an exact pull odd. Only include an odds string in pullOdds when that exact odds text is literally supported by the supplied evidence and applies to this exact product format. Every pullOdds.note MUST name the applicable sealed format/configuration when the source distinguishes formats (for example Value Box, Blaster, Hanger Box, Hobby, Mega, Fanatics, Booster Box, Bundle, or ETB). Never return odds labeled for a different format or retailer-exclusive variant. If reliable format-specific odds are not supported, set pullEvidenceAvailable=false and return an empty pullOdds array. Clearly distinguish official/checklist odds from community-reported observations; community anecdotes are not official odds.
 
 Evaluate exact-format access separately for Shelf Showdown. Set formatAccessEvidenceAvailable=true ONLY when official/checklist/editorial evidence explicitly identifies this exact sealed format (including a clearly compatible retail alias) and describes desirable rarity/treatment/chase families that this configuration can contain. Score formatAccessScore 0-100 for how well THIS exact configuration reaches the desirable parts of the set, not for the set's overall quality. A format that excludes major desirable treatments should score lower; a format with broad access to the important chase structure can score higher. If the evidence is only set-level and does not establish exact-format access, set formatAccessEvidenceAvailable=false, formatAccessScore=0, and say so in formatAccessSummary. Never infer format access from another box type, retailer-exclusive variant, or community anecdote.
+
+For Shelf Showdown Chase Depth, chaseValueCards may be populated ONLY from evidence rows marked SEARCH=singles-price-guide. Each row must preserve an exact card name and a literal current singles market/guide price shown together in that evidence. marketPrice is the single-card price, never the sealed box price. Return no more than 15 of the strongest supported values and return [] when no singles price guide evidence exists. This is SET-LEVEL value depth; do not claim a card is accessible from the exact box unless the separate format-access evidence supports that conclusion.
 
 Named items in chaseCards must be explicitly supported by the supplied evidence; do not invent card names, players, Pokémon, treatments, inserts, or variants. Use the CATEGORY PLAYBOOK above to decide what counts as strong chase/set quality for this product. chaseCards may contain named chase cards, characters/players, treatment or insert families, or other category-appropriate named targets when the evidence supports them. Separately, set chaseEvidenceAvailable=true when trustworthy official/checklist/editorial evidence supports meaningful chase or set structure for this category even if individual names cannot be safely validated. Score chaseScore 0-100 only when chaseEvidenceAvailable=true, following the category playbook rather than a universal sports-card rubric. Preserve any exact pull-rate/odds notation literally as written in evidence. Community-reported pull rates are allowed only when clearly labeled as community/reported and supported by the exact evidence; they are never official manufacturer odds unless an official source says so. Missing exact odds are not by themselves a reason to withhold a recommendation. For collector/player sentiment, summarize recurring product-specific themes rather than one lucky or angry opening. Set sentimentEvidenceAvailable=false when community evidence is too thin; require recurring support from at least two independent community sources. Product/checklist facts are not collector sentiment by themselves. collectorTake, positives, and negatives must describe opinions, complaints, praise, price/value reactions, quality-control reports, collation reports, or opening experiences that are actually present in COMMUNITY EVIDENCE. Generic set-level opinions about card design, card stock, photography, or overall set appeal may be summarized. Format-specific claims about autograph guarantees, pack counts, pull experience, exclusives, or box value may be used only when the community evidence applies to the exact requested sealed format. Never import Hobby, Mega, Hanger, Fanatics, or another format's opening economics into a different product. Do not copy checklist features into the collector-sentiment fields. Never say "many collectors", "most collectors", "collector consensus", or make another broad consensus claim unless at least three independent community sources support the same recurring theme. Keep conclusions conservative when evidence is thin.
 
@@ -1759,20 +1916,25 @@ High-signal excerpts extracted from the best sources (read these first):\n${evid
       // validated against the retrieved evidence by sealedRipNormalize below.
       const missingChases = !Array.isArray(aiObject?.chaseCards) || !aiObject.chaseCards.length;
       const missingOdds = !Array.isArray(aiObject?.pullOdds) || !aiObject.pullOdds.length;
-      if (evidenceSignals && (missingChases || missingOdds)) {
+      const missingChaseValues = !Array.isArray(aiObject?.chaseValueCards) || !aiObject.chaseValueCards.length;
+      if ((evidenceSignals || priceGuideSignals) && (missingChases || missingOdds || missingChaseValues)) {
         const recoverySchema = {
           type: "object",
           properties: {
             chaseScore: { type: "number" },
             pullScore: { type: "number" },
             chaseCards: { type: "array", items: { type: "object", properties: { name: { type: "string" }, why: { type: "string" } }, required: ["name", "why"] }, maxItems: 5 },
+            chaseValueCards: { type: "array", items: { type: "object", properties: { name: { type: "string" }, marketPrice: { type: "number" }, treatment: { type: "string" }, sourceType: { type: "string" } }, required: ["name", "marketPrice", "treatment", "sourceType"] }, maxItems: 15 },
             pullOdds: { type: "array", items: { type: "object", properties: { item: { type: "string" }, odds: { type: "string" }, sourceType: { type: "string" }, note: { type: "string" } }, required: ["item", "odds", "sourceType", "note"] }, maxItems: 8 },
           },
-          required: ["chaseScore", "pullScore", "chaseCards", "pullOdds"]
+          required: ["chaseScore", "pullScore", "chaseCards", "chaseValueCards", "pullOdds"]
         };
         const recoveryPrompt = `Extract only source-supported category-appropriate CHASES / SET VALUE signals and literal PULL ODDS or PULL-RATE samples for ${productLabel} (${String(identity?.productType || identity?.boxType || "")}). ${sealedRipCategoryGuidance(identity?.category)} Use ONLY the excerpts below. Preserve any rate exactly as written (for example 1:7 or 1 hit per 8 packs) and label community samples as community/reported, never official. For every pullOdds row, note MUST name the format/configuration the excerpt assigns to that rate; omit rows for Hanger/Hobby/Mega/Fanatics or any other format that does not match the requested exact product. Do not estimate, infer, or invent names or rates. If no literal rate is present, return pullOdds=[].\
 \
-${evidenceSignals}`;
+${evidenceSignals}
+
+SINGLES PRICE-GUIDE EVIDENCE — extract chaseValueCards only from here:
+${priceGuideSignals || "No singles price-guide evidence available."}`;
         try {
           const recoveredRaw = await env.AI.run(SEALED_RIP_MODEL, {
             prompt: recoveryPrompt,
@@ -1791,6 +1953,9 @@ ${evidenceSignals}`;
             aiObject.pullScore = recovered.pullScore;
             aiObject.pullEvidenceAvailable = true;
           }
+          if (missingChaseValues && Array.isArray(recovered?.chaseValueCards) && recovered.chaseValueCards.length) {
+            aiObject.chaseValueCards = recovered.chaseValueCards;
+          }
         } catch (err) {
           console.warn("sealed rip compact recovery skipped", err);
         }
@@ -1798,9 +1963,9 @@ ${evidenceSignals}`;
       const analysis = sealedRipNormalize(aiObject, evidenceRows, market, identity);
       const checkedAt = new Date().toISOString();
       if (env.SCOUT_DATA) {
-        try { await env.SCOUT_DATA.put(cacheKey, JSON.stringify({ productLabel, analysis: aiObject, evidenceRows, sources, checkedAt }), { expirationTtl: 14 * 24 * 60 * 60 }); } catch {}
+        try { await env.SCOUT_DATA.put(cacheKey, JSON.stringify({ productLabel, analysis: aiObject, evidenceRows, sources, checkedAt, researchMode }), { expirationTtl: intelligenceTtlDays * 24 * 60 * 60 }); } catch {}
       }
-      return json({ ok: true, version: VERSION, productLabel, market, analysis, sources, researchMix, checkedAt, cacheHit: false, intelligenceCacheHit: false, intelligenceTtlDays: 14, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 200, cors);
+      return json({ ok: true, version: VERSION, productLabel, market, analysis, sources, researchMix, checkedAt, cacheHit: false, intelligenceCacheHit: false, intelligenceTtlDays, researchMode, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 200, cors);
     }
 
     if (url.pathname === "/sealed/classify-type" && request.method === "POST") {
