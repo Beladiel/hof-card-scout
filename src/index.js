@@ -1,4 +1,4 @@
-const VERSION = "3.46.0";
+const VERSION = "3.47.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -344,7 +344,7 @@ function sealedRipIntelligenceCacheKey(identity, mode = "single") {
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v17:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v18:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -424,7 +424,7 @@ function sealedRipResearchTerms(category) {
     };
   }
   return {
-    authority: "checklist rookies autographs parallels case hits odds",
+    authority: "checklist",
     community: "pulls review quality control collation",
   };
 }
@@ -646,7 +646,10 @@ function sealedRipAuthorityQuery(identity, researchSet, authoritySite, formatTer
     return `${authorityYear} ${setText || researchSet} ${authoritySite} set cards product`.replace(/\s+/g, " ").trim();
   }
   const authorityCategory = String(identity?.category || "").trim().toLowerCase();
-  return `${authorityYear} ${researchSet} ${authorityCategory} ${authoritySite} ${formatTerms} ${researchTerms.authority}`.replace(/\s+/g, " ").trim();
+  // Sports discovery is set-first too. Requiring Blaster/Mega/Hanger wording in
+  // the one Beckett search can hide the canonical set checklist entirely. Exact
+  // configuration is enforced later by section-local Format Access validation.
+  return `${authorityYear} ${researchSet} ${authorityCategory} ${authoritySite} ${researchTerms.authority}`.replace(/\s+/g, " ").trim();
 }
 
 function sealedRipFormatTerms(identity) {
@@ -1455,6 +1458,32 @@ function sealedRipPriceGuideRows(evidenceRows = [], identity = {}) {
   );
 }
 
+function sealedRipFailureLanes(evidenceRows = [], identity = {}, market = {}, researchMode = "single") {
+  const authorityRows = sealedRipAuthorityRows(evidenceRows, identity);
+  const priceGuideRows = sealedRipPriceGuideRows(evidenceRows, identity);
+  const marketOk = Number.isFinite(Number(market?.median)) && Number(market?.median) > 0;
+  return {
+    authority: { status: authorityRows.length ? "partial" : "failed", sourceCount: authorityRows.length },
+    priceGuide: researchMode === "showdown"
+      ? { status: priceGuideRows.length ? "partial" : "failed", sourceCount: priceGuideRows.length }
+      : { status: "not_requested", sourceCount: 0 },
+    market: { status: marketOk ? "complete" : "failed", sourceCount: marketOk ? 1 : 0 },
+    community: { status: researchMode === "showdown" ? "not_requested" : "partial", sourceCount: 0 },
+  };
+}
+
+function sealedRipShowdownAnalysisComplete(analysis = {}) {
+  const lanes = analysis?.lanes || {};
+  return Boolean(
+    analysis?.chaseEvidenceAvailable &&
+    analysis?.chaseDepthEvidenceAvailable &&
+    analysis?.formatAccessEvidenceAvailable &&
+    lanes?.authority?.status === "complete" &&
+    lanes?.priceGuide?.status === "complete" &&
+    lanes?.market?.status === "complete"
+  );
+}
+
 function sealedRipChaseValueNameTokens(value) {
   const stop = new Set(["the", "and", "card", "cards", "foil", "market", "price", "showcase", "borderless", "parallel", "autograph", "auto", "rookie"]);
   return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").split(/\s+/).filter(token => token.length >= 2 && !stop.has(token));
@@ -2150,7 +2179,10 @@ export default {
           const cached = await env.SCOUT_DATA.get(cacheKey, { type: "json" });
           if (cached?.analysis) {
             const analysis = sealedRipNormalize(cached.analysis, Array.isArray(cached.evidenceRows) ? cached.evidenceRows : [], market, identity, researchMode);
-            return json({ ok: true, version: VERSION, productLabel, market, analysis, sources: cached.sources || [], checkedAt: cached.checkedAt || new Date().toISOString(), cacheHit: true, intelligenceCacheHit: true, intelligenceTtlDays, researchMode, researchSearchesUsed: 0, marketplaceSearchesUsed: 0 }, 200, cors);
+            const cacheUsable = researchMode !== "showdown" || sealedRipShowdownAnalysisComplete(analysis);
+            if (cacheUsable) {
+              return json({ ok: true, version: VERSION, productLabel, market, analysis, sources: cached.sources || [], checkedAt: cached.checkedAt || new Date().toISOString(), cacheHit: true, intelligenceCacheHit: true, intelligenceTtlDays, researchMode, researchSearchesUsed: 0, marketplaceSearchesUsed: 0 }, 200, cors);
+            }
           }
         } catch {}
       }
@@ -2219,20 +2251,21 @@ export default {
           synthetic: true,
         });
       }
-      if (!evidenceRows.length) {
-        return json({ ok: false, error: "rip_research_too_thin", message: "Scout could not find even one trustworthy product-specific rip source yet. Try again later or judge this one manually.", researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);
-      }
-
-      const sources = evidenceRows
-        .filter(row => /^https?:\/\//i.test(String(row?.link || "")) && (row?.sourceType !== "community" || sealedRipCommunityRowCompatible(row, identity)))
-        .slice(0, 12)
-        .map(row => ({ title: row.title, link: row.link, sourceType: row.sourceType, queryKind: row.queryKind }));
       const researchMix = {
         authoritative: evidenceRows.filter(row => row.queryKind === "checklist-and-odds").length,
         community: evidenceRows.filter(row => row.queryKind === "collector-reports" && sealedRipCommunityRowCompatible(row, identity)).length,
         priceGuides: evidenceRows.filter(row => row.queryKind === "singles-price-guide").length,
         expandedPages: evidenceRows.filter(row => String(row.pageText || "").trim()).length,
       };
+      const failureLanes = sealedRipFailureLanes(evidenceRows, identity, market, researchMode);
+      if (!evidenceRows.length) {
+        return json({ ok: false, error: "rip_research_too_thin", message: "Scout could not find even one trustworthy product-specific rip source yet. Try again later or judge this one manually.", failureStage: "evidence", lanes: failureLanes, researchMix, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);
+      }
+
+      const sources = evidenceRows
+        .filter(row => /^https?:\/\//i.test(String(row?.link || "")) && (row?.sourceType !== "community" || sealedRipCommunityRowCompatible(row, identity)))
+        .slice(0, 12)
+        .map(row => ({ title: row.title, link: row.link, sourceType: row.sourceType, queryKind: row.queryKind }));
       // In Showdown, singles price-guide evidence has exactly one job: Chase Depth.
       // Keep it out of the main set/format synthesis prompt so a large pricing page
       // cannot overload or distract the model. The compact recovery/extraction pass
@@ -2288,35 +2321,65 @@ ${sealedRipCommunityEvidenceText(evidenceRows, identity) || "No compatible commu
 High-signal excerpts extracted from the best sources (read these first):\n${evidenceSignals || "No compact signals extracted."}\n\nFull research evidence:\n${evidenceForPrompt}`;
 
       const compactSynthesisPrompt = `Evaluate ${productLabel} (${String(identity?.productType || identity?.boxType || "")}) using ONLY the compact evidence below. Return the requested JSON schema. ${sealedRipCategoryGuidance(identity?.category)} Never invent card names, odds, pull rates, guarantees, or format access. Exact pull odds must be literal and exact-format compatible. In Shelf Showdown, singles-price extraction is handled separately, so return chaseValueCards=[] here. If community evidence is absent, set sentimentEvidenceAvailable=false and leave collector fields conservative.\n\nCOMPACT AUTHORITY EVIDENCE:\n${evidenceSignals || evidenceForPrompt.slice(0, 12000) || "No compact authority evidence available."}`;
-      let rawAnalysis;
+      const showdownSchema = {
+        type: "object",
+        properties: {
+          qualitySummary: { type: "string" },
+          chaseScore: { type: "number" },
+          chaseEvidenceAvailable: { type: "boolean" },
+          chaseCards: { type: "array", items: { type: "object", properties: { name: { type: "string" }, why: { type: "string" } }, required: ["name", "why"] }, maxItems: 5 },
+          pullScore: { type: "number" },
+          pullEvidenceAvailable: { type: "boolean" },
+          pullOdds: { type: "array", items: { type: "object", properties: { item: { type: "string" }, odds: { type: "string" }, sourceType: { type: "string" }, note: { type: "string" } }, required: ["item", "odds", "sourceType", "note"] }, maxItems: 8 },
+          confidence: { type: "string", enum: ["high", "medium", "low"] }
+        },
+        required: ["qualitySummary", "chaseScore", "chaseEvidenceAvailable", "chaseCards", "pullScore", "pullEvidenceAvailable", "pullOdds", "confidence"]
+      };
+      const showdownSynthesisPrompt = `SHOWDOWN AUTHORITY-ONLY ANALYSIS for ${productLabel} (${String(identity?.productType || identity?.boxType || "")}). Use ONLY the authority/checklist evidence below. Judge category-appropriate set/chase strength. Named chase cards or families must be explicitly supported. Exact pull odds must be literal and exact-format compatible; otherwise return pullEvidenceAvailable=false and pullOdds=[]. Do not score format access here; local section-aware code does that separately. Do not output singles prices; Chase Depth is extracted from its separate price-guide lane. Never invent names, guarantees, odds, or format claims.\n\nAUTHORITY EVIDENCE:\n${evidenceSignals || evidenceForPrompt.slice(0, 12000) || "No compact authority evidence available."}`;
+      const activeSynthesisSchema = researchMode === "showdown" ? showdownSchema : schema;
+      const activePrimaryPrompt = researchMode === "showdown" ? showdownSynthesisPrompt : prompt;
+      const activeRetryPrompt = researchMode === "showdown" ? showdownSynthesisPrompt : compactSynthesisPrompt;
+      let aiObject;
       let synthesisRetryUsed = false;
       try {
-        rawAnalysis = await env.AI.run(SEALED_RIP_MODEL, {
-          prompt,
-          max_tokens: 1400,
+        const primaryRaw = await env.AI.run(SEALED_RIP_MODEL, {
+          prompt: activePrimaryPrompt,
+          max_tokens: researchMode === "showdown" ? 850 : 1400,
           temperature: 0.1,
-          response_format: { type: "json_schema", json_schema: schema }
+          response_format: { type: "json_schema", json_schema: activeSynthesisSchema }
         });
+        aiObject = sealedRipAiJson(primaryRaw);
       } catch (err) {
-        console.warn("sealed rip primary synthesis failed; trying compact authority-only retry", err);
+        console.warn("sealed rip primary synthesis/parse failed; trying compact authority-only retry", err);
         synthesisRetryUsed = true;
         try {
-          rawAnalysis = await env.AI.run(SEALED_RIP_MODEL, {
-            prompt: compactSynthesisPrompt,
-            max_tokens: 1200,
+          const retryRaw = await env.AI.run(SEALED_RIP_MODEL, {
+            prompt: activeRetryPrompt,
+            max_tokens: researchMode === "showdown" ? 750 : 1200,
             temperature: 0,
-            response_format: { type: "json_schema", json_schema: schema }
+            response_format: { type: "json_schema", json_schema: activeSynthesisSchema }
           });
+          aiObject = sealedRipAiJson(retryRaw);
         } catch (retryErr) {
-          console.error("sealed rip compact synthesis retry failed", retryErr);
-          return json({ ok: false, error: "rip_analysis_failed", message: "Scout found the research but could not finish the rip-quality analysis right now.", researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);
+          console.error("sealed rip compact synthesis/parse retry failed", retryErr);
+          return json({ ok: false, error: "rip_analysis_failed", message: "Scout found the research but could not finish the rip-quality analysis right now.", failureStage: "synthesis", lanes: failureLanes, researchMix: { ...researchMix, synthesisRetryUsed }, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);
         }
       }
 
-      let aiObject;
-      try { aiObject = sealedRipAiJson(rawAnalysis); }
-      catch {
-        return json({ ok: false, error: "rip_analysis_parse_failed", message: "Scout could not safely interpret the rip-quality research right now.", researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);
+      if (researchMode === "showdown") {
+        aiObject = {
+          formatAccessScore: 0,
+          formatAccessEvidenceAvailable: false,
+          formatAccessSummary: "",
+          sentimentScore: 0,
+          sentimentEvidenceAvailable: false,
+          sentimentLabel: "unknown",
+          collectorTake: "",
+          positives: [],
+          negatives: [],
+          chaseValueCards: [],
+          ...aiObject,
+        };
       }
 
       // Recovery is lane-typed. Authority recovery can only produce set/chase and
@@ -2386,10 +2449,11 @@ High-signal excerpts extracted from the best sources (read these first):\n${evid
       }
       const analysis = sealedRipNormalize(aiObject, evidenceRows, market, identity, researchMode);
       const checkedAt = new Date().toISOString();
-      if (env.SCOUT_DATA) {
+      const cacheableIntelligence = researchMode !== "showdown" || sealedRipShowdownAnalysisComplete(analysis);
+      if (env.SCOUT_DATA && cacheableIntelligence) {
         try { await env.SCOUT_DATA.put(cacheKey, JSON.stringify({ productLabel, analysis: aiObject, evidenceRows, sources, checkedAt, researchMode }), { expirationTtl: intelligenceTtlDays * 24 * 60 * 60 }); } catch {}
       }
-      return json({ ok: true, version: VERSION, productLabel, market, analysis, sources, researchMix: { ...researchMix, synthesisRetryUsed }, checkedAt, cacheHit: false, intelligenceCacheHit: false, intelligenceTtlDays, researchMode, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 200, cors);
+      return json({ ok: true, version: VERSION, productLabel, market, analysis, sources, researchMix: { ...researchMix, synthesisRetryUsed }, checkedAt, cacheHit: false, intelligenceCacheHit: false, cacheableIntelligence, intelligenceTtlDays, researchMode, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 200, cors);
     }
 
     if (url.pathname === "/sealed/classify-type" && request.method === "POST") {

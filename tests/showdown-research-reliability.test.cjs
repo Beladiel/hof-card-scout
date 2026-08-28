@@ -1,0 +1,22 @@
+const fs=require('fs');
+const assert=require('assert');
+const worker=fs.readFileSync('src/index.js','utf8');
+const app=fs.readFileSync('sealed-product-scout.js','utf8');
+const index=fs.readFileSync('index.html','utf8');
+
+assert.ok(worker.includes('const VERSION = "3.47.0"'));
+assert.ok(worker.includes('sealed:intel:v18:'));
+assert.ok(index.includes('sealed-product-scout.js?v=6.5.3'));
+assert.ok(worker.includes('authority: "checklist"') && worker.includes('return `${authorityYear} ${researchSet} ${authorityCategory} ${authoritySite} ${researchTerms.authority}`'), 'sports authority discovery must be set-first, category-routed, and omit exact format terms');
+assert.ok(worker.includes('const showdownSchema = {'), 'Showdown should have a dedicated compact synthesis schema');
+assert.ok(worker.includes('max_tokens: researchMode === "showdown" ? 850 : 1400'), 'Showdown primary synthesis should stay compact');
+assert.ok(worker.includes('aiObject = sealedRipAiJson(primaryRaw)'), 'primary synthesis must parse inside the retryable try block');
+assert.ok(worker.includes('aiObject = sealedRipAiJson(retryRaw)'), 'retry must also parse before being accepted');
+assert.ok(worker.includes('failureStage: "synthesis", lanes: failureLanes'), 'synthesis failures must return lane diagnostics');
+assert.ok(worker.includes('failureStage: "evidence", lanes: failureLanes'), 'evidence failures must return lane diagnostics');
+assert.ok(worker.includes('const cacheableIntelligence = researchMode !== "showdown" || sealedRipShowdownAnalysisComplete(analysis)'), 'partial Showdown intelligence must not be cached');
+assert.ok(worker.includes('const cacheUsable = researchMode !== "showdown" || sealedRipShowdownAnalysisComplete(analysis)'), 'incomplete cached Showdown intelligence must be ignored');
+assert.ok(app.includes('marketSearches+=Number(marketData.marketplaceSearchesUsed||0);if(!marketRes.ok||!marketData.ok)'), 'failed market calls must still count consumed searches');
+assert.ok(app.includes('researchSearches+=Number(ripData.researchSearchesUsed||0);'), 'failed rip calls must still count consumed research searches');
+assert.ok(app.includes('analysis={lanes:ripData.lanes||{}'), 'failed rip calls must preserve backend lane diagnostics');
+console.log('Showdown research reliability tests passed.');
