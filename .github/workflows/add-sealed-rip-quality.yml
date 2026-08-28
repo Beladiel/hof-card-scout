@@ -23,21 +23,23 @@ jobs:
           from pathlib import Path
           p=Path('scripts/add-sealed-rip-quality.py')
           text=p.read_text(encoding='utf-8')
-          fixes=[
-            (
-              "app = replace_once(app, 'renderConfirmed(draft);renderMarketResearch(draft.marketResearch);', 'renderConfirmed(draft);renderMarketResearch(draft.marketResearch);renderRipQuality(draft.ripQuality);', 'restore rip result')",
-              "app = replace_once(app, '    renderConfirmed(draft);\\n    renderMarketResearch(draft.marketResearch);', '    renderConfirmed(draft);\\n    renderMarketResearch(draft.marketResearch);\\n    renderRipQuality(draft.ripQuality);', 'restore rip result')"
-            ),
-            (
-              "assert.ok(ripRoute.includes('engine\\\", \\\"google\\\"'),'rip-quality route must use Google research searches');",
-              "assert.ok(worker.includes('url.searchParams.set(\\\"engine\\\", \\\"google\\\")'),'rip-quality research must use Google searches');"
-            )
-          ]
-          for old,new in fixes:
-              if old not in text:
-                  raise SystemExit(f'Could not repair migration target: {old[:70]}')
-              text=text.replace(old,new,1)
-          p.write_text(text,encoding='utf-8')
+
+          old="app = replace_once(app, 'renderConfirmed(draft);renderMarketResearch(draft.marketResearch);', 'renderConfirmed(draft);renderMarketResearch(draft.marketResearch);renderRipQuality(draft.ripQuality);', 'restore rip result')"
+          new="app = replace_once(app, '    renderConfirmed(draft);\\n    renderMarketResearch(draft.marketResearch);', '    renderConfirmed(draft);\\n    renderMarketResearch(draft.marketResearch);\\n    renderRipQuality(draft.ripQuality);', 'restore rip result')"
+          if old not in text:
+              raise SystemExit('Could not repair restore-rip migration target')
+          text=text.replace(old,new,1)
+
+          lines=text.splitlines()
+          found=False
+          for i,line in enumerate(lines):
+              if 'rip-quality route must use Google research searches' in line:
+                  lines[i] = "assert.ok(worker.includes('url.searchParams.set(\\\"engine\\\", \\\"google\\\")'),'rip-quality research must use Google searches');"
+                  found=True
+                  break
+          if not found:
+              raise SystemExit('Could not repair Google-search regression assertion')
+          p.write_text('\n'.join(lines)+'\n',encoding='utf-8')
           PY
           python3 scripts/add-sealed-rip-quality.py
 
