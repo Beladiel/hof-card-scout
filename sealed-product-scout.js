@@ -208,6 +208,43 @@
     }catch{}
     return "";
   }
+  async function zxingBarcodeFromFile(file){
+  const api=window.ZXingBrowser;
+  const Reader=api?.BrowserMultiFormatOneDReader||api?.BrowserMultiFormatReader;
+  if(!file||!Reader)return "";
+  try{
+    const source=await fileToDataUrl(file);
+    const img=await loadPhoto(source);
+    const sw=img.naturalWidth||img.width,sh=img.naturalHeight||img.height;
+    if(!sw||!sh)return "";
+    const maxDim=2200,scale=Math.min(1,maxDim/Math.max(sw,sh));
+    const base=document.createElement("canvas");
+    base.width=Math.max(1,Math.round(sw*scale));base.height=Math.max(1,Math.round(sh*scale));
+    base.getContext("2d",{alpha:false}).drawImage(img,0,0,base.width,base.height);
+    const rotate=(canvas,quarterTurns)=>{
+      const turns=((quarterTurns%4)+4)%4;
+      if(!turns)return canvas;
+      const out=document.createElement("canvas");
+      const swap=turns%2===1;
+      out.width=swap?canvas.height:canvas.width;out.height=swap?canvas.width:canvas.height;
+      const ctx=out.getContext("2d",{alpha:false});
+      ctx.translate(out.width/2,out.height/2);ctx.rotate(turns*Math.PI/2);
+      ctx.drawImage(canvas,-canvas.width/2,-canvas.height/2);
+      return out;
+    };
+    const reader=new Reader();
+    const attempts=[base,rotate(base,1),rotate(base,3)];
+    for(const canvas of attempts){
+      try{
+        const hit=reader.decodeFromCanvas(canvas);
+        const raw=typeof hit?.getText==="function"?hit.getText():(hit?.text||hit?.rawValue||"");
+        const code=normalizeBarcode(raw);
+        if(code)return code;
+      }catch{}
+    }
+  }catch{}
+  return "";
+}
   function applyBarcodeResult(data){
     const identity=data?.identity||{};lastBarcodeIdentity=identity;
     if(byId("sealedCategory")&&identity.category)byId("sealedCategory").value=identity.category;
@@ -231,8 +268,10 @@
     const cfg=typeof pricingConfig==="function"?pricingConfig():{endpoint:"",accessKey:""};
     if(!cfg.endpoint||!cfg.accessKey){if(result)result.textContent="Scout's live connection is not configured on this device.";return;}
     let code=normalizeBarcode(barcode);
-    if(file&&!code){if(result)result.textContent="Reading the barcode…";code=await nativeBarcodeFromFile(file);}
-    if(btn)btn.disabled=true;
+    const readBtn=byId("sealedBarcodeReadBtn");
+    if(file&&!code){if(result)result.textContent="Trying the phone's barcode reader…";code=await nativeBarcodeFromFile(file);}
+    if(file&&!code){if(result)result.textContent="Trying Scout's barcode decoder…";code=await zxingBarcodeFromFile(file);}
+    if(btn)btn.disabled=true;if(readBtn)readBtn.disabled=true;
     try{
       const body={};
       if(code)body.barcode=code;
@@ -244,7 +283,7 @@
       if(!res.ok||!data.ok)throw new Error(data.message||"Scout could not identify that barcode.");
       applyBarcodeResult(data);
     }catch(err){if(result)result.textContent=err?.message||"Scout could not read that barcode. Move closer or type the digits manually.";}
-    finally{if(btn)btn.disabled=false;}
+    finally{if(btn)btn.disabled=false;if(readBtn)readBtn.disabled=!activeBarcodeFile;}
   }
   async function handleBarcodePhoto(file){
     if(!file)return;
