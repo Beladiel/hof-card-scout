@@ -1,4 +1,4 @@
-const VERSION = "3.38.0";
+const VERSION = "3.38.1";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -232,7 +232,7 @@ function sealedMarketResultRows(data, identity) {
   const clean = [];
   for (const row of rows) {
     const title = String(row?.title || row?.name || "").trim();
-    if (!title || /\b(?:case\s+break|break\s+spot|empty\s+box|box\s+only|opened|wrapper|digital|you\s+pick|single\s+card)\b/i.test(title)) continue;
+    if (!title || /\b(?:case\s+break|break\s+spot|rip\s*(?:&|and)\s*ship|live\s+rip|rip\s+ship|personal\s+break|team\s+break|random\s+team|empty\s+box|box\s+only|opened|wrapper|digital|you\s+pick|single\s+card)\b/i.test(title)) continue;
     if (!sealedMarketTypeMatches(title, type)) continue;
     const formatText = JSON.stringify([row?.buying_format, row?.buying_options, row?.bids, row?.bid_count, row?.time_left] || []).toLowerCase();
     if (/auction|\bbid\b/.test(formatText)) continue;
