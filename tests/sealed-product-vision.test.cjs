@@ -5,7 +5,7 @@ const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const index=fs.readFileSync('index.html','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.42\.2"/);
+assert.match(worker,/const VERSION = "3\.43\.0"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
@@ -66,7 +66,7 @@ assert.match(ripRoute,/marketplaceSearchesUsed:\s*0/,'rip-quality research must 
 assert.doesNotMatch(ripRoute,/engine", "ebay|APIFY_TOKEN|CARD_API_KEY/i,'rip-quality route must not spend marketplace-provider calls');
 assert.ok(worker.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),'rip-quality synthesis must use the Cloudflare text model');
 assert.ok(worker.includes('NEVER invent, estimate, calculate, or extrapolate an exact pull odd'),'rip-quality prompt must prohibit invented pull odds');
-assert.match(worker,/sealed:intel:v13:/,'sealed product intelligence must use a reusable mode-scoped product cache');
+assert.match(worker,/sealed:intel:v14:/,'sealed product intelligence must use a reusable mode-scoped product cache');
 assert.match(worker,/sealedRipWeightedScore/,'final verdict must combine price, chases, pull evidence, and sentiment');
 assert.match(worker,/sealedRipProductEvidenceCount/,'buy recommendation must count the three product-quality evidence pillars');
 assert.match(worker,/sealedRipProductEvidenceCount\(parts\) < 2/,'buy recommendation must require two of three product-quality pillars');
@@ -81,7 +81,7 @@ assert.match(worker,/sealedRipChaseContextSupported/,'verified checklist structu
 assert.match(app,/STEP 4 · SHOULD I BUY THIS\?/,'sealed scanner must frame the final step as the purchase decision');
 assert.match(app,/Confidence: <strong>/,'sealed scanner must show recommendation confidence');
 assert.match(app,/Exact-format pull odds were not reliably verified/,'missing exact odds must be shown as optional instead of blocking a recommendation');
-assert.match(index,/sealed-product-scout\.js\?v=6\.5\.1/,'sealed scanner cache-bust must advance for incomplete-ranking safety');
+assert.match(index,/sealed-product-scout\.js\?v=6\.5\.2/,'sealed scanner cache-bust must advance for typed evidence lanes');
 assert.match(worker,/sealedRipExpandEvidenceRows/,'rip research must expand high-quality source pages beyond search snippets');
 assert.match(worker,/sealedRipReaderPageText/,'trusted authority pages must have a rendered-reader fallback when direct HTML is thin or blocked');
 assert.match(worker,/sealedRipSerpEvidenceText/,'rip research must retain structured Google evidence when publisher page reading is blocked');
@@ -118,7 +118,12 @@ assert.ok(worker.includes('site:sportscardspro.com'),'sports Chase Depth should 
 assert.match(worker,/function sealedRipChaseValueSupported/,'candidate card prices must be locally validated against price-guide evidence');
 assert.match(worker,/function sealedRipChaseDepthMetrics/,'verified singles values must produce a deterministic Chase Depth score');
 assert.ok(worker.includes('sportscardspro\\.com'),'SportsCardsPro must be allowed as a readable price-guide source');
-assert.match(worker,/function sealedRipChaseDepthSetFloor/,'verified Chase Depth must provide a conservative Set-strength contradiction floor');
+assert.match(worker,/function sealedRipAuthorityRows/,'authority evidence must have an explicit typed lane');
+assert.match(worker,/function sealedRipPullEvidenceRows/,'pull evidence must explicitly exclude the singles-price lane');
+assert.match(worker,/function sealedRipLaneState/,'normalized analysis must expose lane completeness');
+assert.ok(worker.includes('row?.queryKind === "checklist-and-odds"'),'authority lane must be checklist/authority only');
+assert.ok(worker.includes('row?.queryKind === "checklist-and-odds" || row?.queryKind === "collector-reports"'),'pull evidence may use authority/community but never price-guide rows');
+assert.doesNotMatch(worker,/function sealedRipChaseDepthSetFloor/,'price-guide Chase Depth must not impose a Set Strength floor');
 assert.ok(worker.includes('const mainEvidenceRows = researchMode === "showdown"'),'Showdown must isolate price-guide rows from the main synthesis prompt');
 assert.ok(worker.includes('row.queryKind !== "singles-price-guide"'),'main Showdown evidence must exclude singles price-guide rows');
 assert.ok(worker.includes('const authorityCandidates = candidates'),'page expansion must reserve capacity for authoritative product evidence');
@@ -126,7 +131,14 @@ assert.ok(worker.includes('const priceGuideCandidates = candidates'),'price-guid
 assert.ok(worker.includes('.slice(0, 2);'),'price-guide page expansion must stay tightly bounded');
 assert.ok(worker.includes('sealed rip primary synthesis failed; trying compact authority-only retry'),'rip analysis must retry once with a compact authority-only prompt without another search');
 assert.ok(worker.includes('synthesisRetryUsed'),'rip response must expose whether the compact synthesis fallback was needed');
-assert.ok(worker.includes('chaseCards.length > 0 || chaseContextAvailable || chaseDepth.available'),'verified singles depth must count as real chase evidence');
+assert.ok(worker.includes('AUTHORITY-ONLY RECOVERY'),'recovery for set/chase and odds must be authority-only');
+assert.ok(worker.includes('PRICE-GUIDE-ONLY RECOVERY'),'Chase Depth recovery must be price-guide-only');
+assert.ok(worker.includes('const authorityRows = sealedRipAuthorityRows'),'normalization must split authority evidence before validation');
+assert.ok(worker.includes('const priceGuideRows = sealedRipPriceGuideRows'),'normalization must split price-guide evidence before validation');
+assert.ok(worker.includes('lanes,'),'normalized response must expose lane status');
+assert.ok(app.includes('Evidence lanes:'),'Showdown UI must display evidence-lane status');
+assert.ok(app.includes('lanes:row.analysis?.lanes||{}'),'Showdown persistence must preserve lane status');
+assert.ok(worker.includes('const chaseEvidenceAvailable = chaseCards.length > 0 || chaseContextAvailable'),'Set/chase evidence must come only from the authority lane');
 assert.match(worker,/function sealedRipFormatAccessFallbackScore/,'exact-format context must have a deterministic fallback score');
 assert.ok(worker.includes('const formatAccessEvidenceAvailable = formatAccessContextAvailable'),'locally verified exact-format evidence must not depend on an AI boolean flag');
 assert.ok(worker.includes('researchMode === "showdown"'),'Showdown must swap community research for aggregate price-guide research');
@@ -152,7 +164,8 @@ assert.match(worker,/url\.searchParams\.set\(\"num\", \"20\"\)/,'rip research sh
 assert.match(worker,/out\.length >= 12/,'rip research should retain enough candidates to reach lower-ranked odds sources');
 assert.match(worker,/const chaseEvidenceAvailable = chaseCards\.length > 0 \|\| chaseContextAvailable/,'chase quality may use verified checklist structure even when named chases are unavailable');
 assert.match(worker,/sealedRipPromptSignals/,'rip research must build a compact chase-and-odds signal digest');
-assert.match(worker,/recoveryPrompt/,'rip research must retry extraction from compact evidence without spending another search');
+assert.match(worker,/authorityRecoveryPrompt/,'authority recovery must retry chase/odds extraction without another search');
+assert.match(worker,/priceGuideRecoveryPrompt/,'price-guide recovery must retry Chase Depth extraction without another search');
 assert.match(worker,/const researchMix = \{/,'rip response must expose safe source-mix diagnostics for troubleshooting');
 assert.match(worker,/missingChases.*missingOdds/s,'compact recovery must only run when chase or odds extraction is missing');
 assert.match(worker,/rich_snippet/,'rip research should retain rich Google result text when available');

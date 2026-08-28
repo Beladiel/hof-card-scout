@@ -1,4 +1,4 @@
-const VERSION = "3.42.2";
+const VERSION = "3.43.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -344,7 +344,7 @@ function sealedRipIntelligenceCacheKey(identity, mode = "single") {
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v13:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v14:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -1100,9 +1100,7 @@ function sealedRipFormatAccessContextSupported(evidenceRows, identity = {}) {
     : key === "pokemon"
       ? /\b(?:special illustration rare|illustration rare|hyper rare|secret rare|ultra rare|promo|special treatment)\b/i
       : /\b(?:rookies?|autographs?|signatures?|parallel|exclusive|numbered|case hit|ssp|short print|insert|green hoops|light burst|rainbow)\b|\b1\s*:\s*\d{1,7}\b/i;
-  return (Array.isArray(evidenceRows) ? evidenceRows : []).some(row => {
-    if (row?.sourceType === "community") return false;
-    if (!sealedRipEvidenceRowMatchesIdentity(row, identity)) return false;
+  return sealedRipAuthorityRows(evidenceRows, identity).some(row => {
     const text = `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`;
     if (!sealedRipVariantTextCompatible(text, identity)) return false;
     const explicit = sealedRipExplicitFormatKeys(text);
@@ -1115,9 +1113,7 @@ function sealedRipFormatAccessFallbackScore(evidenceRows, identity = {}) {
   const compatible = sealedRipCompatibleFormatKeys(identity);
   if (!compatible.size) return 0;
   const key = sealedRipCategoryKey(identity?.category);
-  const texts = (Array.isArray(evidenceRows) ? evidenceRows : []).filter(row => {
-    if (row?.sourceType === "community") return false;
-    if (!sealedRipEvidenceRowMatchesIdentity(row, identity)) return false;
+  const texts = sealedRipAuthorityRows(evidenceRows, identity).filter(row => {
     const text = `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`;
     if (!sealedRipVariantTextCompatible(text, identity)) return false;
     const explicit = sealedRipExplicitFormatKeys(text);
@@ -1156,9 +1152,8 @@ function sealedRipOddsRowSupported(row, evidenceRows, identity = {}) {
   if (!sealedRipFormatTextCompatible(rowFormatText, identity)) return false;
   if (!sealedRipVariantTextCompatible(rowFormatText, identity)) return false;
   const wantsAuthority = /official|checklist|manufacturer/i.test(String(row?.sourceType || ""));
-  return (Array.isArray(evidenceRows) ? evidenceRows : []).some(source => {
-    if (!sealedRipEvidenceRowMatchesIdentity(source, identity)) return false;
-    if (wantsAuthority && source?.sourceType === "community") return false;
+  return sealedRipPullEvidenceRows(evidenceRows, identity).some(source => {
+    if (wantsAuthority && (source?.sourceType === "community" || source?.queryKind !== "checklist-and-odds")) return false;
     const sourceText = simplify(`${source?.title || ""} ${source?.snippet || ""} ${source?.pageText || ""}`);
     const itemAt = sourceText.indexOf(item);
     if (itemAt < 0) return false;
@@ -1278,8 +1273,7 @@ function sealedRipVerifiedChaseScore(rawScore, evidenceRows = [], category = "")
   const aiScore = sealedRipClampScore(rawScore);
   const key = sealedRipCategoryKey(category);
   if (key !== "magic") return aiScore;
-  const authorityText = (Array.isArray(evidenceRows) ? evidenceRows : [])
-    .filter(row => row?.sourceType !== "community")
+  const authorityText = sealedRipAuthorityRows(evidenceRows)
     .map(row => `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`)
     .join(" ")
     .toLowerCase();
@@ -1298,6 +1292,28 @@ function sealedRipVerifiedChaseScore(rawScore, evidenceRows = [], category = "")
   // because the synthesis model emitted zero. Community/player evidence can raise it.
   const floor = count >= 4 ? 25 : count >= 2 ? 18 : count >= 1 ? 10 : 0;
   return Math.max(aiScore, floor);
+}
+
+function sealedRipAuthorityRows(evidenceRows = [], identity = {}) {
+  return (Array.isArray(evidenceRows) ? evidenceRows : []).filter(row =>
+    row?.queryKind === "checklist-and-odds" &&
+    row?.sourceType !== "community" &&
+    sealedRipEvidenceRowMatchesIdentity(row, identity)
+  );
+}
+
+function sealedRipPullEvidenceRows(evidenceRows = [], identity = {}) {
+  return (Array.isArray(evidenceRows) ? evidenceRows : []).filter(row =>
+    (row?.queryKind === "checklist-and-odds" || row?.queryKind === "collector-reports") &&
+    sealedRipEvidenceRowMatchesIdentity(row, identity)
+  );
+}
+
+function sealedRipLaneState(rows = [], usable = false, requested = true) {
+  if (!requested) return { status: "not_requested", sourceCount: 0 };
+  const sourceCount = Array.isArray(rows) ? rows.length : 0;
+  if (!sourceCount) return { status: "failed", sourceCount: 0 };
+  return { status: usable ? "complete" : "partial", sourceCount };
 }
 
 function sealedRipPriceGuideRows(evidenceRows = [], identity = {}) {
@@ -1389,53 +1405,45 @@ function sealedRipChaseDepthMetrics(cards = []) {
   return { available:true, score, label, summary, count20, count50, count100, top5Total, top10Total, concentration:Number(concentration.toFixed(3)) };
 }
 
-function sealedRipChaseDepthSetFloor(chaseDepth = {}) {
-  if (!chaseDepth?.available) return 0;
-  const score = Number(chaseDepth?.score);
-  if (!Number.isFinite(score)) return 0;
-  if (score >= 85) return 60;
-  if (score >= 70) return 52;
-  if (score >= 55) return 44;
-  if (score >= 40) return 35;
-  return 25;
-}
-
 function sealedRipPriceGuideEvidenceText(evidenceRows = [], identity = {}) {
   return sealedRipPriceGuideRows(evidenceRows, identity)
     .map(row => `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`.trim())
     .filter(Boolean).join("\n---\n").slice(0, 12000);
 }
 
-function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
-  const evidenceText = evidenceRows.map(row => `${row.title} ${row.snippet} ${row.pageText || ""}`).join("\n");
+function sealedRipNormalize(raw, evidenceRows, market, identity = {}, researchMode = "single") {
+  const authorityRows = sealedRipAuthorityRows(evidenceRows, identity);
+  const priceGuideRows = sealedRipPriceGuideRows(evidenceRows, identity);
+  const pullEvidenceRows = sealedRipPullEvidenceRows(evidenceRows, identity);
+  const authorityText = authorityRows.map(row => `${row.title} ${row.snippet} ${row.pageText || ""}`).join("\n");
   const chaseCards = (Array.isArray(raw?.chaseCards) ? raw.chaseCards : []).slice(0, 5).map(row => ({
     name: String(row?.name || "").trim().slice(0, 140),
     why: String(row?.why || "").trim().slice(0, 240),
-  })).filter(row => row.name && sealedRipChaseSupported(row.name, evidenceText));
+  })).filter(row => row.name && sealedRipChaseSupported(row.name, authorityText));
   const pullOdds = (Array.isArray(raw?.pullOdds) ? raw.pullOdds : []).slice(0, 8).map(row => ({
     item: String(row?.item || "").trim().slice(0, 160),
     odds: String(row?.odds || "").trim().slice(0, 80),
     sourceType: String(row?.sourceType || "reported").trim().slice(0, 50),
     note: String(row?.note || "").trim().slice(0, 260),
-  })).filter(row => row.item && row.odds && sealedRipOddsRowSupported(row, evidenceRows, identity));
-  const chaseValueCards = sealedRipNormalizeChaseValues(raw, evidenceRows, identity);
+  })).filter(row => row.item && row.odds && sealedRipOddsRowSupported(row, pullEvidenceRows, identity));
+  const chaseValueCards = sealedRipNormalizeChaseValues(raw, priceGuideRows, identity);
   const chaseDepth = sealedRipChaseDepthMetrics(chaseValueCards);
 
-  const chaseContextAvailable = sealedRipChaseContextSupported(evidenceRows, identity?.category);
-  const chaseEvidenceAvailable = chaseCards.length > 0 || chaseContextAvailable || chaseDepth.available;
+  const chaseContextAvailable = sealedRipChaseContextSupported(authorityRows, identity?.category);
+  const chaseEvidenceAvailable = chaseCards.length > 0 || chaseContextAvailable;
   const pullEvidenceAvailable = pullOdds.length > 0;
-  const formatAccessContextAvailable = sealedRipFormatAccessContextSupported(evidenceRows, identity);
+  const formatAccessContextAvailable = sealedRipFormatAccessContextSupported(authorityRows, identity);
   const formatAccessEvidenceAvailable = formatAccessContextAvailable;
   const aiFormatAccessScore = sealedRipClampScore(raw?.formatAccessScore);
   const formatAccessScore = formatAccessEvidenceAvailable
     ? (Boolean(raw?.formatAccessEvidenceAvailable) && aiFormatAccessScore > 0
       ? aiFormatAccessScore
-      : sealedRipFormatAccessFallbackScore(evidenceRows, identity))
+      : sealedRipFormatAccessFallbackScore(authorityRows, identity))
     : null;
   const rawFormatSummary = String(raw?.formatAccessSummary || "").trim().slice(0, 500);
   const formatAccessSummary = formatAccessEvidenceAvailable && sealedRipFormatTextCompatible(rawFormatSummary, identity) && sealedRipVariantTextCompatible(rawFormatSummary, identity)
     ? rawFormatSummary
-    : (formatAccessContextAvailable ? "Scout verified exact-format evidence, but could not safely summarize how deeply this configuration reaches the set's desirable cards." : "Scout could not verify exact-format access to the set's desirable cards or treatments.");
+    : (formatAccessContextAvailable ? "Scout verified exact-format authority evidence, but could not safely summarize how deeply this configuration reaches the set's desirable cards." : "Scout could not verify exact-format access from the authority lane.");
   const communitySourceCount = evidenceRows.filter(row => sealedRipCommunityRowCompatible(row, identity)).length;
   const communityEvidenceText = sealedRipCommunityEvidenceText(evidenceRows, identity);
   const collectorFormatConflict = sealedRipCollectorFormatConflict(raw, identity);
@@ -1450,16 +1458,21 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
     && collectorContentAvailable
     && !collectorFormatConflict;
   const priceScore = sealedRipPriceScore(market?.shelfPrice, market?.median);
-  const verifiedChaseScore = chaseEvidenceAvailable ? sealedRipVerifiedChaseScore(raw?.chaseScore, evidenceRows, identity?.category) : null;
-  const depthSetFloor = sealedRipChaseDepthSetFloor(chaseDepth);
+  const verifiedChaseScore = chaseEvidenceAvailable ? sealedRipVerifiedChaseScore(raw?.chaseScore, authorityRows, identity?.category) : null;
   const parts = {
     priceScore,
-    chaseScore: chaseEvidenceAvailable ? Math.max(Number(verifiedChaseScore) || 0, depthSetFloor) : null,
+    chaseScore: chaseEvidenceAvailable ? (Number(verifiedChaseScore) || 0) : null,
     chaseEvidenceAvailable,
     pullScore: pullEvidenceAvailable ? sealedRipVerifiedPullScore(raw?.pullScore, pullOdds) : null,
     pullEvidenceAvailable,
     sentimentScore: sentimentEvidenceAvailable ? sealedRipClampScore(raw?.sentimentScore) : null,
     sentimentEvidenceAvailable,
+  };
+  const lanes = {
+    authority: sealedRipLaneState(authorityRows, chaseEvidenceAvailable, true),
+    priceGuide: sealedRipLaneState(priceGuideRows, chaseDepth.available, researchMode === "showdown"),
+    market: { status: Number.isFinite(Number(market?.median)) && Number(market?.median) > 0 ? "complete" : "failed", sourceCount: Number.isFinite(Number(market?.median)) && Number(market?.median) > 0 ? 1 : 0 },
+    community: sealedRipLaneState(evidenceRows.filter(row => row?.queryKind === "collector-reports"), sentimentEvidenceAvailable, researchMode !== "showdown"),
   };
   const overallScore = sealedRipWeightedScore(parts, identity?.category);
   const ripScore = sealedRipQualityScore(parts, identity?.category);
@@ -1502,6 +1515,8 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
     evidenceCount,
     recommendationConfidence,
     researchProfile: sealedRipCategoryKey(identity?.category),
+    researchMode,
+    lanes,
     scoreLabels: sealedRipScoreLabels(identity?.category),
     qualitySummary,
     chaseCards,
@@ -1825,7 +1840,7 @@ export default {
         try {
           const cached = await env.SCOUT_DATA.get(cacheKey, { type: "json" });
           if (cached?.analysis) {
-            const analysis = sealedRipNormalize(cached.analysis, Array.isArray(cached.evidenceRows) ? cached.evidenceRows : [], market, identity);
+            const analysis = sealedRipNormalize(cached.analysis, Array.isArray(cached.evidenceRows) ? cached.evidenceRows : [], market, identity, researchMode);
             return json({ ok: true, version: VERSION, productLabel, market, analysis, sources: cached.sources || [], checkedAt: cached.checkedAt || new Date().toISOString(), cacheHit: true, intelligenceCacheHit: true, intelligenceTtlDays, researchMode, researchSearchesUsed: 0, marketplaceSearchesUsed: 0 }, 200, cors);
           }
         } catch {}
@@ -1954,7 +1969,7 @@ Use ONLY the research evidence below. Do not rely on memory. NEVER invent, estim
 
 Evaluate exact-format access separately for Shelf Showdown. Set formatAccessEvidenceAvailable=true ONLY when official/checklist/editorial evidence explicitly identifies this exact sealed format (including a clearly compatible retail alias) and describes desirable rarity/treatment/chase families that this configuration can contain. Score formatAccessScore 0-100 for how well THIS exact configuration reaches the desirable parts of the set, not for the set's overall quality. A format that excludes major desirable treatments should score lower; a format with broad access to the important chase structure can score higher. If the evidence is only set-level and does not establish exact-format access, set formatAccessEvidenceAvailable=false, formatAccessScore=0, and say so in formatAccessSummary. Never infer format access from another box type, retailer-exclusive variant, or community anecdote.
 
-For Shelf Showdown Chase Depth, chaseValueCards may be populated ONLY from evidence rows marked SEARCH=singles-price-guide. Each row must preserve an exact card name and a literal current singles market/guide price shown together in that evidence. marketPrice is the single-card price, never the sealed box price. Return no more than 15 of the strongest supported values and return [] when no singles price guide evidence exists. This is SET-LEVEL value depth; do not claim a card is accessible from the exact box unless the separate format-access evidence supports that conclusion.
+For Shelf Showdown, the main synthesis receives NO singles-price-guide lane. Always return chaseValueCards=[] here. Chase Depth is populated later by a dedicated PRICE-GUIDE-ONLY extraction pass. Never use price/value text from this authority prompt as singles pricing.
 
 Named items in chaseCards must be explicitly supported by the supplied evidence; do not invent card names, players, Pokémon, treatments, inserts, or variants. Use the CATEGORY PLAYBOOK above to decide what counts as strong chase/set quality for this product. chaseCards may contain named chase cards, characters/players, treatment or insert families, or other category-appropriate named targets when the evidence supports them. Separately, set chaseEvidenceAvailable=true when trustworthy official/checklist/editorial evidence supports meaningful chase or set structure for this category even if individual names cannot be safely validated. Score chaseScore 0-100 only when chaseEvidenceAvailable=true, following the category playbook rather than a universal sports-card rubric. Preserve any exact pull-rate/odds notation literally as written in evidence. Community-reported pull rates are allowed only when clearly labeled as community/reported and supported by the exact evidence; they are never official manufacturer odds unless an official source says so. Missing exact odds are not by themselves a reason to withhold a recommendation. For collector/player sentiment, summarize recurring product-specific themes rather than one lucky or angry opening. Set sentimentEvidenceAvailable=false when community evidence is too thin; require recurring support from at least two independent community sources. Product/checklist facts are not collector sentiment by themselves. collectorTake, positives, and negatives must describe opinions, complaints, praise, price/value reactions, quality-control reports, collation reports, or opening experiences that are actually present in COMMUNITY EVIDENCE. Generic set-level opinions about card design, card stock, photography, or overall set appeal may be summarized. Format-specific claims about autograph guarantees, pack counts, pull experience, exclusives, or box value may be used only when the community evidence applies to the exact requested sealed format. Never import Hobby, Mega, Hanger, Fanatics, or another format's opening economics into a different product. Do not copy checklist features into the collector-sentiment fields. Never say "many collectors", "most collectors", "collector consensus", or make another broad consensus claim unless at least three independent community sources support the same recurring theme. Keep conclusions conservative when evidence is thin.
 
@@ -1995,37 +2010,30 @@ High-signal excerpts extracted from the best sources (read these first):\n${evid
         return json({ ok: false, error: "rip_analysis_parse_failed", message: "Scout could not safely interpret the rip-quality research right now.", researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);
       }
 
-      // If the broad synthesis misses named chases or literal odds, make one compact
-      // extraction-only AI pass over the high-signal excerpts. This spends no extra
-      // Google/marketplace searches, and every recovered item is still independently
-      // validated against the retrieved evidence by sealedRipNormalize below.
+      // Recovery is lane-typed. Authority recovery can only produce set/chase and
+      // pull-odds fields. Price-guide recovery can only produce singles values.
       const missingChases = !Array.isArray(aiObject?.chaseCards) || !aiObject.chaseCards.length;
       const missingOdds = !Array.isArray(aiObject?.pullOdds) || !aiObject.pullOdds.length;
       const missingChaseValues = !Array.isArray(aiObject?.chaseValueCards) || !aiObject.chaseValueCards.length;
-      if ((evidenceSignals || priceGuideSignals) && (missingChases || missingOdds || missingChaseValues)) {
-        const recoverySchema = {
+
+      if (evidenceSignals && (missingChases || missingOdds)) {
+        const authorityRecoverySchema = {
           type: "object",
           properties: {
             chaseScore: { type: "number" },
             pullScore: { type: "number" },
             chaseCards: { type: "array", items: { type: "object", properties: { name: { type: "string" }, why: { type: "string" } }, required: ["name", "why"] }, maxItems: 5 },
-            chaseValueCards: { type: "array", items: { type: "object", properties: { name: { type: "string" }, marketPrice: { type: "number" }, treatment: { type: "string" }, sourceType: { type: "string" } }, required: ["name", "marketPrice", "treatment", "sourceType"] }, maxItems: 15 },
             pullOdds: { type: "array", items: { type: "object", properties: { item: { type: "string" }, odds: { type: "string" }, sourceType: { type: "string" }, note: { type: "string" } }, required: ["item", "odds", "sourceType", "note"] }, maxItems: 8 },
           },
-          required: ["chaseScore", "pullScore", "chaseCards", "chaseValueCards", "pullOdds"]
+          required: ["chaseScore", "pullScore", "chaseCards", "pullOdds"]
         };
-        const recoveryPrompt = `Extract only source-supported category-appropriate CHASES / SET VALUE signals and literal PULL ODDS or PULL-RATE samples for ${productLabel} (${String(identity?.productType || identity?.boxType || "")}). ${sealedRipCategoryGuidance(identity?.category)} Use ONLY the excerpts below. Preserve any rate exactly as written (for example 1:7 or 1 hit per 8 packs) and label community samples as community/reported, never official. For every pullOdds row, note MUST name the format/configuration the excerpt assigns to that rate; omit rows for Hanger/Hobby/Mega/Fanatics or any other format that does not match the requested exact product. Do not estimate, infer, or invent names or rates. If no literal rate is present, return pullOdds=[].\
-\
-${evidenceSignals}
-
-SINGLES PRICE-GUIDE EVIDENCE — extract chaseValueCards only from here:
-${priceGuideSignals || "No singles price-guide evidence available."}`;
+        const authorityRecoveryPrompt = `AUTHORITY-ONLY RECOVERY for ${productLabel} (${String(identity?.productType || identity?.boxType || "")}). Extract only category-appropriate named chase/set signals and literal pull odds from the AUTHORITY evidence below. Do not output singles prices. Preserve literal rates exactly. Omit any odds for an incompatible format or retailer variant. Never invent names or rates.\n\nAUTHORITY EVIDENCE:\n${evidenceSignals}`;
         try {
           const recoveredRaw = await env.AI.run(SEALED_RIP_MODEL, {
-            prompt: recoveryPrompt,
-            max_tokens: 900,
+            prompt: authorityRecoveryPrompt,
+            max_tokens: 700,
             temperature: 0,
-            response_format: { type: "json_schema", json_schema: recoverySchema }
+            response_format: { type: "json_schema", json_schema: authorityRecoverySchema }
           });
           const recovered = sealedRipAiJson(recoveredRaw);
           if (missingChases && Array.isArray(recovered?.chaseCards) && recovered.chaseCards.length) {
@@ -2038,14 +2046,36 @@ ${priceGuideSignals || "No singles price-guide evidence available."}`;
             aiObject.pullScore = recovered.pullScore;
             aiObject.pullEvidenceAvailable = true;
           }
-          if (missingChaseValues && Array.isArray(recovered?.chaseValueCards) && recovered.chaseValueCards.length) {
+        } catch (err) {
+          console.warn("sealed authority-only recovery skipped", err);
+        }
+      }
+
+      if (researchMode === "showdown" && priceGuideSignals && missingChaseValues) {
+        const priceGuideRecoverySchema = {
+          type: "object",
+          properties: {
+            chaseValueCards: { type: "array", items: { type: "object", properties: { name: { type: "string" }, marketPrice: { type: "number" }, treatment: { type: "string" }, sourceType: { type: "string" } }, required: ["name", "marketPrice", "treatment", "sourceType"] }, maxItems: 15 },
+          },
+          required: ["chaseValueCards"]
+        };
+        const priceGuideRecoveryPrompt = `PRICE-GUIDE-ONLY RECOVERY for ${productLabel}. Extract only exact card name + literal current raw/market singles price records from the price-guide evidence below. Do not output set strength, format access, chase claims, or pull odds. Never use sealed box/pack prices. Never infer a price that is not literally paired with the card in the supplied evidence.\n\nPRICE-GUIDE EVIDENCE:\n${priceGuideSignals}`;
+        try {
+          const recoveredRaw = await env.AI.run(SEALED_RIP_MODEL, {
+            prompt: priceGuideRecoveryPrompt,
+            max_tokens: 700,
+            temperature: 0,
+            response_format: { type: "json_schema", json_schema: priceGuideRecoverySchema }
+          });
+          const recovered = sealedRipAiJson(recoveredRaw);
+          if (Array.isArray(recovered?.chaseValueCards) && recovered.chaseValueCards.length) {
             aiObject.chaseValueCards = recovered.chaseValueCards;
           }
         } catch (err) {
-          console.warn("sealed rip compact recovery skipped", err);
+          console.warn("sealed price-guide-only recovery skipped", err);
         }
       }
-      const analysis = sealedRipNormalize(aiObject, evidenceRows, market, identity);
+      const analysis = sealedRipNormalize(aiObject, evidenceRows, market, identity, researchMode);
       const checkedAt = new Date().toISOString();
       if (env.SCOUT_DATA) {
         try { await env.SCOUT_DATA.put(cacheKey, JSON.stringify({ productLabel, analysis: aiObject, evidenceRows, sources, checkedAt, researchMode }), { expirationTtl: intelligenceTtlDays * 24 * 60 * 60 }); } catch {}
