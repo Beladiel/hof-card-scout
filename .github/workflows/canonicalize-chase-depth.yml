@@ -19,7 +19,18 @@ jobs:
           fetch-depth: 0
 
       - name: Apply Chase Depth canonicalization
-        run: python3 scripts/canonicalize-chase-depth.py
+        run: |
+          python3 scripts/canonicalize-chase-depth.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/sealed-product-vision.test.cjs')
+          s=p.read_text(encoding='utf-8')
+          old='assert.match(worker,/const VERSION = "3\\.44\\.0"/);'
+          new='assert.match(worker,/const VERSION = "3\\.45\\.0"/);'
+          if old not in s:
+              raise SystemExit('stale v3.44.0 assertion not found')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
 
       - name: Validate canonical Chase Depth
         run: |
