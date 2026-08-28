@@ -33,7 +33,8 @@
       .sealed-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.sealed-field{min-width:0}.sealed-field.full{grid-column:1/-1}.sealed-field label{display:block;font-size:10px;font-weight:900;color:var(--muted);margin-bottom:5px}.sealed-field input,.sealed-field select{width:100%;min-height:46px;border-radius:12px;border:1px solid #3a5d52;background:#f9f4e8;color:var(--ink);padding:9px 11px;font-size:16px}
       .sealed-confirmed{margin-top:12px;border:1px solid rgba(86,197,138,.38);border-radius:16px;padding:12px;background:rgba(86,197,138,.07)}.sealed-confirmed[hidden]{display:none}.sealed-confirmed-label{font-size:16px;font-weight:950;line-height:1.35}.sealed-confirmed-meta{font-size:10px;color:var(--muted);line-height:1.5;margin-top:5px}.sealed-zero{display:inline-flex;margin-top:8px;border-radius:999px;padding:5px 8px;background:rgba(86,197,138,.13);color:#aee9c8;border:1px solid rgba(86,197,138,.28);font-size:9px;font-weight:950;letter-spacing:.04em}
       .sealed-barcode-box{margin-top:10px;border:1px solid rgba(117,174,233,.28);border-radius:14px;padding:11px;background:rgba(117,174,233,.07)}.sealed-barcode-box[hidden]{display:none}.sealed-barcode-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}.sealed-barcode-preview{margin-top:10px;border:1px dashed rgba(117,174,233,.35);border-radius:12px;padding:8px;background:rgba(0,0,0,.12)}.sealed-barcode-preview[hidden]{display:none}.sealed-barcode-preview img{display:block;width:100%;max-height:240px;object-fit:contain;background:#111;border-radius:8px}.sealed-barcode-result{margin-top:9px;font-size:11px;line-height:1.5;color:var(--muted)}.sealed-barcode-result strong{color:var(--ink)}
-      .sealed-next{opacity:.72}.sealed-next strong{color:var(--gold)}
+      .sealed-market-result{margin-top:12px;border:1px solid rgba(230,189,99,.38);border-radius:16px;padding:12px;background:rgba(230,189,99,.07)}.sealed-market-result[hidden]{display:none}.sealed-market-verdict{font-size:24px;font-weight:950;line-height:1.1}.sealed-market-meta{font-size:11px;color:var(--muted);line-height:1.5;margin-top:7px}.sealed-market-list{display:grid;gap:7px;margin-top:10px}.sealed-market-item{border-top:1px solid var(--line);padding-top:7px;font-size:11px;line-height:1.4}.sealed-market-item a{color:var(--gold);text-decoration:none}.sealed-market-price{font-weight:950;color:var(--text)}
+      .sealed-next{opacity:1}.sealed-next strong{color:var(--gold)}
       @media(max-width:620px){.sealed-actions,.sealed-actions.three,.sealed-form{grid-template-columns:1fr}.sealed-field.full{grid-column:auto}}
     `;
     document.head.appendChild(style);
@@ -121,16 +122,17 @@
         <div class="sealed-card sealed-next" id="sealedPriceCard">
           <div class="section-eyebrow">STEP 3 · SHELF PRICE</div>
           <div class="sealed-card-title">What is the store asking?</div>
-          <div class="sealed-card-sub">You can save the shelf price now. That still costs 0 searches. The next build gate will add market pricing, chase/checklist quality, collector feedback, and Scout’s <strong>GOOD BUY / FAIR / PASS</strong> verdict.</div>
+          <div class="sealed-card-sub">Save the shelf price, then Scout can compare it with current matching eBay listings. A fresh market check uses <strong>at most 1 marketplace search</strong>; a recent cached check uses 0. This first value gate is price-only — checklist/chase quality comes next.</div>
           <div class="sealed-form">
             <div class="sealed-field"><label for="sealedShelfPrice">SHELF PRICE</label><input id="sealedShelfPrice" inputmode="decimal" placeholder="29.99"></div>
             <div class="sealed-field"><label for="sealedStore">STORE (OPTIONAL)</label><input id="sealedStore" placeholder="Walmart, Target, Best Buy…"></div>
           </div>
           <div class="sealed-actions">
             <button type="button" class="secondary" id="sealedSavePriceBtn">SAVE SHELF PRICE · 0 SEARCHES</button>
-            <button type="button" class="ghost" id="sealedResearchPreviewBtn">NEXT: VALUE RESEARCH</button>
+            <button type="button" class="primary" id="sealedResearchPreviewBtn">💰 CHECK MARKET VALUE · 1 SEARCH MAX</button>
           </div>
           <div class="sealed-status" id="sealedPriceStatus">Confirm the product first, then save the shelf price.</div>
+          <div class="sealed-market-result" id="sealedMarketResult" hidden></div>
         </div>
       </div>
     </section>`;
@@ -156,6 +158,7 @@
     if(byId("sealedShelfPrice"))byId("sealedShelfPrice").value=draft.shelfPrice??"";
     if(byId("sealedStore"))byId("sealedStore").value=draft.store||"";
     renderConfirmed(draft);
+    renderMarketResearch(draft.marketResearch);
   }
   function renderConfirmed(draft=readDraft()){
     const box=byId("sealedConfirmed"),status=byId("sealedIdentityStatus"),priceStatus=byId("sealedPriceStatus");
@@ -425,7 +428,7 @@
     if(!identity.category){byId("sealedIdentityStatus").className="sealed-status warn";byId("sealedIdentityStatus").textContent="Choose a category first.";byId("sealedCategory")?.focus();return;}
     if(!identity.set){byId("sealedIdentityStatus").className="sealed-status warn";byId("sealedIdentityStatus").textContent="Enter the brand or set name you can read on the product.";byId("sealedSet")?.focus();return;}
     if(!identity.boxType){byId("sealedIdentityStatus").className="sealed-status warn";byId("sealedIdentityStatus").textContent="Choose the product type so Scout does not compare the wrong sealed format.";byId("sealedBoxType")?.focus();return;}
-    const draft=saveDraft({identity,confirmed:true,shelfPrice:readDraft().shelfPrice??"",store:readDraft().store||""});
+    const draft=saveDraft({identity,confirmed:true,shelfPrice:readDraft().shelfPrice??"",store:readDraft().store||"",marketResearch:null});
     renderConfirmed(draft);
     byId("sealedConfirmed")?.scrollIntoView({behavior:"smooth",block:"center"});
   }
@@ -436,8 +439,45 @@
     const raw=byId("sealedShelfPrice")?.value.trim()||"";
     const price=Number(raw.replace(/[$,]/g,""));
     if(!Number.isFinite(price)||price<=0){byId("sealedPriceStatus").className="sealed-status warn";byId("sealedPriceStatus").textContent="Enter the shelf price you see in the store.";byId("sealedShelfPrice")?.focus();return;}
-    const next=saveDraft({shelfPrice:Number(price.toFixed(2)),store:byId("sealedStore")?.value.trim()||""});
-    renderConfirmed(next);
+    const next=saveDraft({shelfPrice:Number(price.toFixed(2)),store:byId("sealedStore")?.value.trim()||"",marketResearch:null});
+    renderConfirmed(next);renderMarketResearch(null);
+  }
+
+  function renderMarketResearch(research){
+    const box=byId("sealedMarketResult");if(!box)return;
+    if(!research||!research.verdict){box.hidden=true;box.innerHTML="";return;}
+    box.hidden=false;
+    const median=money(research.median)||"—",low=money(research.low)||"—",high=money(research.high)||"—";
+    const used=Number(research.marketplaceSearchesUsed||0);
+    const cached=research.cacheHit?" · cached result":"";
+    const listings=Array.isArray(research.listings)?research.listings:[];
+    const rows=listings.map((item,i)=>{
+      const safeUrl=/^https?:\/\//i.test(String(item.link||""))?String(item.link):"";
+      const title=esc(item.title||`Market listing ${i+1}`);
+      const label=safeUrl?`<a href="${esc(safeUrl)}" target="_blank" rel="noopener">${title}</a>`:title;
+      return `<div class="sealed-market-item"><span class="sealed-market-price">${money(item.price)||"—"}</span> · ${label}</div>`;
+    }).join("");
+    box.innerHTML=`<div class="section-eyebrow">SCOUT'S PRICE CHECK</div><div class="sealed-market-verdict">${esc(research.verdict)}</div><div class="sealed-market-meta">${esc(research.reason||"")}<br>Shelf: <strong>${money(research.shelfPrice)||"—"}</strong> · Current-listing median: <strong>${median}</strong> · Range: ${low}–${high} · ${Number(research.sampleCount||0)} clean match${Number(research.sampleCount||0)===1?"":"es"}.<br>${used} marketplace search${used===1?"":"es"} used${cached}. Current eBay asking prices, before shipping; not sold comps.</div>${rows?`<div class="sealed-market-list">${rows}</div>`:""}`;
+  }
+
+  async function runValueResearch(){
+    const draft=readDraft(),status=byId("sealedPriceStatus"),btn=byId("sealedResearchPreviewBtn");
+    if(!draft.confirmed||!draft.identity){status.className="sealed-status warn";status.textContent="Confirm the exact product first.";return;}
+    const shelfPrice=Number(draft.shelfPrice);
+    if(!Number.isFinite(shelfPrice)||shelfPrice<=0){status.className="sealed-status warn";status.textContent="Save the shelf price first.";byId("sealedShelfPrice")?.focus();return;}
+    const cfg=typeof pricingConfig==="function"?pricingConfig():{endpoint:"",accessKey:""};
+    if(!cfg.endpoint||!cfg.accessKey){status.className="sealed-status warn";status.textContent="Scout's live connection is not configured on this device.";return;}
+    btn.disabled=true;btn.textContent="💰 SCOUT IS CHECKING THE MARKET…";status.className="sealed-status";status.textContent="Checking current matching eBay listings. This uses at most 1 marketplace search; cached results use 0.";
+    try{
+      const res=await fetch(`${String(cfg.endpoint).replace(/\/+$/,"")}/sealed/value-check`,{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":cfg.accessKey},body:JSON.stringify({identity:draft.identity,shelfPrice,lookupTitle:draft.barcodeTitle||""})});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||!data.ok)throw new Error(data.message||"Scout could not complete the sealed-product market check.");
+      const research={verdict:data.verdict||"CHECK MANUALLY",reason:data.reason||"",shelfPrice:Number(data.shelfPrice||shelfPrice),median:data.median,low:data.low,high:data.high,sampleCount:Number(data.sampleCount||0),listings:Array.isArray(data.listings)?data.listings:[],query:data.query||"",cacheHit:!!data.cacheHit,marketplaceSearchesUsed:Number(data.marketplaceSearchesUsed||0),checkedAt:data.checkedAt||new Date().toISOString()};
+      saveDraft({marketResearch:research});renderMarketResearch(research);
+      status.className="sealed-status ok";status.textContent=`✓ Market check complete. ${research.marketplaceSearchesUsed} marketplace search${research.marketplaceSearchesUsed===1?"":"es"} used.`;
+      byId("sealedMarketResult")?.scrollIntoView({behavior:"smooth",block:"center"});
+    }catch(err){status.className="sealed-status warn";status.textContent=err?.message||"Scout could not complete the market check right now.";}
+    finally{btn.disabled=false;btn.textContent="💰 CHECK MARKET VALUE · 1 SEARCH MAX";}
   }
 
   function startOver(){
@@ -450,7 +490,7 @@
     const ps=byId("sealedPhotoStatus");ps.className="sealed-status";ps.textContent="No marketplace searches used. Scout is waiting for a photo or manual product details.";
     const analyze=byId("sealedAnalyzeBtn");if(analyze){analyze.disabled=true;analyze.textContent="🔍 IDENTIFY PRODUCT FROM PHOTO · 0 MARKETPLACE SEARCHES";}
     const vr=byId("sealedVisionResult");if(vr)vr.hidden=true;
-    renderConfirmed({});
+    renderConfirmed({});renderMarketResearch(null);
     byId("sealedPhotoStage")?.scrollIntoView({behavior:"smooth",block:"center"});
   }
 
@@ -485,13 +525,7 @@
     byId("sealedConfirmBtn").addEventListener("click",confirmIdentity);
     byId("sealedResetBtn").addEventListener("click",startOver);
     byId("sealedSavePriceBtn").addEventListener("click",saveShelfPrice);
-    byId("sealedResearchPreviewBtn").addEventListener("click",()=>{
-      const status=byId("sealedPriceStatus");
-      const draft=readDraft();
-      if(!draft.confirmed){status.className="sealed-status warn";status.textContent="Confirm the exact product first.";return;}
-      if(!Number.isFinite(Number(draft.shelfPrice))||Number(draft.shelfPrice)<=0){status.className="sealed-status warn";status.textContent="Save the shelf price first.";return;}
-      status.className="sealed-status ok";status.textContent="✓ Ready for the next gate. No research has been launched yet, so your search budget is untouched.";
-    });
+    byId("sealedResearchPreviewBtn").addEventListener("click",runValueResearch);
     fillDraft(readDraft());
   }
 

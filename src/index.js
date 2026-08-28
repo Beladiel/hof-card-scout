@@ -1,4 +1,4 @@
-const VERSION = "3.37.1";
+const VERSION = "3.38.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -155,6 +155,102 @@ function sealedTypeNormalize(raw) {
     accepted,
     followUp: String(raw?.followUp || "").trim().slice(0, 180),
   };
+}
+
+
+function sealedMarketPrice(value) {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  if (value && typeof value === "object") {
+    for (const key of ["extracted", "value", "amount", "raw"]) {
+      const parsed = sealedMarketPrice(value[key]);
+      if (parsed) return parsed;
+    }
+  }
+  const text = String(value || "").replace(/,/g, "");
+  const match = text.match(/(?:\$|USD\s*)?(\d+(?:\.\d{1,2})?)/i);
+  const number = match ? Number(match[1]) : NaN;
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function sealedMarketMedian(values) {
+  const sorted = values.filter(x => Number.isFinite(x) && x > 0).slice().sort((a, b) => a - b);
+  if (!sorted.length) return null;
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function sealedMarketTypeMatches(title, type) {
+  const text = String(title || "");
+  const rules = {
+    "Blaster Box": /\bblaster\b/i,
+    "Mega Box": /\bmega\b/i,
+    "Hobby Box": /\bhobby\b/i,
+    "Retail Box": /\bretail\b/i,
+    "Hanger Box": /\bhanger\b/i,
+    "Hanger Pack": /\bhanger\b/i,
+    "Value / Fat Pack": /\b(?:value|fat)\s*pack\b/i,
+    "Single Pack": /\b(?:single|1)\s*pack\b|\bpack\b/i,
+    "Multi-Pack": /\bmulti[- ]?pack\b|\b\d+\s*pack\b/i,
+    "Elite Trainer Box": /\belite\s+trainer\s+box\b|\bETB\b/i,
+    "Booster Box": /\bbooster\s+box\b/i,
+    "Booster Bundle": /\bbooster\s+bundle\b/i,
+    "Booster Pack": /\bbooster\s+pack\b/i,
+    "Collection Box": /\bcollection\s+box\b/i,
+    "Tin": /\btin\b/i,
+  };
+  const rule = rules[String(type || "")];
+  return rule ? rule.test(text) : true;
+}
+
+function sealedMarketQuery(identity, lookupTitle) {
+  const type = String(identity?.boxType || identity?.productType || "").trim();
+  const set = String(identity?.set || "").trim();
+  const year = String(identity?.year || "").trim();
+  const variant = String(identity?.variant || "").trim();
+  const knownTitle = String(lookupTitle || "").trim();
+  let base = knownTitle || [year, set].filter(Boolean).join(" ");
+  if (type && !base.toLowerCase().includes(type.toLowerCase())) base += ` ${type}`;
+  if (variant && !base.toLowerCase().includes(variant.toLowerCase())) base += ` ${variant}`;
+  return base.replace(/\s+/g, " ").trim().slice(0, 220);
+}
+
+function sealedMarketVerdict(shelfPrice, median, sampleCount) {
+  if (!Number.isFinite(shelfPrice) || shelfPrice <= 0 || !Number.isFinite(median) || median <= 0 || sampleCount < 3) {
+    return { verdict: "CHECK MANUALLY", reason: "Scout found too few clean matching listings for a reliable price verdict." };
+  }
+  const ratio = shelfPrice / median;
+  const differencePct = Math.round(Math.abs(1 - ratio) * 100);
+  if (ratio <= 0.85) return { verdict: "GOOD BUY", reason: `Shelf price is about ${differencePct}% below the median current listing price.` };
+  if (ratio <= 1.10) return { verdict: "FAIR", reason: `Shelf price is within about ${differencePct}% of the median current listing price.` };
+  return { verdict: "PASS", reason: `Shelf price is about ${differencePct}% above the median current listing price.` };
+}
+
+function sealedMarketResultRows(data, identity) {
+  const rows = Array.isArray(data?.organic_results) ? data.organic_results : (Array.isArray(data?.results) ? data.results : []);
+  const type = String(identity?.boxType || identity?.productType || "").trim();
+  const seen = new Set();
+  const clean = [];
+  for (const row of rows) {
+    const title = String(row?.title || row?.name || "").trim();
+    if (!title || /\b(?:case\s+break|break\s+spot|empty\s+box|box\s+only|opened|wrapper|digital|you\s+pick|single\s+card)\b/i.test(title)) continue;
+    if (!sealedMarketTypeMatches(title, type)) continue;
+    const formatText = JSON.stringify([row?.buying_format, row?.buying_options, row?.bids, row?.bid_count, row?.time_left] || []).toLowerCase();
+    if (/auction|\bbid\b/.test(formatText)) continue;
+    const price = sealedMarketPrice(row?.price ?? row?.current_price ?? row?.displayed_price);
+    if (!price || price < 3 || price > 5000) continue;
+    const link = String(row?.link || row?.url || "").trim();
+    const key = `${title.toLowerCase()}|${price.toFixed(2)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    clean.push({ title: title.slice(0, 220), price: Number(price.toFixed(2)), link: /^https?:\/\//i.test(link) ? link : "" });
+  }
+  if (clean.length >= 5) {
+    const firstMedian = sealedMarketMedian(clean.map(x => x.price));
+    if (firstMedian) {
+      return clean.filter(x => x.price >= firstMedian * 0.45 && x.price <= firstMedian * 2.2).slice(0, 20);
+    }
+  }
+  return clean.slice(0, 20);
 }
 
 
@@ -358,6 +454,81 @@ export default {
         searchUsed: 0,
         marketplaceSearchesUsed: 0
       }, 200, cors);
+    }
+
+    if (url.pathname === "/sealed/value-check" && request.method === "POST") {
+      const supplied = request.headers.get("X-Scout-Key") || "";
+      if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
+        return json({ ok: false, error: "unauthorized", message: "Scout access key rejected." }, 401, cors);
+      }
+      if (!env.SERPAPI_KEY) {
+        return json({ ok: false, error: "market_not_configured", message: "Scout market pricing is not configured on the Worker.", searchUsed: 0, marketplaceSearchesUsed: 0 }, 503, cors);
+      }
+      let body = {};
+      try { body = await request.json(); }
+      catch { return json({ ok: false, error: "bad_json", message: "Scout could not read that sealed-product market request.", searchUsed: 0, marketplaceSearchesUsed: 0 }, 400, cors); }
+
+      const identity = body?.identity && typeof body.identity === "object" ? body.identity : {};
+      const shelfPrice = Number(body?.shelfPrice);
+      const lookupTitle = String(body?.lookupTitle || "").trim().slice(0, 220);
+      const query = sealedMarketQuery(identity, lookupTitle);
+      const productType = String(identity?.boxType || identity?.productType || "").trim();
+      if (!query || !productType || !Number.isFinite(shelfPrice) || shelfPrice <= 0) {
+        return json({ ok: false, error: "missing_fields", message: "Confirm the product type and save the shelf price before checking market value.", searchUsed: 0, marketplaceSearchesUsed: 0 }, 400, cors);
+      }
+
+      const cacheKey = `sealed:value:v1:${encodeURIComponent(query.toLowerCase()).slice(0, 300)}`;
+      if (env.SCOUT_DATA) {
+        try {
+          const cached = await env.SCOUT_DATA.get(cacheKey, { type: "json" });
+          if (cached?.query === query && Array.isArray(cached?.listings)) {
+            const verdict = sealedMarketVerdict(shelfPrice, Number(cached.median), cached.listings.length);
+            return json({ ok: true, version: VERSION, query, shelfPrice, ...cached, ...verdict, cacheHit: true, searchUsed: 0, marketplaceSearchesUsed: 0 }, 200, cors);
+          }
+        } catch {}
+      }
+
+      const serpUrl = new URL("https://serpapi.com/search.json");
+      serpUrl.searchParams.set("engine", "ebay");
+      serpUrl.searchParams.set("ebay_domain", "ebay.com");
+      serpUrl.searchParams.set("_nkw", query);
+      serpUrl.searchParams.set("_ipg", "50");
+      serpUrl.searchParams.set("api_key", env.SERPAPI_KEY);
+
+      let data = {};
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        const response = await fetch(serpUrl.toString(), { signal: controller.signal });
+        clearTimeout(timeout);
+        data = await response.json().catch(() => ({}));
+        if (!response.ok || data?.error) {
+          return json({ ok: false, error: "market_search_failed", message: "Scout could not complete the sealed-product market search right now.", searchUsed: 1, marketplaceSearchesUsed: 1 }, 502, cors);
+        }
+      } catch (err) {
+        console.error("sealed market search failed", err);
+        return json({ ok: false, error: "market_search_failed", message: "Scout could not complete the sealed-product market search right now.", searchUsed: 1, marketplaceSearchesUsed: 1 }, 502, cors);
+      }
+
+      const listings = sealedMarketResultRows(data, identity);
+      const prices = listings.map(x => x.price);
+      const median = sealedMarketMedian(prices);
+      const low = prices.length ? Math.min(...prices) : null;
+      const high = prices.length ? Math.max(...prices) : null;
+      const verdict = sealedMarketVerdict(shelfPrice, Number(median), listings.length);
+      const market = {
+        query,
+        median: Number.isFinite(median) ? Number(median.toFixed(2)) : null,
+        low: Number.isFinite(low) ? Number(low.toFixed(2)) : null,
+        high: Number.isFinite(high) ? Number(high.toFixed(2)) : null,
+        listings: listings.slice().sort((a, b) => a.price - b.price).slice(0, 5),
+        sampleCount: listings.length,
+        checkedAt: new Date().toISOString(),
+      };
+      if (env.SCOUT_DATA && listings.length) {
+        try { await env.SCOUT_DATA.put(cacheKey, JSON.stringify({ ...market, listings }), { expirationTtl: 6 * 60 * 60 }); } catch {}
+      }
+      return json({ ok: true, version: VERSION, shelfPrice, ...market, ...verdict, cacheHit: false, searchUsed: 1, marketplaceSearchesUsed: 1 }, 200, cors);
     }
 
     if (url.pathname === "/sealed/classify-type" && request.method === "POST") {
