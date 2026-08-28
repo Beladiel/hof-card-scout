@@ -1,4 +1,4 @@
-const VERSION = "3.37.0";
+const VERSION = "3.37.1";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -115,6 +115,45 @@ function sealedVisionNormalize(raw) {
     visibleText,
     needsAnotherPhoto: Boolean(raw?.needsAnotherPhoto) || incomplete,
     followUp: String(raw?.followUp || (incomplete ? "Take another straight-on photo closer to the product name, year/season, and pack-count wording." : "")).trim().slice(0, 180),
+  };
+}
+
+
+function sealedTypeJsonFromResponse(raw) {
+  let value = raw?.response ?? raw?.result ?? raw?.answer ?? raw;
+  if (value && typeof value === "object" && !Array.isArray(value)) return value;
+  let text = String(value || "").trim();
+  text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first >= 0 && last > first) {
+    try { return JSON.parse(text.slice(first, last + 1)); } catch {}
+  }
+  const productType = Array.from(SEALED_VISION_PRODUCT_TYPES)
+    .filter(type => type !== "Other")
+    .find(type => text.toLowerCase().includes(type.toLowerCase())) || "";
+  const confidenceMatch = text.match(/\b(high|medium|low)\b/i);
+  return {
+    productType,
+    confidence: confidenceMatch ? confidenceMatch[1].toLowerCase() : (productType ? "medium" : "low"),
+    clues: [],
+    followUp: "",
+  };
+}
+
+function sealedTypeNormalize(raw) {
+  const typeRaw = String(raw?.productType || raw?.boxType || "").trim();
+  const confidenceRaw = String(raw?.confidence || "low").trim().toLowerCase();
+  const productType = SEALED_VISION_PRODUCT_TYPES.has(typeRaw) ? typeRaw : "";
+  const confidence = ["high", "medium", "low"].includes(confidenceRaw) ? confidenceRaw : "low";
+  const clues = Array.isArray(raw?.clues) ? raw.clues.map(x => String(x || "").trim()).filter(Boolean).slice(0, 4) : [];
+  const accepted = Boolean(productType && productType !== "Other" && confidence !== "low");
+  return {
+    productType,
+    confidence,
+    clues,
+    accepted,
+    followUp: String(raw?.followUp || "").trim().slice(0, 180),
   };
 }
 
@@ -319,6 +358,57 @@ export default {
         searchUsed: 0,
         marketplaceSearchesUsed: 0
       }, 200, cors);
+    }
+
+    if (url.pathname === "/sealed/classify-type" && request.method === "POST") {
+      const supplied = request.headers.get("X-Scout-Key") || "";
+      if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
+        return json({ ok: false, error: "unauthorized", message: "Scout access key rejected." }, 401, cors);
+      }
+      if (!env.AI) {
+        return json({ ok: false, error: "vision_not_configured", message: "Scout product-type photo reading is not configured on the Worker." }, 503, cors);
+      }
+      let body = {};
+      try { body = await request.json(); }
+      catch { return json({ ok: false, error: "bad_json", message: "Scout could not read that product-type request." }, 400, cors); }
+
+      const imageDataUrl = String(body?.imageDataUrl || "");
+      const match = imageDataUrl.match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/i);
+      if (!match) return json({ ok: false, error: "bad_image", message: "Scout needs a clear front JPEG, PNG, or WebP photo to classify the package type." }, 400, cors);
+      const approxBytes = Math.floor(match[2].length * 3 / 4);
+      if (approxBytes <= 0 || approxBytes > SEALED_VISION_MAX_BYTES) {
+        return json({ ok: false, error: "image_too_large", message: "That front photo is too large. Retake it a little closer." }, 413, cors);
+      }
+
+      const known = body?.identity && typeof body.identity === "object" ? body.identity : {};
+      const knownCategory = String(known.category || "").trim().slice(0, 60);
+      const knownYear = String(known.year || "").trim().slice(0, 40);
+      const knownSet = String(known.set || "").trim().slice(0, 160);
+      const knownTitle = String(known.lookupTitle || "").trim().slice(0, 220);
+      const knownBarcode = sealedBarcodeDigits(known.barcode || "");
+      if (!knownSet && !knownTitle) {
+        return json({ ok: false, error: "missing_identity", message: "Scan the barcode first so Scout knows which product it is before classifying the package type." }, 400, cors);
+      }
+
+      const allowedTypes = Array.from(SEALED_VISION_PRODUCT_TYPES).join(", ");
+      const knownLabel = [knownYear, knownSet || knownTitle, knownCategory].filter(Boolean).join(" · ");
+      const question = `The barcode has ALREADY identified this sealed trading-card product as: ${knownLabel || knownTitle}. ${knownBarcode ? `Barcode: ${knownBarcode}.` : ""} Do NOT re-identify the product, set, sport, or year. Your only job is to classify the PACKAGE FORMAT visible in this front photo. Choose productType from exactly this list: ${allowedTypes}. Look first for explicit packaging words such as Blaster, Mega, Hobby, Retail, Hanger, Value Pack, Fat Pack, Elite Trainer Box, Booster Bundle, Booster Box, Booster Pack, Collection Box, Tin, Multi-Pack, or Single Pack. Use the physical box/pack shape only as secondary evidence. Return ONLY one JSON object with keys productType, confidence, clues, followUp. confidence must be high, medium, or low. If the type is not supported by the photo, use productType Other and confidence low instead of guessing.`;
+      try {
+        const raw = await env.AI.run(SEALED_VISION_MODEL, {
+          task: "query",
+          image: imageDataUrl,
+          question,
+          reasoning: false,
+          stream: false,
+          temperature: 0,
+          max_tokens: 220
+        });
+        const classification = sealedTypeNormalize(sealedTypeJsonFromResponse(raw));
+        return json({ ok: true, version: VERSION, classification, searchUsed: 0, marketplaceSearchesUsed: 0 }, 200, cors);
+      } catch (err) {
+        console.error("sealed product type classify failed", err);
+        return json({ ok: false, error: "type_classify_failed", message: "Scout knows the product, but could not classify the package type from that front photo. Try another front photo or choose the type manually.", searchUsed: 0, marketplaceSearchesUsed: 0 }, 502, cors);
+      }
     }
 
     if (url.pathname === "/sealed/identify" && request.method === "POST") {

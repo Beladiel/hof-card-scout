@@ -4,6 +4,7 @@
   let activePhotoFile=null;
   let lastVisionIdentity=null;
   let lastBarcodeIdentity=null;
+  let lastBarcodeData=null;
   let activeBarcodeFile=null;
   let activeBarcodePhotoUrl="";
 
@@ -61,6 +62,7 @@
           <input type="file" id="sealedCameraInput" accept="image/*" capture="environment" hidden>
           <input type="file" id="sealedPhotoInput" accept="image/*" hidden>
           <input type="file" id="sealedBarcodeCameraInput" accept="image/*" capture="environment" hidden>
+          <input type="file" id="sealedTypeCameraInput" accept="image/*" capture="environment" hidden>
           <div class="sealed-actions">
             <button type="button" class="secondary" id="sealedBarcodePhotoBtn">▥ SCAN BARCODE</button>
             <button type="button" class="ghost" id="sealedBarcodeManualBtn">123 ENTER UPC / EAN</button>
@@ -73,6 +75,8 @@
             <div class="sealed-barcode-preview" id="sealedBarcodePreview" hidden></div>
             <div class="sealed-actions one"><button type="button" class="primary" id="sealedBarcodeReadBtn" disabled>▥ READ BARCODE PHOTO</button></div>
             <div class="sealed-barcode-result" id="sealedBarcodeResult">Take a close photo of the barcode or type the digits printed below it. Barcode lookup uses 0 marketplace searches.</div>
+            <div class="sealed-actions one" id="sealedTypePhotoRow" hidden><button type="button" class="secondary" id="sealedTypePhotoBtn">📷 TAKE FRONT PHOTO FOR PRODUCT TYPE</button></div>
+            <div class="sealed-barcode-result" id="sealedTypeResult" hidden></div>
           </div>
           <div class="sealed-photo-stage" id="sealedPhotoStage"><div class="sealed-photo-empty"><span class="big">📦</span>No sealed-product photo yet.<br>Try to fill the frame with the front panel.</div></div>
           <div class="sealed-status" id="sealedPhotoStatus">No marketplace searches used. Scout is waiting for a photo or manual product details.</div>
@@ -246,22 +250,92 @@
   return "";
 }
   function applyBarcodeResult(data){
-    const identity=data?.identity||{};lastBarcodeIdentity=identity;
+    const identity=data?.identity||{};lastBarcodeIdentity=identity;lastBarcodeData=data||null;
     if(byId("sealedCategory")&&identity.category)byId("sealedCategory").value=identity.category;
     if(byId("sealedYear")&&identity.year)byId("sealedYear").value=identity.year;
     if(byId("sealedSet")&&identity.set)byId("sealedSet").value=identity.set;
     if(byId("sealedBoxType")&&identity.productType)byId("sealedBoxType").value=identity.productType;
     if(byId("sealedVariant")&&identity.variant)byId("sealedVariant").value=identity.variant;
     const box=byId("sealedBarcodeBox"),result=byId("sealedBarcodeResult"),input=byId("sealedBarcodeText");
+    const typeRow=byId("sealedTypePhotoRow"),typeResult=byId("sealedTypeResult"),typeBtn=byId("sealedTypePhotoBtn");
     if(box)box.hidden=false;if(input)input.value=data?.barcode||input.value;
-    const source=data?.barcodeSource==="entered_or_device"?"device/manual barcode read":"Cloudflare barcode OCR";
+    const source=data?.barcodeSource==="entered_or_device"?"barcode decoder/manual read":"Cloudflare barcode OCR";
     const title=String(data?.lookupTitle||"").trim();
+    const needsType=!identity.productType||identity.productType==="Other";
     if(result)result.innerHTML=title
-      ?`✓ <strong>${esc(data.barcode)}</strong> matched <strong>${esc(title)}</strong>. Source: ${esc(source)}. Review the filled product fields below before confirming.`
+      ?`✓ <strong>${esc(data.barcode)}</strong> matched <strong>${esc(title)}</strong>. Source: ${esc(source)}. ${needsType?"Product identity is confirmed; only the package type still needs classification.":"Review the filled product fields below before confirming."}`
       :`✓ Barcode <strong>${esc(data.barcode)}</strong> was read, but the product database did not return a title. Review or enter the product fields below.`;
     saveDraft({barcode:data?.barcode||"",barcodeTitle:title,identity:{...identity,boxType:identity.productType||""},confirmed:false});
-    byId("sealedIdentityCard")?.scrollIntoView({behavior:"smooth",block:"start"});
+    if(needsType&&title){
+      if(typeRow)typeRow.hidden=false;
+      if(typeResult){typeResult.hidden=false;typeResult.innerHTML="✓ <strong>Product confirmed by barcode.</strong> The database did not specify the package type. Scout can now use a front photo for just that one question.";}
+      if(typeBtn)typeBtn.textContent="📷 TAKE FRONT PHOTO FOR PRODUCT TYPE";
+      if(activePhotoFile){
+        if(typeResult)typeResult.textContent="Product confirmed. Reusing your front photo to classify only the package type…";
+        setTimeout(()=>classifyProductTypeFromPhoto(activePhotoFile),0);
+      }else{
+        box?.scrollIntoView({behavior:"smooth",block:"center"});
+      }
+    }else{
+      if(typeRow)typeRow.hidden=true;
+      if(typeResult)typeResult.hidden=true;
+      byId("sealedIdentityCard")?.scrollIntoView({behavior:"smooth",block:"start"});
+    }
   }
+
+  async function classifyProductTypeFromPhoto(file){
+    const typeRow=byId("sealedTypePhotoRow"),typeResult=byId("sealedTypeResult"),typeBtn=byId("sealedTypePhotoBtn");
+    const photoStatus=byId("sealedPhotoStatus");
+    if(typeRow)typeRow.hidden=false;
+    if(typeResult){typeResult.hidden=false;typeResult.textContent="Scout already knows the product. Classifying only the package type from this front photo…";}
+    if(typeBtn)typeBtn.disabled=true;
+    const cfg=typeof pricingConfig==="function"?pricingConfig():{endpoint:"",accessKey:""};
+    if(!cfg.endpoint||!cfg.accessKey){if(typeResult)typeResult.textContent="Scout's live connection is not configured on this device.";if(typeBtn)typeBtn.disabled=false;return;}
+    try{
+      const current=identityFromFields();
+      const imageDataUrl=await visionImageDataUrl(file);
+      const known={category:current.category,year:current.year,set:current.set,variant:current.variant,barcode:lastBarcodeData?.barcode||readDraft().barcode||"",lookupTitle:lastBarcodeData?.lookupTitle||readDraft().barcodeTitle||""};
+      const res=await fetch(`${String(cfg.endpoint).replace(/\/+$/,"")}/sealed/classify-type`,{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":cfg.accessKey},body:JSON.stringify({imageDataUrl,identity:known})});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||!data.ok)throw new Error(data.message||"Scout could not classify the package type.");
+      const classification=data.classification||{};
+      const type=String(classification.productType||"").trim();
+      const confidence=String(classification.confidence||"low").toLowerCase();
+      const clues=Array.isArray(classification.clues)?classification.clues.filter(Boolean):[];
+      const accepted=Boolean(classification.accepted&&type&&type!=="Other");
+      if(accepted){
+        byId("sealedBoxType").value=type;
+        lastBarcodeIdentity={...(lastBarcodeIdentity||{}),productType:type};
+        saveDraft({identity:identityFromFields(),confirmed:false});
+        if(typeResult)typeResult.innerHTML=`✓ <strong>Product type: ${esc(type)}</strong> · ${esc(confidence.toUpperCase())} confidence.${clues.length?` Visible clue${clues.length===1?"":"s"}: ${esc(clues.join(" · "))}.`:""} Product Type has been filled in for you.`;
+        if(photoStatus){photoStatus.className="sealed-status ok";photoStatus.textContent=`✓ Front photo classified as ${type}. Barcode identity stayed unchanged. 0 marketplace searches used.`;}
+        if(typeBtn)typeBtn.textContent="📷 RETAKE FRONT PHOTO FOR TYPE";
+        byId("sealedIdentityCard")?.scrollIntoView({behavior:"smooth",block:"start"});
+      }else{
+        const suggestion=type&&type!=="Other"?type:"";
+        if(typeResult)typeResult.innerHTML=suggestion
+          ?`Scout's best package-type guess is <strong>${esc(suggestion)}</strong>, but confidence is ${esc(confidence.toUpperCase())}. I left Product Type unfilled so you can choose it manually or try another front photo.`
+          :`The barcode still confirms the product, but Scout could not confidently classify the package type from this photo. Choose it manually or try another front photo.`;
+        if(photoStatus){photoStatus.className="sealed-status warn";photoStatus.textContent="Product identity is confirmed by barcode; only package type remains uncertain.";}
+        if(typeBtn)typeBtn.textContent="📷 TRY ANOTHER FRONT PHOTO";
+      }
+    }catch(err){
+      if(typeResult)typeResult.textContent=err?.message||"Scout knows the product, but could not classify the package type from that photo.";
+      if(photoStatus){photoStatus.className="sealed-status warn";photoStatus.textContent="Product identity is still confirmed by barcode; choose the type manually or try another front photo.";}
+    }finally{
+      if(typeBtn)typeBtn.disabled=false;
+    }
+  }
+
+  async function handleTypePhoto(file){
+    if(!file)return;
+    if(!String(file.type||"").startsWith("image/")){const r=byId("sealedTypeResult");if(r){r.hidden=false;r.textContent="That file is not an image.";}return;}
+    clearPhotoUrl();activePhotoFile=file;activePhotoUrl=URL.createObjectURL(file);
+    byId("sealedPhotoStage").innerHTML=`<img src="${esc(activePhotoUrl)}" alt="Front photo for package type">`;
+    saveDraft({hasPhoto:true,photoName:String(file.name||"sealed product front photo"),confirmed:false});
+    await classifyProductTypeFromPhoto(file);
+  }
+
   async function lookupBarcode({barcode="",file=null}={}){
     const box=byId("sealedBarcodeBox"),result=byId("sealedBarcodeResult"),btn=byId("sealedBarcodeLookupBtn");
     if(box)box.hidden=false;
@@ -367,11 +441,11 @@
   }
 
   function startOver(){
-    clearPhotoUrl();clearBarcodePhotoUrl();activePhotoFile=null;activeBarcodeFile=null;lastVisionIdentity=null;lastBarcodeIdentity=null;
+    clearPhotoUrl();clearBarcodePhotoUrl();activePhotoFile=null;activeBarcodeFile=null;lastVisionIdentity=null;lastBarcodeIdentity=null;lastBarcodeData=null;
     localStorage.removeItem(DRAFT_KEY);
     ["sealedCategory","sealedYear","sealedSet","sealedBoxType","sealedVariant","sealedShelfPrice","sealedStore","sealedBarcodeText"].forEach(id=>{const el=byId(id);if(el)el.value="";});
-    byId("sealedCameraInput").value="";byId("sealedPhotoInput").value="";byId("sealedBarcodeCameraInput").value="";
-    byId("sealedBarcodeBox").hidden=true;byId("sealedBarcodePreview").hidden=true;byId("sealedBarcodePreview").innerHTML="";byId("sealedBarcodeReadBtn").disabled=true;byId("sealedBarcodeResult").textContent="Take a close photo of the barcode or type the digits printed below it. Barcode lookup uses 0 marketplace searches.";
+    byId("sealedCameraInput").value="";byId("sealedPhotoInput").value="";byId("sealedBarcodeCameraInput").value="";byId("sealedTypeCameraInput").value="";
+    byId("sealedBarcodeBox").hidden=true;byId("sealedBarcodePreview").hidden=true;byId("sealedBarcodePreview").innerHTML="";byId("sealedBarcodeReadBtn").disabled=true;byId("sealedBarcodeResult").textContent="Take a close photo of the barcode or type the digits printed below it. Barcode lookup uses 0 marketplace searches.";byId("sealedTypePhotoRow").hidden=true;byId("sealedTypeResult").hidden=true;byId("sealedTypeResult").textContent="";
     byId("sealedPhotoStage").innerHTML='<div class="sealed-photo-empty"><span class="big">📦</span>No sealed-product photo yet.<br>Try to fill the frame with the front panel.</div>';
     const ps=byId("sealedPhotoStatus");ps.className="sealed-status";ps.textContent="No marketplace searches used. Scout is waiting for a photo or manual product details.";
     const analyze=byId("sealedAnalyzeBtn");if(analyze){analyze.disabled=true;analyze.textContent="🔍 IDENTIFY PRODUCT FROM PHOTO · 0 MARKETPLACE SEARCHES";}
@@ -399,6 +473,8 @@
     byId("sealedBarcodePhotoBtn").addEventListener("click",()=>byId("sealedBarcodeCameraInput").click());
     byId("sealedBarcodeManualBtn").addEventListener("click",()=>{byId("sealedBarcodeBox").hidden=false;setTimeout(()=>byId("sealedBarcodeText")?.focus(),100);});
     byId("sealedBarcodeCameraInput").addEventListener("change",e=>handleBarcodePhoto(e.target.files?.[0]));
+    byId("sealedTypePhotoBtn").addEventListener("click",()=>byId("sealedTypeCameraInput").click());
+    byId("sealedTypeCameraInput").addEventListener("change",e=>handleTypePhoto(e.target.files?.[0]));
     byId("sealedBarcodeReadBtn").addEventListener("click",()=>{if(!activeBarcodeFile){byId("sealedBarcodeResult").textContent="Take a barcode photo first.";return;}lookupBarcode({file:activeBarcodeFile});});
     byId("sealedBarcodeLookupBtn").addEventListener("click",()=>lookupBarcode({barcode:byId("sealedBarcodeText")?.value||""}));
     byId("sealedBarcodeText").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();lookupBarcode({barcode:e.currentTarget.value});}});

@@ -4,10 +4,14 @@ const worker=fs.readFileSync('src/index.js','utf8');
 const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.37\.0"/);
+assert.match(worker,/const VERSION = "3\.37\.1"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
+assert.match(worker,/\/sealed\/classify-type/,'sealed product type classifier endpoint must exist');
+assert.match(app,/TAKE FRONT PHOTO FOR PRODUCT TYPE/,'barcode-confirmed products should request a front photo when type is missing');
+assert.match(app,/sealed\/classify-type/,'front end must call the narrow product type classifier');
+assert.match(app,/classifyProductTypeFromPhoto/,'front end should classify only package type after barcode identity');
 assert.match(worker,/api\.upcitemdb\.com\/prod\/trial\/lookup/,'barcode lookup should use the free UPC database endpoint');
 assert.match(app,/SCAN BARCODE/,'sealed scanner must expose barcode photo capture');
 assert.match(app,/BarcodeDetector/,'browser-native barcode detection should be attempted when supported');
@@ -29,4 +33,11 @@ assert.match(app,/Barcode photo captured/,'barcode photo capture must give visib
 assert.match(app,/sealedBarcodePreview/,'barcode photo preview must be rendered before reading');
 assert.match(app,/Cloudflare Workers AI/i);
 assert.match(app,/fetch\(`\$\{String\(cfg\.endpoint\).*\/sealed\/identify/s,'front end should send photo only to Scout sealed-identify endpoint');
+const typeRouteStart=worker.indexOf('url.pathname === "/sealed/classify-type"');
+const typeRouteEnd=worker.indexOf('url.pathname === "/sealed/identify"',typeRouteStart);
+const typeRoute=worker.slice(typeRouteStart,typeRouteEnd);
+assert.ok(typeRouteStart>=0&&typeRouteEnd>typeRouteStart,'type classifier route should be isolated before full vision route');
+assert.doesNotMatch(typeRoute,/SERPAPI_KEY|runEbaySearch|serpapi\.com|APIFY_TOKEN|CARD_API_KEY/i,'type classifier must not call marketplace providers');
+assert.match(typeRoute,/Do NOT re-identify the product/,'type classifier prompt must preserve barcode-confirmed identity');
+assert.match(typeRoute,/marketplaceSearchesUsed:\s*0/,'type classifier must report zero marketplace searches');
 console.log('Sealed Product Scout vision tests passed.');
