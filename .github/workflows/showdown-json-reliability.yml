@@ -21,17 +21,21 @@ jobs:
       - name: Apply Showdown JSON reliability patch
         run: python3 scripts/showdown-json-reliability.py
 
-      - name: Refresh version regression
+      - name: Refresh version and cache regressions
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('tests/sealed-product-vision.test.cjs')
           s=p.read_text(encoding='utf-8')
-          old='assert.match(worker,/const VERSION = "3\\.47\\.0"/);'
-          new='assert.match(worker,/const VERSION = "3\\.48\\.0"/);'
-          if old not in s:
-              raise SystemExit('v3.47 version assertion not found')
-          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          replacements={
+            'assert.match(worker,/const VERSION = "3\\.47\\.0"/);':'assert.match(worker,/const VERSION = "3\\.48\\.0"/);',
+            "assert.match(worker,/sealed:intel:v18:/,'sealed product intelligence must use a reusable mode-scoped product cache');":"assert.match(worker,/sealed:intel:v19:/,'sealed product intelligence must use a reusable mode-scoped product cache');",
+          }
+          for old,new in replacements.items():
+              if old not in s:
+                  raise SystemExit(f'stale regression not found: {old}')
+              s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
           PY
 
       - name: Validate Showdown JSON reliability
