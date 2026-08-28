@@ -1,7 +1,7 @@
 const fs = require('fs');
 const assert = require('assert');
 const worker = fs.readFileSync('src/index.js','utf8');
-assert.ok(worker.includes('const VERSION = "3.49.0";'), 'Worker must be v3.49.0');
+assert.ok(worker.includes('const VERSION = "3.50.0";'), 'Worker must be v3.50.0');
 assert.ok(worker.includes('sealed:intel:v20:'), 'Showdown intelligence cache must advance to v19');
 assert.ok(worker.includes('? { type: "json_object" }'), 'Showdown primary synthesis must use JSON object mode instead of strict schema mode');
 assert.ok(worker.includes('If Showdown JSON mode itself fails'), 'Showdown retry must intentionally avoid repeating the same structured-mode failure');

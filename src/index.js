@@ -1,4 +1,4 @@
-const VERSION = "3.49.0";
+const VERSION = "3.50.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -2172,6 +2172,23 @@ export default {
         try { await env.SCOUT_DATA.put(cacheKey, JSON.stringify({ query, allListings: listings, checkedAt }), { expirationTtl: 6 * 60 * 60 }); } catch {}
       }
       return json({ ok: true, version: VERSION, shelfPrice, ...market, ...verdict, cacheHit: false, searchUsed: 1, marketplaceSearchesUsed: 1 }, 200, cors);
+    }
+
+    if (url.pathname === "/sealed/ai-health" && request.method === "GET") {
+      const supplied = request.headers.get("X-Scout-Key") || "";
+      if (!env.SCOUT_ACCESS_KEY || supplied !== env.SCOUT_ACCESS_KEY) {
+        return json({ ok: false, error: "unauthorized", message: "Scout access key is missing or invalid." }, 401, cors);
+      }
+      if (!env.AI) {
+        return json({ ok: false, error: "ai_unavailable", message: "Cloudflare Workers AI is not configured for Scout.", marketplaceSearchesUsed: 0, researchSearchesUsed: 0 }, 503, cors);
+      }
+      try {
+        await env.AI.run(SEALED_SHOWDOWN_MODEL, { prompt: "Reply exactly OK.", max_tokens: 4, temperature: 0 });
+        return json({ ok: true, version: VERSION, model: SEALED_SHOWDOWN_MODEL, checkedAt: new Date().toISOString(), marketplaceSearchesUsed: 0, researchSearchesUsed: 0 }, 200, cors);
+      } catch (err) {
+        const aiFailure = sealedRipAiFailureInfo(err);
+        return json({ ok: false, error: "ai_unavailable", message: aiFailure.message, aiFailure, model: SEALED_SHOWDOWN_MODEL, marketplaceSearchesUsed: 0, researchSearchesUsed: 0 }, 503, cors);
+      }
     }
 
     if (url.pathname === "/sealed/rip-quality" && request.method === "POST") {

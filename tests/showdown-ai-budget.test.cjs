@@ -2,7 +2,7 @@ const fs=require('fs');
 const assert=require('assert');
 const worker=fs.readFileSync('src/index.js','utf8');
 
-assert.ok(worker.includes('const VERSION = "3.49.0";'));
+assert.ok(worker.includes('const VERSION = "3.50.0";'));
 assert.ok(worker.includes('sealed:intel:v20:'));
 assert.ok(worker.includes('const SEALED_SHOWDOWN_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";'), 'Showdown must use the cheaper fast 8B model');
 assert.ok(worker.includes('researchMode === "showdown" ? SEALED_SHOWDOWN_MODEL : SEALED_RIP_MODEL'), 'AI model selection must be mode-specific');

@@ -680,7 +680,22 @@
     if(items.length<2){status.className="sealed-status warn";status.textContent="Add at least two products before ranking the shelf.";return;}
     const cfg=typeof pricingConfig==="function"?pricingConfig():{endpoint:"",accessKey:""};if(!cfg.endpoint||!cfg.accessKey){status.className="sealed-status warn";status.textContent="Scout's live connection is not configured on this device.";return;}
     btn.disabled=true;btn.textContent="🏆 SCOUT IS RANKING THE SHELF…";status.className="sealed-status";
-    const endpoint=String(cfg.endpoint).replace(/\/+$/,"");const researched=[];let marketSearches=0,researchSearches=0;
+    const endpoint=String(cfg.endpoint).replace(/\/+$/,"" );
+    status.textContent="Checking Scout's AI research engine before spending any searches…";
+    try{
+      const healthRes=await fetch(`${endpoint}/sealed/ai-health`,{headers:{"X-Scout-Key":cfg.accessKey}});
+      const healthData=await healthRes.json().catch(()=>({}));
+      if(!healthRes.ok||!healthData.ok){
+        status.className="sealed-status warn";
+        status.textContent=`${healthData.message||"Scout's AI synthesis service is unavailable right now."} No marketplace or product-research searches were used.`;
+        btn.disabled=false;btn.textContent="🏆 RANK MY SHELF";return;
+      }
+    }catch(err){
+      status.className="sealed-status warn";
+      status.textContent="Scout could not reach the AI health check. No marketplace or product-research searches were used.";
+      btn.disabled=false;btn.textContent="🏆 RANK MY SHELF";return;
+    }
+    const researched=[];let marketSearches=0,researchSearches=0;
     for(let i=0;i<items.length;i++){
       const item=items[i];status.textContent=`Researching ${i+1} of ${items.length}: ${identityLabel(item.identity)||item.lookupTitle||"sealed product"}…`;
       let market={},analysis={},error="";

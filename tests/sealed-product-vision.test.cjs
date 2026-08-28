@@ -5,7 +5,7 @@ const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const index=fs.readFileSync('index.html','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.49\.0"/);
+assert.match(worker,/const VERSION = "3\.50\.0"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
@@ -81,7 +81,7 @@ assert.match(worker,/sealedRipChaseContextSupported/,'verified checklist structu
 assert.match(app,/STEP 4 · SHOULD I BUY THIS\?/,'sealed scanner must frame the final step as the purchase decision');
 assert.match(app,/Confidence: <strong>/,'sealed scanner must show recommendation confidence');
 assert.match(app,/Exact-format pull odds were not reliably verified/,'missing exact odds must be shown as optional instead of blocking a recommendation');
-assert.match(index,/sealed-product-scout\.js\?v=6\.5\.3/,'sealed scanner cache-bust must advance for Showdown reliability fixes');
+assert.match(index,/sealed-product-scout\.js\?v=6\.5\.4/,'sealed scanner cache-bust must advance for Showdown reliability fixes');
 assert.match(worker,/sealedRipExpandEvidenceRows/,'rip research must expand high-quality source pages beyond search snippets');
 assert.match(worker,/sealedRipReaderPageText/,'trusted authority pages must have a rendered-reader fallback when direct HTML is thin or blocked');
 assert.match(worker,/sealedRipSerpEvidenceText/,'rip research must retain structured Google evidence when publisher page reading is blocked');
