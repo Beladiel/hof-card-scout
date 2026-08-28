@@ -4,7 +4,7 @@ const worker=fs.readFileSync('src/index.js','utf8');
 const ui=fs.readFileSync('push-notifications.js','utf8');
 const sw=fs.readFileSync('scout-push-sw.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
-assert.match(worker,/const VERSION = "3\.36\.1"/);
+assert.match(worker,/const VERSION = "3\.37\.0"/);
 assert.match(worker,/PUSH_VAPID_KEY = "push:vapid:v1"/);
 assert.match(worker,/url\.pathname === "\/push\/config"/);
 assert.match(worker,/url\.pathname === "\/push\/subscribe"/);

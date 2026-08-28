@@ -4,7 +4,7 @@ const vm=require('node:vm');
 
 const worker=fs.readFileSync('src/index.js','utf8');
 const ui=fs.readFileSync('automation-runner-ui.js','utf8');
-assert.match(worker,/const VERSION = "3\.36\.1"/);
+assert.match(worker,/const VERSION = "3\.37\.0"/);
 assert.match(worker,/activity: Array\.isArray\(raw\?\.activity\)/);
 assert.match(worker,/activity: normalized\.activity\.slice\(-30\)/);
 assert.match(worker,/automationRecordActivity\(state, "target", targetRun\.result, now, "scheduled"\)/);

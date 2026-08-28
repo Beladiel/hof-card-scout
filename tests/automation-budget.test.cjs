@@ -22,7 +22,7 @@ const html=fs.readFileSync('index.html','utf8');
 assert.match(html,/automation-budget\.js/,'automation budget UI must be wired into the app');
 
 const worker=fs.readFileSync('src/index.js','utf8');
-assert.match(worker,/const VERSION = "3\.36\.1";/);
+assert.match(worker,/const VERSION = "3\.37\.0";/);
 assert.match(worker,/AUTOMATION_STATE_KEY = "automation:state:v1"/);
 assert.match(worker,/url\.pathname === "\/automation\/status"/);
 assert.match(worker,/url\.pathname === "\/automation\/settings"/);

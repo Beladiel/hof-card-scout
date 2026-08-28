@@ -4,9 +4,14 @@ const worker=fs.readFileSync('src/index.js','utf8');
 const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.36\.1"/);
+assert.match(worker,/const VERSION = "3\.37\.0"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
+assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
+assert.match(worker,/api\.upcitemdb\.com\/prod\/trial\/lookup/,'barcode lookup should use the free UPC database endpoint');
+assert.match(app,/SCAN BARCODE/,'sealed scanner must expose barcode photo capture');
+assert.match(app,/BarcodeDetector/,'browser-native barcode detection should be attempted when supported');
+assert.match(app,/sealed\/barcode-identify/,'barcode UI must call the Scout barcode endpoint');
 assert.match(worker,/@cf\/moondream\/moondream3\.1-9B-A2B/,'Cloudflare-hosted vision model must be used');
 assert.match(worker,/raw\?\.answer/,'Moondream query answer envelope must be parsed');
 assert.match(worker,/stream:\s*false/,'Moondream query must use non-streaming output for deterministic parsing');
