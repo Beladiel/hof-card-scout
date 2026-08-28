@@ -1,4 +1,4 @@
-const VERSION = "3.42.1";
+const VERSION = "3.42.2";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -344,7 +344,7 @@ function sealedRipIntelligenceCacheKey(identity, mode = "single") {
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v12:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v13:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -850,11 +850,22 @@ function sealedRipEvidencePriority(row) {
 
 async function sealedRipExpandEvidenceRows(rows) {
   const list = Array.isArray(rows) ? rows.slice(0, 20) : [];
-  const fetchable = list
+  const candidates = list
     .map((row, index) => ({ row, index }))
-    .filter(x => x.row.sourceType !== "community")
+    .filter(x => x.row.sourceType !== "community");
+  // Showdown uses the second research search for a singles price guide. Those rich
+  // pages must never crowd the authoritative set/checklist page out of the reader
+  // budget. Reserve most expansion slots for product evidence and only a small lane
+  // for price-guide extraction.
+  const authorityCandidates = candidates
+    .filter(x => x.row.queryKind !== "singles-price-guide")
     .sort((a, b) => sealedRipEvidencePriority(a.row) - sealedRipEvidencePriority(b.row) || a.index - b.index)
-    .slice(0, 8);
+    .slice(0, 6);
+  const priceGuideCandidates = candidates
+    .filter(x => x.row.queryKind === "singles-price-guide")
+    .sort((a, b) => a.index - b.index)
+    .slice(0, 2);
+  const fetchable = [...authorityCandidates, ...priceGuideCandidates];
   const expanded = await Promise.all(fetchable.map(async ({ row, index }) => ({ index, pageText: await sealedRipFetchPageText(row) })));
   const byIndex = new Map(expanded.map(x => [x.index, x.pageText]));
   return list.map((row, index) => ({ ...row, pageText: byIndex.get(index) || "" }));
@@ -1392,7 +1403,7 @@ function sealedRipChaseDepthSetFloor(chaseDepth = {}) {
 function sealedRipPriceGuideEvidenceText(evidenceRows = [], identity = {}) {
   return sealedRipPriceGuideRows(evidenceRows, identity)
     .map(row => `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`.trim())
-    .filter(Boolean).join("\n---\n").slice(0, 18000);
+    .filter(Boolean).join("\n---\n").slice(0, 12000);
 }
 
 function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
@@ -1898,11 +1909,18 @@ export default {
         priceGuides: evidenceRows.filter(row => row.queryKind === "singles-price-guide").length,
         expandedPages: evidenceRows.filter(row => String(row.pageText || "").trim()).length,
       };
-      const evidenceSignals = sealedRipPromptSignals(evidenceRows, identity?.category);
+      // In Showdown, singles price-guide evidence has exactly one job: Chase Depth.
+      // Keep it out of the main set/format synthesis prompt so a large pricing page
+      // cannot overload or distract the model. The compact recovery/extraction pass
+      // below receives priceGuideSignals separately and spends zero extra searches.
+      const mainEvidenceRows = researchMode === "showdown"
+        ? evidenceRows.filter(row => row.queryKind !== "singles-price-guide")
+        : evidenceRows;
+      const evidenceSignals = sealedRipPromptSignals(mainEvidenceRows, identity?.category);
       const priceGuideSignals = sealedRipPriceGuideEvidenceText(evidenceRows, identity);
-      const evidenceForPrompt = evidenceRows.slice(0, 18).map((row, index) =>
+      const evidenceForPrompt = mainEvidenceRows.slice(0, 14).map((row, index) =>
         `[${index + 1}] TYPE=${row.sourceType}; SEARCH=${row.queryKind}; TITLE=${row.title}; SOURCE=${row.source}; URL=${row.link}; SNIPPET=${row.snippet}; PAGE=${row.pageText || ""}`
-      ).join("\n\n").slice(0, 34000);
+      ).join("\n\n").slice(0, 26000);
 
       const schema = {
         type: "object",
@@ -1945,7 +1963,9 @@ ${sealedRipCommunityEvidenceText(evidenceRows, identity) || "No compatible commu
 \
 High-signal excerpts extracted from the best sources (read these first):\n${evidenceSignals || "No compact signals extracted."}\n\nFull research evidence:\n${evidenceForPrompt}`;
 
+      const compactSynthesisPrompt = `Evaluate ${productLabel} (${String(identity?.productType || identity?.boxType || "")}) using ONLY the compact evidence below. Return the requested JSON schema. ${sealedRipCategoryGuidance(identity?.category)} Never invent card names, odds, pull rates, guarantees, or format access. Exact pull odds must be literal and exact-format compatible. In Shelf Showdown, singles-price extraction is handled separately, so return chaseValueCards=[] here. If community evidence is absent, set sentimentEvidenceAvailable=false and leave collector fields conservative.\n\nCOMPACT AUTHORITY EVIDENCE:\n${evidenceSignals || evidenceForPrompt.slice(0, 12000) || "No compact authority evidence available."}`;
       let rawAnalysis;
+      let synthesisRetryUsed = false;
       try {
         rawAnalysis = await env.AI.run(SEALED_RIP_MODEL, {
           prompt,
@@ -1954,8 +1974,19 @@ High-signal excerpts extracted from the best sources (read these first):\n${evid
           response_format: { type: "json_schema", json_schema: schema }
         });
       } catch (err) {
-        console.error("sealed rip quality AI failed", err);
-        return json({ ok: false, error: "rip_analysis_failed", message: "Scout found the research but could not finish the rip-quality analysis right now.", researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);
+        console.warn("sealed rip primary synthesis failed; trying compact authority-only retry", err);
+        synthesisRetryUsed = true;
+        try {
+          rawAnalysis = await env.AI.run(SEALED_RIP_MODEL, {
+            prompt: compactSynthesisPrompt,
+            max_tokens: 1200,
+            temperature: 0,
+            response_format: { type: "json_schema", json_schema: schema }
+          });
+        } catch (retryErr) {
+          console.error("sealed rip compact synthesis retry failed", retryErr);
+          return json({ ok: false, error: "rip_analysis_failed", message: "Scout found the research but could not finish the rip-quality analysis right now.", researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);
+        }
       }
 
       let aiObject;
@@ -2019,7 +2050,7 @@ ${priceGuideSignals || "No singles price-guide evidence available."}`;
       if (env.SCOUT_DATA) {
         try { await env.SCOUT_DATA.put(cacheKey, JSON.stringify({ productLabel, analysis: aiObject, evidenceRows, sources, checkedAt, researchMode }), { expirationTtl: intelligenceTtlDays * 24 * 60 * 60 }); } catch {}
       }
-      return json({ ok: true, version: VERSION, productLabel, market, analysis, sources, researchMix, checkedAt, cacheHit: false, intelligenceCacheHit: false, intelligenceTtlDays, researchMode, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 200, cors);
+      return json({ ok: true, version: VERSION, productLabel, market, analysis, sources, researchMix: { ...researchMix, synthesisRetryUsed }, checkedAt, cacheHit: false, intelligenceCacheHit: false, intelligenceTtlDays, researchMode, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 200, cors);
     }
 
     if (url.pathname === "/sealed/classify-type" && request.method === "POST") {
