@@ -2,9 +2,10 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const worker=fs.readFileSync('src/index.js','utf8');
 const app=fs.readFileSync('sealed-product-scout.js','utf8');
+const index=fs.readFileSync('index.html','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.38\.13"/);
+assert.match(worker,/const VERSION = "3\.39\.0"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
@@ -24,7 +25,7 @@ assert.match(worker,/sealedMarketCompetitiveSummary/,'sealed market check must u
 assert.match(worker,/Math\.min\(10, all\.length\)/,'competitive-price band must use at most ten lowest clean matches');
 assert.match(app,/Competitive-listing median/,'sealed market UI must label the competitive median clearly');
 assert.match(app,/totalCleanCount/,'sealed market UI must show competitive matches versus total clean listings');
-assert.match(app,/CHECK RIP QUALITY · 2 RESEARCH SEARCHES MAX/,'sealed scanner must expose rip-quality research');
+assert.match(app,/GET SCOUT'S BUY CALL · 2 RESEARCH SEARCHES MAX/,'sealed scanner must expose the final buy recommendation');
 assert.match(app,/sealed\/rip-quality/,'front end must call rip-quality endpoint');
 assert.match(app,/SCOUT'S FINAL VERDICT/,'rip-quality result must show a final verdict');
 assert.match(app,/TOP CHASES/,'rip-quality result must explain chase cards');
@@ -65,8 +66,18 @@ assert.match(ripRoute,/marketplaceSearchesUsed:\s*0/,'rip-quality research must 
 assert.doesNotMatch(ripRoute,/engine", "ebay|APIFY_TOKEN|CARD_API_KEY/i,'rip-quality route must not spend marketplace-provider calls');
 assert.ok(worker.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),'rip-quality synthesis must use the Cloudflare text model');
 assert.ok(worker.includes('NEVER invent, estimate, calculate, or extrapolate an exact pull odd'),'rip-quality prompt must prohibit invented pull odds');
-assert.match(worker,/sealed:rip:v10:/,'rip-quality research must be cached');
+assert.match(worker,/sealed:intel:v1:/,'sealed product intelligence must use a reusable product cache');
 assert.match(worker,/sealedRipWeightedScore/,'final verdict must combine price, chases, pull evidence, and sentiment');
+assert.match(worker,/sealedRipProductEvidenceCount/,'buy recommendation must count the three product-quality evidence pillars');
+assert.match(worker,/sealedRipProductEvidenceCount\(parts\) < 2/,'buy recommendation must require two of three product-quality pillars');
+assert.match(worker,/\[Number\(parts\.pullScore\), 10/,'pull odds must be optional rather than dominate the buy recommendation');
+assert.match(worker,/sealedRipIntelligenceCacheKey/,'product intelligence must be cached independently of shelf price');
+assert.match(worker,/14 \* 24 \* 60 \* 60/,'product intelligence should be reusable for fourteen days');
+assert.match(worker,/sealedRipChaseContextSupported/,'verified checklist structure must support chase-quality scoring without invented chase names');
+assert.match(app,/STEP 4 · SHOULD I BUY THIS\?/,'sealed scanner must frame the final step as the purchase decision');
+assert.match(app,/Confidence: <strong>/,'sealed scanner must show recommendation confidence');
+assert.match(app,/Exact-format pull odds were not reliably verified/,'missing exact odds must be shown as optional instead of blocking a recommendation');
+assert.match(index,/sealed-product-scout\.js\?v=6\.2\.0/,'sealed scanner cache-bust must advance for the new buy-call UI');
 assert.match(worker,/sealedRipExpandEvidenceRows/,'rip research must expand high-quality source pages beyond search snippets');
 assert.match(worker,/sealedRipReaderPageText/,'trusted authority pages must have a rendered-reader fallback when direct HTML is thin or blocked');
 assert.match(worker,/sealedRipSerpEvidenceText/,'rip research must retain structured Google evidence when publisher page reading is blocked');
@@ -84,7 +95,7 @@ assert.match(worker,/const authorityYear = String\(identity\?\.year/,'authority 
 assert.match(worker,/const checklistQuery = `\$\{authorityYear\} \$\{researchSet\} \$\{authorityCategory\} \$\{authoritySite\} \$\{formatTerms\} odds chases`/,'authority discovery must nudge Google toward exact-format odds and chase snippets');
 assert.match(worker,/url\.searchParams\.set\(\"num\", \"20\"\)/,'rip research should inspect a broader Google result page without adding a third search');
 assert.match(worker,/out\.length >= 12/,'rip research should retain enough candidates to reach lower-ranked odds sources');
-assert.match(worker,/const chaseEvidenceAvailable = chaseCards\.length > 0/,'validated named chases must establish chase evidence even if the model boolean is inconsistent');
+assert.match(worker,/const chaseEvidenceAvailable = chaseCards\.length > 0 \|\| chaseContextAvailable/,'chase quality may use verified checklist structure even when named chases are unavailable');
 assert.match(worker,/sealedRipPromptSignals/,'rip research must build a compact chase-and-odds signal digest');
 assert.match(worker,/recoveryPrompt/,'rip research must retry extraction from compact evidence without spending another search');
 assert.match(worker,/const researchMix = \{/,'rip response must expose safe source-mix diagnostics for troubleshooting');
@@ -96,7 +107,7 @@ assert.match(worker,/if \(!evidenceRows\.length\)/,'one trustworthy source shoul
 assert.match(worker,/chaseEvidenceAvailable/,'rip research must explicitly track whether named chase evidence exists');
 assert.match(worker,/NEED MORE DATA/,'rip verdict must refuse BUY recommendations when key product-quality evidence is missing');
 assert.match(worker,/site:reddit\.com\/r\/basketballcards/,'basketball sentiment search must target the basketball-card community');
-assert.match(app,/Evidence: <strong>/,'rip UI must show research completeness');
+assert.match(app,/Product evidence: <strong>/,'rip UI must show product-evidence completeness');
 assert.match(app,/v===null\|\|v===undefined/,'rip UI must render missing component scores as N/A, not zero');
 
 const typeRouteStart=worker.indexOf('url.pathname === "/sealed/classify-type"');
