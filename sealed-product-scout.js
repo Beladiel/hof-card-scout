@@ -122,7 +122,7 @@
         <div class="sealed-card sealed-next" id="sealedPriceCard">
           <div class="section-eyebrow">STEP 3 · SHELF PRICE</div>
           <div class="sealed-card-title">What is the store asking?</div>
-          <div class="sealed-card-sub">Save the shelf price, then Scout can compare it with current matching eBay listings. A fresh market check uses <strong>at most 1 marketplace search</strong>; a recent cached check uses 0. This first value gate is price-only — checklist/chase quality comes next.</div>
+          <div class="sealed-card-sub">Enter the shelf price, then Scout can compare it with current matching eBay listings. Tapping Check Market Value saves the price automatically. A fresh market check uses <strong>at most 1 marketplace search</strong>; a recent cached check uses 0. This first value gate is price-only — checklist/chase quality comes next.</div>
           <div class="sealed-form">
             <div class="sealed-field"><label for="sealedShelfPrice">SHELF PRICE</label><input id="sealedShelfPrice" inputmode="decimal" placeholder="29.99"></div>
             <div class="sealed-field"><label for="sealedStore">STORE (OPTIONAL)</label><input id="sealedStore" placeholder="Walmart, Target, Best Buy…"></div>
@@ -461,10 +461,26 @@
   }
 
   async function runValueResearch(){
-    const draft=readDraft(),status=byId("sealedPriceStatus"),btn=byId("sealedResearchPreviewBtn");
+    let draft=readDraft();
+    const status=byId("sealedPriceStatus"),btn=byId("sealedResearchPreviewBtn");
     if(!draft.confirmed||!draft.identity){status.className="sealed-status warn";status.textContent="Confirm the exact product first.";return;}
-    const shelfPrice=Number(draft.shelfPrice);
-    if(!Number.isFinite(shelfPrice)||shelfPrice<=0){status.className="sealed-status warn";status.textContent="Save the shelf price first.";byId("sealedShelfPrice")?.focus();return;}
+
+    // The market button should use what is currently visible in the shelf-price field.
+    // Do not make the user tap SAVE SHELF PRICE first.
+    const rawField=byId("sealedShelfPrice")?.value.trim()||"";
+    const fieldPrice=Number(rawField.replace(/[$,]/g,""));
+    let shelfPrice=Number(draft.shelfPrice);
+    if(rawField){
+      if(!Number.isFinite(fieldPrice)||fieldPrice<=0){
+        status.className="sealed-status warn";
+        status.textContent="Enter a valid shelf price before checking the market.";
+        byId("sealedShelfPrice")?.focus();
+        return;
+      }
+      shelfPrice=Number(fieldPrice.toFixed(2));
+      draft=saveDraft({shelfPrice,store:byId("sealedStore")?.value.trim()||draft.store||"",marketResearch:null});
+    }
+    if(!Number.isFinite(shelfPrice)||shelfPrice<=0){status.className="sealed-status warn";status.textContent="Enter the shelf price before checking the market.";byId("sealedShelfPrice")?.focus();return;}
     const cfg=typeof pricingConfig==="function"?pricingConfig():{endpoint:"",accessKey:""};
     if(!cfg.endpoint||!cfg.accessKey){status.className="sealed-status warn";status.textContent="Scout's live connection is not configured on this device.";return;}
     btn.disabled=true;btn.textContent="💰 SCOUT IS CHECKING THE MARKET…";status.className="sealed-status";status.textContent="Checking current matching eBay listings. This uses at most 1 marketplace search; cached results use 0.";

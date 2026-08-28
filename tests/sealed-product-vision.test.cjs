@@ -12,6 +12,8 @@ assert.match(worker,/\/sealed\/classify-type/,'sealed product type classifier en
 assert.match(worker,/\/sealed\/value-check/,'sealed market value endpoint must exist');
 assert.match(app,/CHECK MARKET VALUE · 1 SEARCH MAX/,'sealed scanner must expose the one-search market check');
 assert.match(app,/sealed\/value-check/,'front end must call the sealed market endpoint');
+assert.match(app,/rawField=byId\(\"sealedShelfPrice\"\)/,'market check must read the currently entered shelf price');
+assert.match(app,/saveDraft\(\{shelfPrice,store:/,'market check must auto-save the entered shelf price');
 assert.match(worker,/engine\", \"ebay/,'sealed market check must use the eBay search engine');
 assert.match(app,/TAKE FRONT PHOTO FOR PRODUCT TYPE/,'barcode-confirmed products should request a front photo when type is missing');
 assert.match(app,/sealed\/classify-type/,'front end must call the narrow product type classifier');
