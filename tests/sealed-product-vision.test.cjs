@@ -24,6 +24,9 @@ assert.doesNotMatch(route,/SERPAPI_KEY|runEbaySearch|serpapi\.com|APIFY_TOKEN|CA
 assert.match(app,/IDENTIFY PRODUCT FROM PHOTO · 0 MARKETPLACE SEARCHES/);
 assert.match(app,/YES, THAT'S IT/);
 assert.match(app,/ANOTHER PHOTO/);
+assert.match(app,/READ BARCODE PHOTO/,'barcode photo must require an explicit read step');
+assert.match(app,/Barcode photo captured/,'barcode photo capture must give visible confirmation');
+assert.match(app,/sealedBarcodePreview/,'barcode photo preview must be rendered before reading');
 assert.match(app,/Cloudflare Workers AI/i);
 assert.match(app,/fetch\(`\$\{String\(cfg\.endpoint\).*\/sealed\/identify/s,'front end should send photo only to Scout sealed-identify endpoint');
 console.log('Sealed Product Scout vision tests passed.');
