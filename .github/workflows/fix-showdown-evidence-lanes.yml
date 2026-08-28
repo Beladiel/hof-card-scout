@@ -28,6 +28,16 @@ jobs:
           p.write_text(s, encoding='utf-8')
           PY
           python3 scripts/fix-showdown-evidence-lanes.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/sealed-product-vision.test.cjs')
+          s=p.read_text(encoding='utf-8')
+          old="assert.match(worker,/recoveryPrompt/,'rip research must retry extraction from compact evidence without spending another search');"
+          new="assert.match(worker,/authorityRecoveryPrompt/,'authority recovery must retry chase/odds extraction without another search');\nassert.match(worker,/priceGuideRecoveryPrompt/,'price-guide recovery must retry Chase Depth extraction without another search');"
+          if old not in s:
+              raise SystemExit('stale recoveryPrompt assertion not found')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
 
       - name: Validate evidence lanes
         run: |
