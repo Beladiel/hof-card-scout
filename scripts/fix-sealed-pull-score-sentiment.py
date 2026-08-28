@@ -88,12 +88,22 @@ repl('''Set sentimentEvidenceAvailable=false when community evidence is too thin
 
 p.write_text(text, encoding='utf-8')
 
-# Add source-level regression assertions to the existing sealed tests.
+# Update source-level regression assertions in the existing sealed tests.
 t = Path('tests/sealed-product-vision.test.cjs')
 txt = t.read_text(encoding='utf-8')
-needle = 'console.log("Sealed Product Scout vision tests passed.");'
+if 'assert.match(worker,/const VERSION = "3\\.40\\.1"/);' not in txt:
+    raise SystemExit('missing old version assertion')
+txt = txt.replace('assert.match(worker,/const VERSION = "3\\.40\\.1"/);', 'assert.match(worker,/const VERSION = "3\\.40\\.2"/);', 1)
+if "assert.match(worker,/sealed:intel:v3:/,'sealed product intelligence must use a reusable product cache');" not in txt:
+    raise SystemExit('missing old cache assertion')
+txt = txt.replace("assert.match(worker,/sealed:intel:v3:/,'sealed product intelligence must use a reusable product cache');", "assert.match(worker,/sealed:intel:v4:/,'sealed product intelligence must use a reusable product cache');", 1)
+needle = "console.log('Sealed Product Scout vision tests passed.');"
 if needle not in txt:
     raise SystemExit('missing test completion marker')
-checks = '''\nassert.match(workerSource, /const VERSION = "3\\.40\\.2"/);\nassert.match(workerSource, /sealed:intel:v4:/);\nassert.match(workerSource, /function sealedRipVerifiedPullScore/);\nassert.match(workerSource, /communitySourceCount >= 2/);\nassert.match(workerSource, /Never say "many collectors"/);\n'''
+checks = """
+assert.match(worker,/function sealedRipVerifiedPullScore/,'verified pull odds must protect against contradictory zero pull scores');
+assert.match(worker,/communitySourceCount >= 2/,'collector sentiment must require recurring community evidence');
+assert.ok(worker.includes('Never say \"many collectors\"'),'collector synthesis must avoid broad consensus claims from thin evidence');
+"""
 txt = txt.replace(needle, checks + '\n' + needle, 1)
 t.write_text(txt, encoding='utf-8')
