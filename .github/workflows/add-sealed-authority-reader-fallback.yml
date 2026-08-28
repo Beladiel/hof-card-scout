@@ -1,0 +1,46 @@
+name: Add Sealed Authority Reader Fallback
+
+on:
+  push:
+    paths:
+      - '.github/workflows/add-sealed-authority-reader-fallback.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply reader fallback
+        run: python3 scripts/add-sealed-authority-reader-fallback.py
+
+      - name: Validate fix
+        shell: bash
+        run: |
+          node --check src/index.js
+          node --check sealed-product-scout.js
+          node tests/sealed-product-vision.test.cjs
+          grep -q 'const VERSION = "3.38.12"' src/index.js
+          grep -q 'sealed:rip:v9:' src/index.js
+          grep -q 'sealedRipReaderPageText' src/index.js
+          grep -q 'https://r.jina.ai/' src/index.js
+          grep -q 'sealedRipPageHasUsefulSignals' src/index.js
+          git diff --check
+
+      - name: Commit fix
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'No changes needed.'
+            exit 0
+          fi
+          git config user.name 'HOF Card Scout Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/index.js tests/sealed-product-vision.test.cjs
+          git commit -m 'Add trusted authority page reader fallback'
+          git push
