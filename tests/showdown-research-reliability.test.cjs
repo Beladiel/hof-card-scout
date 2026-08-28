@@ -4,8 +4,8 @@ const worker=fs.readFileSync('src/index.js','utf8');
 const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const index=fs.readFileSync('index.html','utf8');
 
-assert.ok(worker.includes('const VERSION = "3.47.0"'));
-assert.ok(worker.includes('sealed:intel:v18:'));
+assert.ok(worker.includes('const VERSION = "3.48.0"'));
+assert.ok(worker.includes('sealed:intel:v19:'));
 assert.ok(index.includes('sealed-product-scout.js?v=6.5.3'));
 assert.ok(worker.includes('authority: "checklist"') && worker.includes('return `${authorityYear} ${researchSet} ${authorityCategory} ${authoritySite} ${researchTerms.authority}`'), 'sports authority discovery must be set-first, category-routed, and omit exact format terms');
 assert.ok(worker.includes('const showdownSchema = {'), 'Showdown should have a dedicated compact synthesis schema');

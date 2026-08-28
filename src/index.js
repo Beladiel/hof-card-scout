@@ -1,4 +1,4 @@
-const VERSION = "3.47.0";
+const VERSION = "3.48.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -344,7 +344,7 @@ function sealedRipIntelligenceCacheKey(identity, mode = "single") {
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v18:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v19:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -2338,27 +2338,37 @@ High-signal excerpts extracted from the best sources (read these first):\n${evid
       const showdownSynthesisPrompt = `SHOWDOWN AUTHORITY-ONLY ANALYSIS for ${productLabel} (${String(identity?.productType || identity?.boxType || "")}). Use ONLY the authority/checklist evidence below. Judge category-appropriate set/chase strength. Named chase cards or families must be explicitly supported. Exact pull odds must be literal and exact-format compatible; otherwise return pullEvidenceAvailable=false and pullOdds=[]. Do not score format access here; local section-aware code does that separately. Do not output singles prices; Chase Depth is extracted from its separate price-guide lane. Never invent names, guarantees, odds, or format claims.\n\nAUTHORITY EVIDENCE:\n${evidenceSignals || evidenceForPrompt.slice(0, 12000) || "No compact authority evidence available."}`;
       const activeSynthesisSchema = researchMode === "showdown" ? showdownSchema : schema;
       const activePrimaryPrompt = researchMode === "showdown" ? showdownSynthesisPrompt : prompt;
-      const activeRetryPrompt = researchMode === "showdown" ? showdownSynthesisPrompt : compactSynthesisPrompt;
+      const showdownJsonInstruction = `Return ONE valid JSON object only. Required keys: qualitySummary, chaseScore, chaseEvidenceAvailable, chaseCards, pullScore, pullEvidenceAvailable, pullOdds, confidence. chaseCards and pullOdds must be arrays. confidence must be high, medium, or low. No markdown or commentary outside the JSON object.`;
+      const activeRetryPrompt = researchMode === "showdown" ? `${showdownSynthesisPrompt}\n\n${showdownJsonInstruction}` : compactSynthesisPrompt;
       let aiObject;
       let synthesisRetryUsed = false;
       try {
-        const primaryRaw = await env.AI.run(SEALED_RIP_MODEL, {
-          prompt: activePrimaryPrompt,
+        const primaryOptions = {
+          prompt: researchMode === "showdown" ? `${activePrimaryPrompt}\n\n${showdownJsonInstruction}` : activePrimaryPrompt,
           max_tokens: researchMode === "showdown" ? 850 : 1400,
           temperature: 0.1,
-          response_format: { type: "json_schema", json_schema: activeSynthesisSchema }
-        });
+          response_format: researchMode === "showdown"
+            ? { type: "json_object" }
+            : { type: "json_schema", json_schema: activeSynthesisSchema }
+        };
+        const primaryRaw = await env.AI.run(SEALED_RIP_MODEL, primaryOptions);
         aiObject = sealedRipAiJson(primaryRaw);
       } catch (err) {
         console.warn("sealed rip primary synthesis/parse failed; trying compact authority-only retry", err);
         synthesisRetryUsed = true;
         try {
-          const retryRaw = await env.AI.run(SEALED_RIP_MODEL, {
+          const retryOptions = {
             prompt: activeRetryPrompt,
             max_tokens: researchMode === "showdown" ? 750 : 1200,
             temperature: 0,
-            response_format: { type: "json_schema", json_schema: activeSynthesisSchema }
-          });
+          };
+          // If Showdown JSON mode itself fails, the single retry deliberately avoids
+          // response_format entirely and relies on the explicit JSON-only instruction
+          // plus sealedRipAiJson(). This prevents repeating the same provider failure.
+          if (researchMode !== "showdown") {
+            retryOptions.response_format = { type: "json_schema", json_schema: activeSynthesisSchema };
+          }
+          const retryRaw = await env.AI.run(SEALED_RIP_MODEL, retryOptions);
           aiObject = sealedRipAiJson(retryRaw);
         } catch (retryErr) {
           console.error("sealed rip compact synthesis/parse retry failed", retryErr);
@@ -2405,7 +2415,9 @@ High-signal excerpts extracted from the best sources (read these first):\n${evid
             prompt: authorityRecoveryPrompt,
             max_tokens: 700,
             temperature: 0,
-            response_format: { type: "json_schema", json_schema: authorityRecoverySchema }
+            response_format: researchMode === "showdown"
+              ? { type: "json_object" }
+              : { type: "json_schema", json_schema: authorityRecoverySchema }
           });
           const recovered = sealedRipAiJson(recoveredRaw);
           if (missingChases && Array.isArray(recovered?.chaseCards) && recovered.chaseCards.length) {
@@ -2437,7 +2449,7 @@ High-signal excerpts extracted from the best sources (read these first):\n${evid
             prompt: priceGuideRecoveryPrompt,
             max_tokens: 700,
             temperature: 0,
-            response_format: { type: "json_schema", json_schema: priceGuideRecoverySchema }
+            response_format: { type: "json_object" }
           });
           const recovered = sealedRipAiJson(recoveredRaw);
           if (Array.isArray(recovered?.chaseValueCards) && recovered.chaseValueCards.length) {
@@ -2453,7 +2465,7 @@ High-signal excerpts extracted from the best sources (read these first):\n${evid
       if (env.SCOUT_DATA && cacheableIntelligence) {
         try { await env.SCOUT_DATA.put(cacheKey, JSON.stringify({ productLabel, analysis: aiObject, evidenceRows, sources, checkedAt, researchMode }), { expirationTtl: intelligenceTtlDays * 24 * 60 * 60 }); } catch {}
       }
-      return json({ ok: true, version: VERSION, productLabel, market, analysis, sources, researchMix: { ...researchMix, synthesisRetryUsed }, checkedAt, cacheHit: false, intelligenceCacheHit: false, cacheableIntelligence, intelligenceTtlDays, researchMode, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 200, cors);
+      return json({ ok: true, version: VERSION, productLabel, market, analysis, sources, researchMix: { ...researchMix, synthesisRetryUsed, synthesisMode: researchMode === "showdown" ? "json_object_with_plain_retry" : "json_schema" }, checkedAt, cacheHit: false, intelligenceCacheHit: false, cacheableIntelligence, intelligenceTtlDays, researchMode, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 200, cors);
     }
 
     if (url.pathname === "/sealed/classify-type" && request.method === "POST") {
