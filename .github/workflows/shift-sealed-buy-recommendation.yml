@@ -25,6 +25,7 @@ jobs:
           p=Path('tests/sealed-product-vision.test.cjs')
           text=p.read_text(encoding='utf-8')
           text=text.replace("assert.match(app,/CHECK RIP QUALITY · 2 RESEARCH SEARCHES MAX/,'sealed scanner must expose rip-quality research');", "assert.match(app,/GET SCOUT'S BUY CALL · 2 RESEARCH SEARCHES MAX/,'sealed scanner must expose the final buy recommendation');")
+          text=text.replace("assert.match(app,/Evidence: <strong>/,'rip UI must show research completeness');", "assert.match(app,/Product evidence: <strong>/,'rip UI must show product-evidence completeness');")
           if "const index=fs.readFileSync('index.html','utf8');" not in text:
               text=text.replace("const app=fs.readFileSync('sealed-product-scout.js','utf8');\n", "const app=fs.readFileSync('sealed-product-scout.js','utf8');\nconst index=fs.readFileSync('index.html','utf8');\n", 1)
           p.write_text(text,encoding='utf-8')
