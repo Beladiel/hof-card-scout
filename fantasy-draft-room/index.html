@@ -7,13 +7,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Scout Draft Room">
   <title>Scout Fantasy Draft Room</title>
-  <link rel="stylesheet" href="styles.css?v=1">
+  <link rel="stylesheet" href="styles.css?v=2">
+  <link rel="stylesheet" href="v2.css?v=2">
 </head>
 <body>
   <main class="shell">
     <header class="hero">
       <div>
-        <div class="eyebrow">🏈 SCOUT FANTASY DRAFT ROOM · V1</div>
+        <div class="eyebrow">🏈 SCOUT FANTASY DRAFT ROOM · V2</div>
         <h1>Your draft board. Scout's call.</h1>
         <p>Yahoo Prize Prestige 1384925 · 10 teams · Half-PPR · 60-second picks</p>
       </div>
@@ -40,6 +41,17 @@
           <button id="undoBtn" class="ghost">↶ UNDO</button>
           <button id="resetBtn" class="danger">RESET DRAFT</button>
         </div>
+      </div>
+    </section>
+
+    <section class="mode-card card">
+      <div>
+        <div class="eyebrow">🎲 PRACTICE MODE</div>
+        <div id="modeHelp" class="mode-help">Use this mode beside a real Yahoo draft or Yahoo mock draft. You tap picks manually.</div>
+      </div>
+      <div class="mode-actions">
+        <button id="liveModeBtn" class="mode-btn active-mode">📡 LIVE / YAHOO MOCK</button>
+        <button id="startMockBtn" class="mode-btn">🎲 START SCOUT MOCK</button>
       </div>
     </section>
 
@@ -77,6 +89,8 @@
       <div id="rosterGrid" class="roster-grid"></div>
     </section>
 
+    <section id="mockReview" class="card mock-review" hidden></section>
+
     <section class="card board-card">
       <div class="section-head board-head">
         <div>
@@ -94,6 +108,8 @@
         <button data-pos="RB">RB</button>
         <button data-pos="WR">WR</button>
         <button data-pos="TE">TE</button>
+        <button data-pos="DEF">D/ST</button>
+        <button data-pos="K">K</button>
       </div>
 
       <div class="board-legend">
@@ -116,6 +132,7 @@
   </main>
 
   <script src="data.js?v=1"></script>
-  <script src="app.js?v=1"></script>
+  <script src="deep-data.js?v=2"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>
