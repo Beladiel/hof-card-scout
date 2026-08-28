@@ -39,4 +39,4 @@ jobs:
           test -n "$CLOUDFLARE_ACCOUNT_ID"
           npx --yes wrangler@4 deploy
 
-# Worker source changes now deploy automatically from main.
+# Worker source changes deploy automatically from main. Manual workflow edits can also safely redeploy the current tested source.
