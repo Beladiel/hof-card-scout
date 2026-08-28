@@ -5,7 +5,7 @@ const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const index=fs.readFileSync('index.html','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.40\.2"/);
+assert.match(worker,/const VERSION = "3\.40\.3"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
@@ -66,7 +66,7 @@ assert.match(ripRoute,/marketplaceSearchesUsed:\s*0/,'rip-quality research must 
 assert.doesNotMatch(ripRoute,/engine", "ebay|APIFY_TOKEN|CARD_API_KEY/i,'rip-quality route must not spend marketplace-provider calls');
 assert.ok(worker.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),'rip-quality synthesis must use the Cloudflare text model');
 assert.ok(worker.includes('NEVER invent, estimate, calculate, or extrapolate an exact pull odd'),'rip-quality prompt must prohibit invented pull odds');
-assert.match(worker,/sealed:intel:v4:/,'sealed product intelligence must use a reusable product cache');
+assert.match(worker,/sealed:intel:v5:/,'sealed product intelligence must use a reusable product cache');
 assert.match(worker,/sealedRipWeightedScore/,'final verdict must combine price, chases, pull evidence, and sentiment');
 assert.match(worker,/sealedRipProductEvidenceCount/,'buy recommendation must count the three product-quality evidence pillars');
 assert.match(worker,/sealedRipProductEvidenceCount\(parts\) < 2/,'buy recommendation must require two of three product-quality pillars');
@@ -153,5 +153,9 @@ assert.doesNotMatch(marketRoute,/APIFY_TOKEN|CARD_API_KEY/i,'sealed market route
 assert.match(worker,/function sealedRipVerifiedPullScore/,'verified pull odds must protect against contradictory zero pull scores');
 assert.match(worker,/communitySourceCount >= 2/,'collector sentiment must require recurring community evidence');
 assert.ok(worker.includes('Never say "many collectors"'),'collector synthesis must avoid broad consensus claims from thin evidence');
+assert.match(worker,/function sealedRipOddsRowSupported/,'pull odds must be validated as item+odds pairs inside matching-set evidence');
+assert.match(worker,/sealedRipEvidenceRowMatchesIdentity/,'pull-odds evidence must match the scanned set identity');
+assert.match(worker,/COMMUNITY EVIDENCE — use ONLY this section/,'collector sentiment must be isolated from checklist evidence');
+assert.match(worker,/sealedRipTemperCollectorSummary/,'collector copy must suppress unsupported promotional conclusions');
 
 console.log('Sealed Product Scout vision tests passed.');

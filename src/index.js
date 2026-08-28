@@ -1,4 +1,4 @@
-const VERSION = "3.40.2";
+const VERSION = "3.40.3";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -340,7 +340,7 @@ function sealedRipIntelligenceCacheKey(identity) {
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v4:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v5:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -916,6 +916,69 @@ function sealedRipOddsSupported(odds, evidenceText) {
   return simplify(evidenceText).includes(simplify(raw));
 }
 
+function sealedRipEvidenceIdentityTokens(identity = {}) {
+  const stop = new Set([
+    "the", "and", "with", "cards", "card", "trading", "tcg", "nba", "nfl", "mlb",
+    "basketball", "football", "baseball", "pokemon", "pokémon", "magic", "gathering",
+    "topps", "panini", "upper", "deck"
+  ]);
+  return String(identity?.set || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .filter(token => token.length >= 3 && !stop.has(token));
+}
+
+function sealedRipEvidenceRowMatchesIdentity(row, identity = {}) {
+  const text = `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`.toLowerCase();
+  const tokens = sealedRipEvidenceIdentityTokens(identity);
+  if (tokens.length) {
+    const matches = tokens.filter(token => text.includes(token)).length;
+    if (matches < Math.min(2, tokens.length)) return false;
+  }
+  const season = String(identity?.year || "").trim().replace(/[–—/]/g, "-");
+  const year = season.match(/\b20\d{2}\b/)?.[0] || "";
+  if (year && /\b20\d{2}\b/.test(text) && !text.includes(year)) return false;
+  return true;
+}
+
+function sealedRipOddsRowSupported(row, evidenceRows, identity = {}) {
+  const simplify = value => String(value || "").toLowerCase().replace(/\s+/g, "").replace(/[–—]/g, "-");
+  const item = simplify(row?.item);
+  const odds = simplify(row?.odds);
+  if (!item || !odds) return false;
+  const wantsAuthority = /official|checklist|manufacturer/i.test(String(row?.sourceType || ""));
+  return (Array.isArray(evidenceRows) ? evidenceRows : []).some(source => {
+    if (!sealedRipEvidenceRowMatchesIdentity(source, identity)) return false;
+    if (wantsAuthority && source?.sourceType === "community") return false;
+    const sourceText = simplify(`${source?.title || ""} ${source?.snippet || ""} ${source?.pageText || ""}`);
+    const itemAt = sourceText.indexOf(item);
+    if (itemAt < 0) return false;
+    let oddsAt = sourceText.indexOf(odds, Math.max(0, itemAt - 700));
+    if (oddsAt < 0) oddsAt = sourceText.indexOf(odds);
+    if (oddsAt < 0) return false;
+    return Math.abs(oddsAt - itemAt) <= 900;
+  });
+}
+
+function sealedRipCommunityEvidenceText(evidenceRows = []) {
+  return (Array.isArray(evidenceRows) ? evidenceRows : [])
+    .filter(row => row?.sourceType === "community")
+    .map(row => `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`.trim())
+    .filter(Boolean)
+    .join("\n\n")
+    .slice(0, 12000);
+}
+
+function sealedRipTemperCollectorSummary(value, communitySourceCount = 0) {
+  let text = sealedRipTemperCollectorLanguage(value, communitySourceCount);
+  const sentences = text.split(/(?<=[.!?])\s+/).map(x => x.trim()).filter(Boolean);
+  const promotional = /\b(?:great option|excellent option|fantastic option|ideal option|fun and affordable|add some excitement|exciting addition|accessible to a wider range)\b/i;
+  const kept = sentences.filter(sentence => !promotional.test(sentence));
+  text = kept.join(" ").trim();
+  return text || "Scout found exact-product community discussion, but not enough recurring opinion detail to summarize a reliable collector theme.";
+}
+
 function sealedRipChaseContextSupported(evidenceRows, category = "") {
   const rows = (Array.isArray(evidenceRows) ? evidenceRows : []).filter(row => row?.queryKind === "checklist-and-odds" && row?.sourceType !== "community");
   if (!rows.length) return false;
@@ -957,13 +1020,14 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
     odds: String(row?.odds || "").trim().slice(0, 80),
     sourceType: String(row?.sourceType || "reported").trim().slice(0, 50),
     note: String(row?.note || "").trim().slice(0, 260),
-  })).filter(row => row.item && row.odds && sealedRipOddsSupported(row.odds, evidenceText));
+  })).filter(row => row.item && row.odds && sealedRipOddsRowSupported(row, evidenceRows, identity));
 
   const chaseContextAvailable = sealedRipChaseContextSupported(evidenceRows, identity?.category);
   const chaseEvidenceAvailable = chaseCards.length > 0 || chaseContextAvailable;
   const pullEvidenceAvailable = pullOdds.length > 0;
   const communitySourceCount = evidenceRows.filter(row => row?.sourceType === "community").length;
-  const sentimentEvidenceAvailable = Boolean(raw?.sentimentEvidenceAvailable) && communitySourceCount >= 2;
+  const communityEvidenceText = sealedRipCommunityEvidenceText(evidenceRows);
+  const sentimentEvidenceAvailable = Boolean(raw?.sentimentEvidenceAvailable) && communitySourceCount >= 2 && communityEvidenceText.length >= 80;
   const priceScore = sealedRipPriceScore(market?.shelfPrice, market?.median);
   const parts = {
     priceScore,
@@ -1004,7 +1068,7 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
     qualitySummary,
     chaseCards,
     pullOdds,
-    collectorTake: sentimentEvidenceAvailable ? sealedRipTemperCollectorLanguage(raw?.collectorTake, communitySourceCount).slice(0, 700) : "Scout did not find enough recurring exact-product collector discussion to score sentiment.",
+    collectorTake: sentimentEvidenceAvailable ? sealedRipTemperCollectorSummary(raw?.collectorTake, communitySourceCount).slice(0, 700) : "Scout did not find enough recurring exact-product collector discussion to score sentiment.",
     positives: sentimentEvidenceAvailable ? (Array.isArray(raw?.positives) ? raw.positives : []).map(x => String(x || "").trim().slice(0, 220)).filter(Boolean).slice(0, 4) : [],
     negatives: sentimentEvidenceAvailable ? (Array.isArray(raw?.negatives) ? raw.negatives : []).map(x => String(x || "").trim().slice(0, 220)).filter(Boolean).slice(0, 4) : [],
     confidence: evidenceCount < 2 ? "low" : (["high", "medium", "low"].includes(confidenceRaw) ? confidenceRaw : recommendationConfidence),
@@ -1415,8 +1479,11 @@ ${sealedRipCategoryGuidance(identity?.category)}
 
 Use ONLY the research evidence below. Do not rely on memory. NEVER invent, estimate, calculate, or extrapolate an exact pull odd. Only include an odds string in pullOdds when that exact odds text is literally supported by the supplied evidence and applies to this exact product format. If reliable format-specific odds are not supported, set pullEvidenceAvailable=false and return an empty pullOdds array. Clearly distinguish official/checklist odds from community-reported observations; community anecdotes are not official odds.
 
-Named items in chaseCards must be explicitly supported by the supplied evidence; do not invent card names, players, Pokémon, treatments, inserts, or variants. Use the CATEGORY PLAYBOOK above to decide what counts as strong chase/set quality for this product. chaseCards may contain named chase cards, characters/players, treatment or insert families, or other category-appropriate named targets when the evidence supports them. Separately, set chaseEvidenceAvailable=true when trustworthy official/checklist/editorial evidence supports meaningful chase or set structure for this category even if individual names cannot be safely validated. Score chaseScore 0-100 only when chaseEvidenceAvailable=true, following the category playbook rather than a universal sports-card rubric. Preserve any exact pull-rate/odds notation literally as written in evidence. Community-reported pull rates are allowed only when clearly labeled as community/reported and supported by the exact evidence; they are never official manufacturer odds unless an official source says so. Missing exact odds are not by themselves a reason to withhold a recommendation. For collector/player sentiment, summarize recurring product-specific themes rather than one lucky or angry opening. Set sentimentEvidenceAvailable=false when community evidence is too thin; require recurring support from at least two independent community sources. Product/checklist facts are not collector sentiment by themselves. Never say "many collectors", "most collectors", "collector consensus", or make another broad consensus claim unless at least three independent community sources support the same recurring theme. Keep conclusions conservative when evidence is thin.
+Named items in chaseCards must be explicitly supported by the supplied evidence; do not invent card names, players, Pokémon, treatments, inserts, or variants. Use the CATEGORY PLAYBOOK above to decide what counts as strong chase/set quality for this product. chaseCards may contain named chase cards, characters/players, treatment or insert families, or other category-appropriate named targets when the evidence supports them. Separately, set chaseEvidenceAvailable=true when trustworthy official/checklist/editorial evidence supports meaningful chase or set structure for this category even if individual names cannot be safely validated. Score chaseScore 0-100 only when chaseEvidenceAvailable=true, following the category playbook rather than a universal sports-card rubric. Preserve any exact pull-rate/odds notation literally as written in evidence. Community-reported pull rates are allowed only when clearly labeled as community/reported and supported by the exact evidence; they are never official manufacturer odds unless an official source says so. Missing exact odds are not by themselves a reason to withhold a recommendation. For collector/player sentiment, summarize recurring product-specific themes rather than one lucky or angry opening. Set sentimentEvidenceAvailable=false when community evidence is too thin; require recurring support from at least two independent community sources. Product/checklist facts are not collector sentiment by themselves. collectorTake, positives, and negatives must describe opinions, complaints, praise, price/value reactions, quality-control reports, collation reports, or opening experiences that are actually present in COMMUNITY EVIDENCE. Do not copy checklist features into the collector-sentiment fields. Never say "many collectors", "most collectors", "collector consensus", or make another broad consensus claim unless at least three independent community sources support the same recurring theme. Keep conclusions conservative when evidence is thin.
 
+COMMUNITY EVIDENCE — use ONLY this section for collectorTake / positives / negatives:\
+${sealedRipCommunityEvidenceText(evidenceRows) || "No community evidence available."}\
+\
 High-signal excerpts extracted from the best sources (read these first):\n${evidenceSignals || "No compact signals extracted."}\n\nFull research evidence:\n${evidenceForPrompt}`;
 
       let rawAnalysis;
