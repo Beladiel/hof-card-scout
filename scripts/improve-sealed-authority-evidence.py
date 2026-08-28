@@ -11,7 +11,6 @@ worker = worker_path.read_text(encoding='utf-8')
 worker = replace_once(worker, 'const VERSION = "3.38.12";', 'const VERSION = "3.38.13";', 'worker version')
 worker = replace_once(worker, 'sealed:rip:v9:', 'sealed:rip:v10:', 'rip cache version')
 
-# Keep substantially more of Google's structured evidence around an authority result.
 old_snippet = '''    const rich = row?.rich_snippet ? JSON.stringify(row.rich_snippet) : "";
     const about = row?.about_this_result ? JSON.stringify(row.about_this_result) : "";
     const snippet = [row?.snippet, row?.snippet_highlighted_words?.join(" "), rich, about]
@@ -39,8 +38,6 @@ new_push = '''      source: String(row?.source || "").trim().slice(0, 120),
     });'''
 worker = replace_once(worker, old_push, new_push, 'authority alternate page links')
 
-# Add a compact representation of top-level/organic SERP structures. This gives the
-# model evidence even when the publisher blocks server-side page retrieval.
 marker = 'async function sealedRipGoogleSearch(query, apiKey, timeoutMs = 15000) {'
 helper = '''function sealedRipSerpEvidenceText(data) {
   const chunks = [];
@@ -73,8 +70,6 @@ helper = '''function sealedRipSerpEvidenceText(data) {
 '''
 worker = replace_once(worker, marker, helper + marker, 'SERP evidence helper')
 
-# Mobile Google results can expose AMP links. Let only the authority search request
-# mobile layout; the community search stays unchanged.
 worker = replace_once(
     worker,
     'async function sealedRipGoogleSearch(query, apiKey, timeoutMs = 15000) {',
@@ -88,8 +83,6 @@ worker = replace_once(
     'search device parameter',
 )
 
-# Now that season punctuation is normalized, nudge Google's authority snippet toward
-# exact-format odds/chases without quoting the entire product title.
 old_query = '      const checklistQuery = `${authorityYear} ${researchSet} ${authorityCategory} ${authoritySite}`.replace(/\\s+/g, " ").trim();'
 new_query = '      const checklistQuery = `${authorityYear} ${researchSet} ${authorityCategory} ${authoritySite} ${formatTerms} odds chases`.replace(/\\s+/g, " ").trim();'
 worker = replace_once(worker, old_query, new_query, 'authority signal query')
@@ -100,7 +93,6 @@ worker = replace_once(
     'mobile authority search',
 )
 
-# Try an AMP/cache URL supplied by Google before the publisher URL and reader fallback.
 old_fetch_start = '''async function sealedRipFetchPageText(row) {
   if (!row || row.sourceType === "community" || !/^https?:\\/\\//i.test(String(row.link || ""))) return "";
   let directExcerpt = "";
@@ -167,8 +159,6 @@ new_fetch = '''async function sealedRipFetchPageText(row) {
 }'''
 worker = replace_once(worker, old_fetch_start, new_fetch, 'alternate authority page retrieval')
 
-# Inject the structured search-page evidence after URL-specific page expansion. It is
-# analysis evidence only and is not shown as a fake source link to the user.
 old_expand = '''      evidenceRows = sealedRipFilterRelevantEvidence(evidenceRows, identity);
       evidenceRows = await sealedRipExpandEvidenceRows(evidenceRows);
       if (!evidenceRows.length) {'''
@@ -206,6 +196,8 @@ old = "assert.match(worker,/const checklistQuery = `\\$\\{authorityYear\\} \\$\\
 new = "assert.match(worker,/const checklistQuery = `\\$\\{authorityYear\\} \\$\\{researchSet\\} \\$\\{authorityCategory\\} \\$\\{authoritySite\\} \\$\\{formatTerms\\} odds chases`/,'authority discovery must nudge Google toward exact-format odds and chase snippets');\n"
 if old in test:
     test = test.replace(old, new, 1)
+stale_timeout = "assert.match(worker,/sealedRipGoogleSearch\\(checklistQuery, env\\.SERPAPI_KEY, 18000\\)/,'authority discovery must have enough timeout budget to finish');\n"
+test = test.replace(stale_timeout, '')
 anchor = "assert.match(worker,/sealedRipReaderPageText/,'trusted authority pages must have a rendered-reader fallback when direct HTML is thin or blocked');\n"
 extra = anchor + "assert.match(worker,/sealedRipSerpEvidenceText/,'rip research must retain structured Google evidence when publisher page reading is blocked');\nassert.match(worker,/ampLink/,'authority research must retain Google AMP links when available');\nassert.match(worker,/cachedPageLink/,'authority research must retain Google cached-page links when available');\nassert.match(worker,/device = \\\"\\\"/,'Google research helper must support a mobile authority request');\nassert.match(worker,/sealedRipGoogleSearch\\(checklistQuery, env\\.SERPAPI_KEY, 18000, \\\"mobile\\\"\\)/,'authority lookup must request mobile results so AMP links can be exposed');\n"
 if 'rip research must retain structured Google evidence' not in test:
