@@ -17,7 +17,16 @@ jobs:
           fetch-depth: 0
 
       - name: Apply sealed buy recommendation architecture
-        run: python3 scripts/shift-sealed-buy-recommendation.py
+        shell: bash
+        run: |
+          python3 scripts/shift-sealed-buy-recommendation.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/sealed-product-vision.test.cjs')
+          text=p.read_text(encoding='utf-8')
+          text=text.replace("assert.match(app,/CHECK RIP QUALITY · 2 RESEARCH SEARCHES MAX/,'sealed scanner must expose rip-quality research');", "assert.match(app,/GET SCOUT'S BUY CALL · 2 RESEARCH SEARCHES MAX/,'sealed scanner must expose the final buy recommendation');")
+          p.write_text(text,encoding='utf-8')
+          PY
 
       - name: Validate changes
         shell: bash
