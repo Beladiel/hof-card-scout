@@ -1,0 +1,20 @@
+.top5-draft-btn{
+  display:block;
+  margin-top:7px;
+  width:100%;
+  min-height:32px;
+  padding:6px 8px;
+  border:1px solid rgba(88,197,139,.48);
+  border-radius:9px;
+  background:var(--green);
+  color:#082117;
+  font-size:8px;
+  font-weight:950;
+  letter-spacing:.04em;
+  white-space:nowrap;
+}
+.top5-draft-btn:hover{filter:brightness(1.05)}
+.top5-draft-btn:disabled{opacity:.55;cursor:wait}
+@media(max-width:620px){
+  .top5-draft-btn{min-height:30px;font-size:7px;padding:5px 6px}
+}
