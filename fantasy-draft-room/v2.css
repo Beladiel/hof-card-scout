@@ -1,0 +1,16 @@
+.mode-card{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.mode-help{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.4}
+.mode-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.mode-btn{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text)}
+.mode-btn.active-mode{background:var(--cream);color:var(--ink);border-color:var(--gold)}
+.mock-review{margin-bottom:12px;border-color:rgba(230,189,99,.48);background:linear-gradient(145deg,rgba(230,189,99,.1),rgba(255,255,255,.035))}
+.review-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.review-grid>div{border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(0,0,0,.08)}
+.review-grid strong{display:block;font-size:9px;color:var(--gold);letter-spacing:.04em}
+.review-grid span{display:block;font-size:11px;color:var(--text);margin-top:4px;line-height:1.35}
+@media(max-width:700px){
+  .mode-card{display:block}
+  .mode-actions{justify-content:flex-start;margin-top:10px}
+  .mode-actions button{flex:1}
+  .review-grid{grid-template-columns:1fr}
+}
