@@ -1,4 +1,4 @@
-const VERSION = "3.42.0";
+const VERSION = "3.42.1";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -344,7 +344,7 @@ function sealedRipIntelligenceCacheKey(identity, mode = "single") {
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v11:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v12:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -431,9 +431,9 @@ function sealedRipResearchTerms(category) {
 
 function sealedRipPriceGuideSite(category) {
   const key = sealedRipCategoryKey(category);
-  if (key === "magic") return "site:mtggoldfish.com/sets";
+  if (key === "magic") return "site:tcgplayer.com";
   if (key === "pokemon") return "site:tcgplayer.com";
-  if (key === "sports") return "site:pricecharting.com";
+  if (key === "sports") return "site:sportscardspro.com";
   return "";
 }
 
@@ -442,7 +442,7 @@ function sealedRipPriceGuideQuery(identity, researchSet = "") {
   const year = String(identity?.year || "").replace(/[^0-9]+/g, " ").trim();
   const cleanSet = String(researchSet || sealedRipResearchSet(identity)).replace(/\b(?:trading|cards?|nba|nfl|mlb)\b/gi, " ").replace(/\s+/g, " ").trim();
   const site = sealedRipPriceGuideSite(identity?.category);
-  if (key === "magic") return `"${cleanSet}" ${site} prices tabletop "All Cards"`.replace(/\s+/g, " ").trim();
+  if (key === "magic") return `"${cleanSet}" ${site} "Market Price" Magic`.replace(/\s+/g, " ").trim();
   if (key === "pokemon") return `${year} "${cleanSet}" ${site} "price guide" "Market Price"`.replace(/\s+/g, " ").trim();
   if (key === "sports") return `${year} "${cleanSet}" ${String(identity?.category || "").toLowerCase()} ${site} Ungraded price`.replace(/\s+/g, " ").trim();
   return `${year} "${cleanSet}" ${site} card prices`.replace(/\s+/g, " ").trim();
@@ -516,7 +516,7 @@ function sealedRipSourceType(row) {
   const text = `${link} ${source}`;
   if (/topps\.com|paniniamerica\.net|pokemon\.com|magic\.wizards\.com|wizards\.com/.test(text)) return "official";
   if (/reddit\.com|blowoutforums\.com|sportscardforum\.com|elitefourum\.com/.test(text)) return "community";
-  if (/checklist|beckett|cardboardconnection|tcgplayer|pricecharting|sportscollectorsdaily|pokebeach|justinbasil|mtggoldfish|scryfall/.test(text)) return "checklist/editorial";
+  if (/checklist|beckett|cardboardconnection|tcgplayer|pricecharting|sportscardspro|sportscollectorsdaily|pokebeach|justinbasil|mtggoldfish|scryfall/.test(text)) return "checklist/editorial";
   return "editorial";
 }
 
@@ -775,7 +775,7 @@ function sealedRipPageHasUsefulSignals(text) {
 
 function sealedRipCanUseReader(row) {
   const link = String(row?.link || "").toLowerCase();
-  return /https?:\/\/(?:www\.)?(?:beckett\.com|topps\.com|checklistinsider\.com|cardboardconnection\.com|pokemon\.com|pokebeach\.com|justinbasil\.com|magic\.wizards\.com|wizards\.com|mtggoldfish\.com|tcgplayer\.com|pricecharting\.com|scryfall\.com)\//.test(link);
+  return /https?:\/\/(?:www\.)?(?:beckett\.com|topps\.com|checklistinsider\.com|cardboardconnection\.com|pokemon\.com|pokebeach\.com|justinbasil\.com|magic\.wizards\.com|wizards\.com|mtggoldfish\.com|tcgplayer\.com|pricecharting\.com|sportscardspro\.com|scryfall\.com)\//.test(link);
 }
 
 async function sealedRipReaderPageText(row) {
@@ -1100,6 +1100,42 @@ function sealedRipFormatAccessContextSupported(evidenceRows, identity = {}) {
   });
 }
 
+function sealedRipFormatAccessFallbackScore(evidenceRows, identity = {}) {
+  const compatible = sealedRipCompatibleFormatKeys(identity);
+  if (!compatible.size) return 0;
+  const key = sealedRipCategoryKey(identity?.category);
+  const texts = (Array.isArray(evidenceRows) ? evidenceRows : []).filter(row => {
+    if (row?.sourceType === "community") return false;
+    if (!sealedRipEvidenceRowMatchesIdentity(row, identity)) return false;
+    const text = `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`;
+    if (!sealedRipVariantTextCompatible(text, identity)) return false;
+    const explicit = sealedRipExplicitFormatKeys(text);
+    return explicit.size && Array.from(explicit).some(format => compatible.has(format));
+  }).map(row => `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`).join(" ");
+  if (!texts) return 0;
+  const families = key === "magic" ? [
+    /\b(?:mythic(?: rare)?|rare)\b/i,
+    /\b(?:borderless|showcase|extended art|source material)\b/i,
+    /\bfoils?\b/i,
+    /\b(?:special guests?|bonus sheet)\b/i,
+    /\b(?:serialized|headliner|cosmic foil)\b/i,
+  ] : key === "pokemon" ? [
+    /\b(?:special illustration rare|sir|illustration rare|ir)\b/i,
+    /\b(?:hyper rare|secret rare|ultra rare)\b/i,
+    /\b(?:special treatment|promo|full art)\b/i,
+    /\b(?:pull rate|hit rate)\b/i,
+  ] : [
+    /\brookies?\b/i,
+    /\b(?:autographs?|signatures?)\b/i,
+    /\b(?:parallel|exclusive|numbered|green hoops|light burst|rainbow)\b/i,
+    /\b(?:case hit|ssp|short print)\b/i,
+    /\b1\s*:\s*\d{1,7}\b/i,
+  ];
+  const count = families.filter(pattern => pattern.test(texts)).length;
+  if (!count) return 45;
+  return Math.min(80, 42 + count * 8);
+}
+
 function sealedRipOddsRowSupported(row, evidenceRows, identity = {}) {
   const simplify = value => String(value || "").toLowerCase().replace(/\s+/g, "").replace(/[–—]/g, "-");
   const item = simplify(row?.item);
@@ -1342,6 +1378,17 @@ function sealedRipChaseDepthMetrics(cards = []) {
   return { available:true, score, label, summary, count20, count50, count100, top5Total, top10Total, concentration:Number(concentration.toFixed(3)) };
 }
 
+function sealedRipChaseDepthSetFloor(chaseDepth = {}) {
+  if (!chaseDepth?.available) return 0;
+  const score = Number(chaseDepth?.score);
+  if (!Number.isFinite(score)) return 0;
+  if (score >= 85) return 60;
+  if (score >= 70) return 52;
+  if (score >= 55) return 44;
+  if (score >= 40) return 35;
+  return 25;
+}
+
 function sealedRipPriceGuideEvidenceText(evidenceRows = [], identity = {}) {
   return sealedRipPriceGuideRows(evidenceRows, identity)
     .map(row => `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`.trim())
@@ -1364,11 +1411,16 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
   const chaseDepth = sealedRipChaseDepthMetrics(chaseValueCards);
 
   const chaseContextAvailable = sealedRipChaseContextSupported(evidenceRows, identity?.category);
-  const chaseEvidenceAvailable = chaseCards.length > 0 || chaseContextAvailable;
+  const chaseEvidenceAvailable = chaseCards.length > 0 || chaseContextAvailable || chaseDepth.available;
   const pullEvidenceAvailable = pullOdds.length > 0;
   const formatAccessContextAvailable = sealedRipFormatAccessContextSupported(evidenceRows, identity);
-  const formatAccessEvidenceAvailable = Boolean(raw?.formatAccessEvidenceAvailable) && formatAccessContextAvailable;
-  const formatAccessScore = formatAccessEvidenceAvailable ? sealedRipClampScore(raw?.formatAccessScore) : null;
+  const formatAccessEvidenceAvailable = formatAccessContextAvailable;
+  const aiFormatAccessScore = sealedRipClampScore(raw?.formatAccessScore);
+  const formatAccessScore = formatAccessEvidenceAvailable
+    ? (Boolean(raw?.formatAccessEvidenceAvailable) && aiFormatAccessScore > 0
+      ? aiFormatAccessScore
+      : sealedRipFormatAccessFallbackScore(evidenceRows, identity))
+    : null;
   const rawFormatSummary = String(raw?.formatAccessSummary || "").trim().slice(0, 500);
   const formatAccessSummary = formatAccessEvidenceAvailable && sealedRipFormatTextCompatible(rawFormatSummary, identity) && sealedRipVariantTextCompatible(rawFormatSummary, identity)
     ? rawFormatSummary
@@ -1387,9 +1439,11 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
     && collectorContentAvailable
     && !collectorFormatConflict;
   const priceScore = sealedRipPriceScore(market?.shelfPrice, market?.median);
+  const verifiedChaseScore = chaseEvidenceAvailable ? sealedRipVerifiedChaseScore(raw?.chaseScore, evidenceRows, identity?.category) : null;
+  const depthSetFloor = sealedRipChaseDepthSetFloor(chaseDepth);
   const parts = {
     priceScore,
-    chaseScore: chaseEvidenceAvailable ? sealedRipVerifiedChaseScore(raw?.chaseScore, evidenceRows, identity?.category) : null,
+    chaseScore: chaseEvidenceAvailable ? Math.max(Number(verifiedChaseScore) || 0, depthSetFloor) : null,
     chaseEvidenceAvailable,
     pullScore: pullEvidenceAvailable ? sealedRipVerifiedPullScore(raw?.pullScore, pullOdds) : null,
     pullEvidenceAvailable,
