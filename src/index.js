@@ -1,4 +1,4 @@
-const VERSION = "3.38.7";
+const VERSION = "3.38.8";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -419,7 +419,10 @@ function sealedRipEvidenceRows(data, queryKind) {
   for (const row of rows) {
     const title = String(row?.title || "").trim();
     const link = String(row?.link || "").trim();
-    const snippet = String(row?.snippet || row?.snippet_highlighted_words?.join(" ") || "").trim();
+    const rich = row?.rich_snippet ? JSON.stringify(row.rich_snippet) : "";
+    const about = row?.about_this_result ? JSON.stringify(row.about_this_result) : "";
+    const snippet = [row?.snippet, row?.snippet_highlighted_words?.join(" "), rich, about]
+      .filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
     if (!title || !/^https?:\/\//i.test(link) || sealedRipIsShoppingSource(row) || /facebook\.com|instagram\.com|tiktok\.com/i.test(link)) continue;
     const key = link.replace(/[?#].*$/, "").toLowerCase();
     if (seen.has(key)) continue;
@@ -465,6 +468,20 @@ function sealedRipCommunitySite(category) {
   if (value.includes("pok")) return "site:reddit.com/r/PokemonTCG";
   if (value.includes("magic")) return "site:reddit.com/r/magicTCG";
   return "site:reddit.com";
+}
+
+function sealedRipTrustedResearchSites(category) {
+  const value = String(category || "").toLowerCase();
+  if (["basketball", "baseball", "football"].includes(value)) {
+    return "(site:topps.com OR site:beckett.com OR site:checklistinsider.com OR site:cardboardconnection.com)";
+  }
+  if (value.includes("pok")) {
+    return "(site:pokemon.com OR site:pokebeach.com OR site:tcgplayer.com OR site:pokellector.com)";
+  }
+  if (value.includes("magic")) {
+    return "(site:magic.wizards.com OR site:wizards.com OR site:scryfall.com OR site:mtg.fandom.com)";
+  }
+  return "";
 }
 
 function sealedRipFormatTerms(identity) {
@@ -594,6 +611,41 @@ async function sealedRipExpandEvidenceRows(rows) {
   const expanded = await Promise.all(fetchable.map(async ({ row, index }) => ({ index, pageText: await sealedRipFetchPageText(row) })));
   const byIndex = new Map(expanded.map(x => [x.index, x.pageText]));
   return list.map((row, index) => ({ ...row, pageText: byIndex.get(index) || "" }));
+}
+
+function sealedRipPromptSignals(rows) {
+  const ordered = (Array.isArray(rows) ? rows.slice() : [])
+    .sort((a, b) => sealedRipEvidencePriority(a) - sealedRipEvidencePriority(b));
+  const chunks = [];
+  const seen = new Set();
+  const patterns = [
+    /\b1\s*:\s*\d{1,7}\b/ig,
+    /\b(?:retail[- ]only|retail exclusive|value box|blaster|case hit|rookie signatures?|hyper signatures?|autographs?|light burst|green hoops|numbered|parallel|ssp|short print|rookies?)\b/ig,
+  ];
+  for (const row of ordered) {
+    const text = `${row?.snippet || ""} ${row?.pageText || ""}`.replace(/\s+/g, " ").trim();
+    if (!text) continue;
+    for (const pattern of patterns) {
+      pattern.lastIndex = 0;
+      let match;
+      let hits = 0;
+      while ((match = pattern.exec(text)) && hits < 5) {
+        const start = Math.max(0, match.index - 260);
+        const end = Math.min(text.length, match.index + match[0].length + 620);
+        const excerpt = text.slice(start, end).trim();
+        const key = excerpt.toLowerCase().replace(/[^a-z0-9]+/g, " ").slice(0, 160);
+        if (excerpt && !seen.has(key)) {
+          seen.add(key);
+          chunks.push(`[${row.sourceType}] ${row.title}: ${excerpt}`);
+        }
+        hits++;
+        if (chunks.length >= 18) break;
+      }
+      if (chunks.length >= 18) break;
+    }
+    if (chunks.length >= 18) break;
+  }
+  return chunks.join("\n---\n").slice(0, 14000);
 }
 
 function sealedRipChaseSupported(name, evidenceText) {
@@ -982,7 +1034,7 @@ export default {
         return json({ ok: false, error: "missing_market", message: "Run the market-price check first so Scout can combine price and rip quality.", researchSearchesUsed: 0, marketplaceSearchesUsed: 0 }, 400, cors);
       }
 
-      const cacheKey = `sealed:rip:v4:${encodeURIComponent(productLabel.toLowerCase()).slice(0, 300)}`;
+      const cacheKey = `sealed:rip:v5:${encodeURIComponent(productLabel.toLowerCase()).slice(0, 300)}`;
       if (env.SCOUT_DATA) {
         try {
           const cached = await env.SCOUT_DATA.get(cacheKey, { type: "json" });
@@ -996,7 +1048,8 @@ export default {
       const formatTerms = sealedRipFormatTerms(identity);
       const researchSet = sealedRipResearchSet(identity);
       const exactSet = [String(identity?.year || "").trim(), researchSet].filter(Boolean).join(" ");
-      const checklistQuery = `"${exactSet}" ${formatTerms} ("pull odds" OR odds) (checklist OR "collector guide") rookies signatures "case hits" parallels`;
+      const trustedSites = sealedRipTrustedResearchSites(identity?.category);
+      const checklistQuery = `"${exactSet}" ${formatTerms} odds checklist rookies autographs parallels "case hit" ${trustedSites}`.trim();
       const communityQuery = `"${exactSet}" ${formatTerms} pulls review ${sealedRipCommunitySite(identity?.category)}`;
       let checklistData = {}, communityData = {};
       let researchSearchesUsed = 0;
@@ -1021,9 +1074,10 @@ export default {
       }
 
       const sources = evidenceRows.slice(0, 12).map(row => ({ title: row.title, link: row.link, sourceType: row.sourceType, queryKind: row.queryKind }));
+      const evidenceSignals = sealedRipPromptSignals(evidenceRows);
       const evidenceForPrompt = evidenceRows.slice(0, 18).map((row, index) =>
         `[${index + 1}] TYPE=${row.sourceType}; SEARCH=${row.queryKind}; TITLE=${row.title}; SOURCE=${row.source}; URL=${row.link}; SNIPPET=${row.snippet}; PAGE=${row.pageText || ""}`
-      ).join("\n\n").slice(0, 42000);
+      ).join("\n\n").slice(0, 34000);
 
       const schema = {
         type: "object",
@@ -1051,7 +1105,7 @@ Use ONLY the research evidence below. Do not rely on memory. NEVER invent, estim
 
 Only put a card/player/insert in chaseCards when it is explicitly named in the supplied evidence. A chaseCards entry may be a named player/card, a named insert or case-hit family, a named autograph family, or a named numbered/retail-exclusive parallel when the evidence clearly identifies it as something collectors chase. Prefer exact-format retail/value-box chases over Hobby-only content. If the evidence names supported retail chases, return 3-5 of the strongest ones instead of leaving chaseCards empty. Set chaseEvidenceAvailable=false and return an empty chaseCards array only if you truly cannot support any named chase from the evidence. Score chaseScore 0-100 only when chaseEvidenceAvailable=true, for breadth and quality of meaningful rookies, stars, inserts, case hits, autographs, numbered/color parallels, and format exclusives. Do not give a high chase score solely because one nearly impossible jackpot exists. If the evidence literally contains exact-format odds such as 1:207, preserve that exact notation in pullOdds and explain what it applies to. Score pullScore 0-100 only when the evidence supports a realistic assessment for this exact format; otherwise set pullEvidenceAvailable=false. For collector sentiment, summarize recurring product-specific themes rather than one lucky or angry opening. Set sentimentEvidenceAvailable=false if there is not enough community/review evidence. Note recurring quality-control, collation, damage, or repetitive-base complaints in negatives. Keep conclusions conservative when evidence is thin.
 
-Research evidence:\n${evidenceForPrompt}`;
+High-signal excerpts extracted from the best sources (read these first):\n${evidenceSignals || "No compact signals extracted."}\n\nFull research evidence:\n${evidenceForPrompt}`;
 
       let rawAnalysis;
       try {
@@ -1070,6 +1124,47 @@ Research evidence:\n${evidenceForPrompt}`;
       try { aiObject = sealedRipAiJson(rawAnalysis); }
       catch {
         return json({ ok: false, error: "rip_analysis_parse_failed", message: "Scout could not safely interpret the rip-quality research right now.", researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);
+      }
+
+      // If the broad synthesis misses named chases or literal odds, make one compact
+      // extraction-only AI pass over the high-signal excerpts. This spends no extra
+      // Google/marketplace searches, and every recovered item is still independently
+      // validated against the retrieved evidence by sealedRipNormalize below.
+      const missingChases = !Array.isArray(aiObject?.chaseCards) || !aiObject.chaseCards.length;
+      const missingOdds = !Array.isArray(aiObject?.pullOdds) || !aiObject.pullOdds.length;
+      if (evidenceSignals && (missingChases || missingOdds)) {
+        const recoverySchema = {
+          type: "object",
+          properties: {
+            chaseScore: { type: "number" },
+            pullScore: { type: "number" },
+            chaseCards: { type: "array", items: { type: "object", properties: { name: { type: "string" }, why: { type: "string" } }, required: ["name", "why"] }, maxItems: 5 },
+            pullOdds: { type: "array", items: { type: "object", properties: { item: { type: "string" }, odds: { type: "string" }, sourceType: { type: "string" }, note: { type: "string" } }, required: ["item", "odds", "sourceType", "note"] }, maxItems: 8 },
+          },
+          required: ["chaseScore", "pullScore", "chaseCards", "pullOdds"]
+        };
+        const recoveryPrompt = `Extract only source-supported CHASES and exact-format PULL ODDS for ${productLabel} (${String(identity?.productType || identity?.boxType || "")}). Use ONLY the excerpts below. Named retail insert families, retail case hits, autograph families, numbered/retail-exclusive parallels, and explicitly named rookie/star cards may be chases. Preserve odds exactly as written (for example 1:7). Do not estimate or infer odds. If no literal exact-format odds are present, return pullOdds=[]. Do not invent names.\n\n${evidenceSignals}`;
+        try {
+          const recoveredRaw = await env.AI.run(SEALED_RIP_MODEL, {
+            prompt: recoveryPrompt,
+            max_tokens: 900,
+            temperature: 0,
+            response_format: { type: "json_schema", json_schema: recoverySchema }
+          });
+          const recovered = sealedRipAiJson(recoveredRaw);
+          if (missingChases && Array.isArray(recovered?.chaseCards) && recovered.chaseCards.length) {
+            aiObject.chaseCards = recovered.chaseCards;
+            aiObject.chaseScore = recovered.chaseScore;
+            aiObject.chaseEvidenceAvailable = true;
+          }
+          if (missingOdds && Array.isArray(recovered?.pullOdds) && recovered.pullOdds.length) {
+            aiObject.pullOdds = recovered.pullOdds;
+            aiObject.pullScore = recovered.pullScore;
+            aiObject.pullEvidenceAvailable = true;
+          }
+        } catch (err) {
+          console.warn("sealed rip compact recovery skipped", err);
+        }
       }
       const analysis = sealedRipNormalize(aiObject, evidenceRows, market);
       const checkedAt = new Date().toISOString();

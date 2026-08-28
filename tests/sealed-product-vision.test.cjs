@@ -4,7 +4,7 @@ const worker=fs.readFileSync('src/index.js','utf8');
 const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.38\.7"/);
+assert.match(worker,/const VERSION = "3\.38\.8"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
@@ -65,13 +65,18 @@ assert.match(ripRoute,/marketplaceSearchesUsed:\s*0/,'rip-quality research must 
 assert.doesNotMatch(ripRoute,/engine", "ebay|APIFY_TOKEN|CARD_API_KEY/i,'rip-quality route must not spend marketplace-provider calls');
 assert.ok(worker.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),'rip-quality synthesis must use the Cloudflare text model');
 assert.ok(worker.includes('NEVER invent, estimate, calculate, or extrapolate an exact pull odd'),'rip-quality prompt must prohibit invented pull odds');
-assert.match(worker,/sealed:rip:v4:/,'rip-quality research must be cached');
+assert.match(worker,/sealed:rip:v5:/,'rip-quality research must be cached');
 assert.match(worker,/sealedRipWeightedScore/,'final verdict must combine price, chases, pull evidence, and sentiment');
 assert.match(worker,/sealedRipExpandEvidenceRows/,'rip research must expand high-quality source pages beyond search snippets');
 assert.match(worker,/sealedRipEvidencePriority/,'rip research must prioritize official and checklist sources for page expansion');
 assert.match(worker,/url\.searchParams\.set\(\"num\", \"20\"\)/,'rip research should inspect a broader Google result page without adding a third search');
 assert.match(worker,/out\.length >= 12/,'rip research should retain enough candidates to reach lower-ranked odds sources');
 assert.match(worker,/const chaseEvidenceAvailable = chaseCards\.length > 0/,'validated named chases must establish chase evidence even if the model boolean is inconsistent');
+assert.match(worker,/sealedRipTrustedResearchSites/,'rip research must bias its evidence search toward trustworthy product/checklist sources');
+assert.match(worker,/sealedRipPromptSignals/,'rip research must build a compact chase-and-odds signal digest');
+assert.match(worker,/recoveryPrompt/,'rip research must retry extraction from compact evidence without spending another search');
+assert.match(worker,/missingChases.*missingOdds/s,'compact recovery must only run when chase or odds extraction is missing');
+assert.match(worker,/rich_snippet/,'rip research should retain rich Google result text when available');
 assert.match(worker,/sealedRipResearchSet/,'rip research must normalize barcode-style product titles into a searchable set name');
 assert.match(worker,/requiredMatches = Math\.min\(2, tokens\.length\)/,'rip source filter must not require every incidental barcode-title token');
 assert.match(worker,/if \(!evidenceRows\.length\)/,'one trustworthy source should be allowed to produce a guarded partial result');
