@@ -1,4 +1,4 @@
-const VERSION = "3.38.8";
+const VERSION = "3.38.9";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -1034,7 +1034,7 @@ export default {
         return json({ ok: false, error: "missing_market", message: "Run the market-price check first so Scout can combine price and rip quality.", researchSearchesUsed: 0, marketplaceSearchesUsed: 0 }, 400, cors);
       }
 
-      const cacheKey = `sealed:rip:v5:${encodeURIComponent(productLabel.toLowerCase()).slice(0, 300)}`;
+      const cacheKey = `sealed:rip:v6:${encodeURIComponent(productLabel.toLowerCase()).slice(0, 300)}`;
       if (env.SCOUT_DATA) {
         try {
           const cached = await env.SCOUT_DATA.get(cacheKey, { type: "json" });
@@ -1048,8 +1048,13 @@ export default {
       const formatTerms = sealedRipFormatTerms(identity);
       const researchSet = sealedRipResearchSet(identity);
       const exactSet = [String(identity?.year || "").trim(), researchSet].filter(Boolean).join(" ");
-      const trustedSites = sealedRipTrustedResearchSites(identity?.category);
-      const checklistQuery = `"${exactSet}" ${formatTerms} odds checklist rookies autographs parallels "case hit" ${trustedSites}`.trim();
+      // Keep the authoritative search intentionally broad. Requiring odds + checklist +
+      // rookies + autos + parallels + case-hit language all at once caused Google to
+      // return no non-community results for valid products such as 2025-26 Topps Hoops.
+      // We instead ask for any of the core authoritative research signals, then rank and
+      // validate the returned sources locally. This still spends exactly one research
+      // search for product/checklist evidence and one for collector sentiment.
+      const checklistQuery = `"${exactSet}" ${formatTerms} (odds OR checklist OR "collector guide") -reddit -facebook -ebay -amazon`;
       const communityQuery = `"${exactSet}" ${formatTerms} pulls review ${sealedRipCommunitySite(identity?.category)}`;
       let checklistData = {}, communityData = {};
       let researchSearchesUsed = 0;
@@ -1074,6 +1079,11 @@ export default {
       }
 
       const sources = evidenceRows.slice(0, 12).map(row => ({ title: row.title, link: row.link, sourceType: row.sourceType, queryKind: row.queryKind }));
+      const researchMix = {
+        authoritative: evidenceRows.filter(row => row.queryKind === "checklist-and-odds").length,
+        community: evidenceRows.filter(row => row.queryKind === "collector-reports").length,
+        expandedPages: evidenceRows.filter(row => String(row.pageText || "").trim()).length,
+      };
       const evidenceSignals = sealedRipPromptSignals(evidenceRows);
       const evidenceForPrompt = evidenceRows.slice(0, 18).map((row, index) =>
         `[${index + 1}] TYPE=${row.sourceType}; SEARCH=${row.queryKind}; TITLE=${row.title}; SOURCE=${row.source}; URL=${row.link}; SNIPPET=${row.snippet}; PAGE=${row.pageText || ""}`
@@ -1171,7 +1181,7 @@ High-signal excerpts extracted from the best sources (read these first):\n${evid
       if (env.SCOUT_DATA) {
         try { await env.SCOUT_DATA.put(cacheKey, JSON.stringify({ productLabel, analysis: aiObject, evidenceRows, sources, checkedAt }), { expirationTtl: 24 * 60 * 60 }); } catch {}
       }
-      return json({ ok: true, version: VERSION, productLabel, market, analysis, sources, checkedAt, cacheHit: false, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 200, cors);
+      return json({ ok: true, version: VERSION, productLabel, market, analysis, sources, researchMix, checkedAt, cacheHit: false, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 200, cors);
     }
 
     if (url.pathname === "/sealed/classify-type" && request.method === "POST") {
