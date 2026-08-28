@@ -1,4 +1,4 @@
-const VERSION = "3.48.0";
+const VERSION = "3.49.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -325,6 +325,36 @@ function sealedMarketResultRows(data, identity, lookupTitle = "") {
 
 
 const SEALED_RIP_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const SEALED_SHOWDOWN_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";
+
+function sealedRipAiFailureInfo(...errors) {
+  const parts = [];
+  for (const err of errors.filter(Boolean)) {
+    for (const value of [err?.code, err?.name, err?.message, err?.cause?.code, err?.cause?.name, err?.cause?.message]) {
+      if (value !== undefined && value !== null && String(value).trim()) parts.push(String(value));
+    }
+    if (typeof err === "string") parts.push(err);
+  }
+  const raw = parts.join(" ").replace(/\s+/g, " ").slice(0, 1200);
+  const code = (raw.match(/\b(3006|3007|3008|3036|3040|5007|5035)\b/) || [])[1] || "";
+  if (/3036|daily free allocation|free allocation|10,?000\s+neurons|used up.*neurons/i.test(raw)) {
+    return { type: "daily_quota", code: code || "3036", message: "Scout found the research, but Cloudflare Workers AI has reached its daily inference allowance. The allowance resets at 00:00 UTC; the research itself was not lost." };
+  }
+  if (/3040|out of capacity/i.test(raw)) {
+    return { type: "capacity", code: code || "3040", message: "Scout found the research, but Cloudflare Workers AI is temporarily out of inference capacity. Try the same shelf again later; the search results themselves were not the problem." };
+  }
+  if (/3006|request too large|too large/i.test(raw)) {
+    return { type: "request_too_large", code: code || "3006", message: "Scout found the research, but the AI synthesis request was too large. Scout kept the product unranked rather than trimming evidence silently." };
+  }
+  if (/3007|3008|timeout|timed out|aborted/i.test(raw)) {
+    return { type: "timeout", code: code || "3007", message: "Scout found the research, but Cloudflare Workers AI timed out while synthesizing it. Try the same shelf again later." };
+  }
+  if (/syntaxerror|unexpected token|unexpected end|json/i.test(raw)) {
+    return { type: "malformed_json", code, message: "Scout found the research, but the AI returned malformed analysis twice. Scout left the product unranked rather than guessing." };
+  }
+  return { type: "unknown", code, message: `Scout found the research, but Cloudflare Workers AI failed during synthesis${code ? ` (error ${code})` : ""}. Scout left the product unranked rather than guessing.` };
+}
+
 
 function sealedRipProductLabel(identity, lookupTitle = "") {
   const year = String(identity?.year || "").trim();
@@ -344,7 +374,7 @@ function sealedRipIntelligenceCacheKey(identity, mode = "single") {
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v19:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v20:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -2320,7 +2350,7 @@ ${sealedRipCommunityEvidenceText(evidenceRows, identity) || "No compatible commu
 \
 High-signal excerpts extracted from the best sources (read these first):\n${evidenceSignals || "No compact signals extracted."}\n\nFull research evidence:\n${evidenceForPrompt}`;
 
-      const compactSynthesisPrompt = `Evaluate ${productLabel} (${String(identity?.productType || identity?.boxType || "")}) using ONLY the compact evidence below. Return the requested JSON schema. ${sealedRipCategoryGuidance(identity?.category)} Never invent card names, odds, pull rates, guarantees, or format access. Exact pull odds must be literal and exact-format compatible. In Shelf Showdown, singles-price extraction is handled separately, so return chaseValueCards=[] here. If community evidence is absent, set sentimentEvidenceAvailable=false and leave collector fields conservative.\n\nCOMPACT AUTHORITY EVIDENCE:\n${evidenceSignals || evidenceForPrompt.slice(0, 12000) || "No compact authority evidence available."}`;
+      const compactSynthesisPrompt = `Evaluate ${productLabel} (${String(identity?.productType || identity?.boxType || "")}) using ONLY the compact evidence below. Return the requested JSON schema. ${sealedRipCategoryGuidance(identity?.category)} Never invent card names, odds, pull rates, guarantees, or format access. Exact pull odds must be literal and exact-format compatible. In Shelf Showdown, singles-price extraction is handled separately, so return chaseValueCards=[] here. If community evidence is absent, set sentimentEvidenceAvailable=false and leave collector fields conservative.\n\nCOMPACT AUTHORITY EVIDENCE:\n${String(evidenceSignals || evidenceForPrompt || "").slice(0, 10000) || "No compact authority evidence available."}`;
       const showdownSchema = {
         type: "object",
         properties: {
@@ -2335,7 +2365,7 @@ High-signal excerpts extracted from the best sources (read these first):\n${evid
         },
         required: ["qualitySummary", "chaseScore", "chaseEvidenceAvailable", "chaseCards", "pullScore", "pullEvidenceAvailable", "pullOdds", "confidence"]
       };
-      const showdownSynthesisPrompt = `SHOWDOWN AUTHORITY-ONLY ANALYSIS for ${productLabel} (${String(identity?.productType || identity?.boxType || "")}). Use ONLY the authority/checklist evidence below. Judge category-appropriate set/chase strength. Named chase cards or families must be explicitly supported. Exact pull odds must be literal and exact-format compatible; otherwise return pullEvidenceAvailable=false and pullOdds=[]. Do not score format access here; local section-aware code does that separately. Do not output singles prices; Chase Depth is extracted from its separate price-guide lane. Never invent names, guarantees, odds, or format claims.\n\nAUTHORITY EVIDENCE:\n${evidenceSignals || evidenceForPrompt.slice(0, 12000) || "No compact authority evidence available."}`;
+      const showdownSynthesisPrompt = `SHOWDOWN AUTHORITY-ONLY ANALYSIS for ${productLabel} (${String(identity?.productType || identity?.boxType || "")}). Use ONLY the authority/checklist evidence below. Judge category-appropriate set/chase strength. Named chase cards or families must be explicitly supported. Exact pull odds must be literal and exact-format compatible; otherwise return pullEvidenceAvailable=false and pullOdds=[]. Do not score format access here; local section-aware code does that separately. Do not output singles prices; Chase Depth is extracted from its separate price-guide lane. Never invent names, guarantees, odds, or format claims.\n\nAUTHORITY EVIDENCE:\n${String(evidenceSignals || evidenceForPrompt || "").slice(0, 10000) || "No compact authority evidence available."}`;
       const activeSynthesisSchema = researchMode === "showdown" ? showdownSchema : schema;
       const activePrimaryPrompt = researchMode === "showdown" ? showdownSynthesisPrompt : prompt;
       const showdownJsonInstruction = `Return ONE valid JSON object only. Required keys: qualitySummary, chaseScore, chaseEvidenceAvailable, chaseCards, pullScore, pullEvidenceAvailable, pullOdds, confidence. chaseCards and pullOdds must be arrays. confidence must be high, medium, or low. No markdown or commentary outside the JSON object.`;
@@ -2351,7 +2381,7 @@ High-signal excerpts extracted from the best sources (read these first):\n${evid
             ? { type: "json_object" }
             : { type: "json_schema", json_schema: activeSynthesisSchema }
         };
-        const primaryRaw = await env.AI.run(SEALED_RIP_MODEL, primaryOptions);
+        const primaryRaw = await env.AI.run(researchMode === "showdown" ? SEALED_SHOWDOWN_MODEL : SEALED_RIP_MODEL, primaryOptions);
         aiObject = sealedRipAiJson(primaryRaw);
       } catch (err) {
         console.warn("sealed rip primary synthesis/parse failed; trying compact authority-only retry", err);
@@ -2368,11 +2398,12 @@ High-signal excerpts extracted from the best sources (read these first):\n${evid
           if (researchMode !== "showdown") {
             retryOptions.response_format = { type: "json_schema", json_schema: activeSynthesisSchema };
           }
-          const retryRaw = await env.AI.run(SEALED_RIP_MODEL, retryOptions);
+          const retryRaw = await env.AI.run(researchMode === "showdown" ? SEALED_SHOWDOWN_MODEL : SEALED_RIP_MODEL, retryOptions);
           aiObject = sealedRipAiJson(retryRaw);
         } catch (retryErr) {
           console.error("sealed rip compact synthesis/parse retry failed", retryErr);
-          return json({ ok: false, error: "rip_analysis_failed", message: "Scout found the research but could not finish the rip-quality analysis right now.", failureStage: "synthesis", lanes: failureLanes, researchMix: { ...researchMix, synthesisRetryUsed }, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);
+          const aiFailure = sealedRipAiFailureInfo(retryErr, err);
+          return json({ ok: false, error: "rip_analysis_failed", message: aiFailure.message, aiFailure, failureStage: "synthesis", lanes: failureLanes, researchMix: { ...researchMix, synthesisRetryUsed, synthesisModel: researchMode === "showdown" ? SEALED_SHOWDOWN_MODEL : SEALED_RIP_MODEL, synthesisFailure: aiFailure.type }, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);
         }
       }
 
@@ -2411,7 +2442,7 @@ High-signal excerpts extracted from the best sources (read these first):\n${evid
         };
         const authorityRecoveryPrompt = `AUTHORITY-ONLY RECOVERY for ${productLabel} (${String(identity?.productType || identity?.boxType || "")}). Extract only category-appropriate named chase/set signals and literal pull odds from the AUTHORITY evidence below. Do not output singles prices. Preserve literal rates exactly. Omit any odds for an incompatible format or retailer variant. Never invent names or rates.\n\nAUTHORITY EVIDENCE:\n${evidenceSignals}`;
         try {
-          const recoveredRaw = await env.AI.run(SEALED_RIP_MODEL, {
+          const recoveredRaw = await env.AI.run(researchMode === "showdown" ? SEALED_SHOWDOWN_MODEL : SEALED_RIP_MODEL, {
             prompt: authorityRecoveryPrompt,
             max_tokens: 700,
             temperature: 0,
@@ -2445,7 +2476,7 @@ High-signal excerpts extracted from the best sources (read these first):\n${evid
         };
         const priceGuideRecoveryPrompt = `PRICE-GUIDE-ONLY RECOVERY for ${productLabel}. Extract only exact card name + literal current raw/market singles price records from the price-guide evidence below. Do not output set strength, format access, chase claims, or pull odds. Never use sealed box/pack prices. Never infer a price that is not literally paired with the card in the supplied evidence.\n\nPRICE-GUIDE EVIDENCE:\n${priceGuideSignals}`;
         try {
-          const recoveredRaw = await env.AI.run(SEALED_RIP_MODEL, {
+          const recoveredRaw = await env.AI.run(researchMode === "showdown" ? SEALED_SHOWDOWN_MODEL : SEALED_RIP_MODEL, {
             prompt: priceGuideRecoveryPrompt,
             max_tokens: 700,
             temperature: 0,
@@ -2465,7 +2496,7 @@ High-signal excerpts extracted from the best sources (read these first):\n${evid
       if (env.SCOUT_DATA && cacheableIntelligence) {
         try { await env.SCOUT_DATA.put(cacheKey, JSON.stringify({ productLabel, analysis: aiObject, evidenceRows, sources, checkedAt, researchMode }), { expirationTtl: intelligenceTtlDays * 24 * 60 * 60 }); } catch {}
       }
-      return json({ ok: true, version: VERSION, productLabel, market, analysis, sources, researchMix: { ...researchMix, synthesisRetryUsed, synthesisMode: researchMode === "showdown" ? "json_object_with_plain_retry" : "json_schema" }, checkedAt, cacheHit: false, intelligenceCacheHit: false, cacheableIntelligence, intelligenceTtlDays, researchMode, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 200, cors);
+      return json({ ok: true, version: VERSION, productLabel, market, analysis, sources, researchMix: { ...researchMix, synthesisRetryUsed, synthesisMode: researchMode === "showdown" ? "json_object_with_plain_retry" : "json_schema", synthesisModel: researchMode === "showdown" ? SEALED_SHOWDOWN_MODEL : SEALED_RIP_MODEL }, checkedAt, cacheHit: false, intelligenceCacheHit: false, cacheableIntelligence, intelligenceTtlDays, researchMode, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 200, cors);
     }
 
     if (url.pathname === "/sealed/classify-type" && request.method === "POST") {
