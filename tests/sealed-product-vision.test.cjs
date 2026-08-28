@@ -5,7 +5,7 @@ const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const index=fs.readFileSync('index.html','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.40\.5"/);
+assert.match(worker,/const VERSION = "3\.40\.6"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
@@ -66,7 +66,7 @@ assert.match(ripRoute,/marketplaceSearchesUsed:\s*0/,'rip-quality research must 
 assert.doesNotMatch(ripRoute,/engine", "ebay|APIFY_TOKEN|CARD_API_KEY/i,'rip-quality route must not spend marketplace-provider calls');
 assert.ok(worker.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),'rip-quality synthesis must use the Cloudflare text model');
 assert.ok(worker.includes('NEVER invent, estimate, calculate, or extrapolate an exact pull odd'),'rip-quality prompt must prohibit invented pull odds');
-assert.match(worker,/sealed:intel:v7:/,'sealed product intelligence must use a reusable product cache');
+assert.match(worker,/sealed:intel:v8:/,'sealed product intelligence must use a reusable product cache');
 assert.match(worker,/sealedRipWeightedScore/,'final verdict must combine price, chases, pull evidence, and sentiment');
 assert.match(worker,/sealedRipProductEvidenceCount/,'buy recommendation must count the three product-quality evidence pillars');
 assert.match(worker,/sealedRipProductEvidenceCount\(parts\) < 2/,'buy recommendation must require two of three product-quality pillars');
@@ -165,5 +165,9 @@ assert.match(worker,/function sealedRipCommunityRowCompatible/,'community source
 assert.match(worker,/function sealedRipCommunitySentenceCompatible/,'format-specific community sentences must match the scanned format');
 assert.match(worker,/sealedRipCommunityEvidenceText\(evidenceRows, identity\)/,'collector prompt must receive format-scoped community evidence');
 assert.ok(worker.includes("Never import Hobby, Mega, Hanger, Fanatics"),'collector synthesis must forbid cross-format opening economics');
+assert.match(worker,/function sealedRipFilterCollectorText/,'final collector summary must be post-filtered by exact format');
+assert.match(worker,/function sealedRipFilterCollectorItems/,'collector bullets must be post-filtered by exact format');
+assert.match(worker,/function sealedRipCollectorFormatConflict/,'cross-format synthesized sentiment must invalidate the sentiment score');
+assert.ok(worker.includes('Scout discarded collector sentiment because the synthesized comments mixed a different sealed format'),'cross-format sentiment must fail closed instead of scoring questionable copy');
 
 console.log('Sealed Product Scout vision tests passed.');

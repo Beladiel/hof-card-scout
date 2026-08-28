@@ -1,4 +1,4 @@
-const VERSION = "3.40.5";
+const VERSION = "3.40.6";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -340,7 +340,7 @@ function sealedRipIntelligenceCacheKey(identity) {
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v7:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v8:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -1073,6 +1073,35 @@ function sealedRipCommunityEvidenceText(evidenceRows = [], identity = {}) {
     .slice(0, 12000);
 }
 
+function sealedRipFilterCollectorText(value, identity = {}) {
+  return String(value || "")
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map(sentence => sentence.trim())
+    .filter(sentence => sentence && sealedRipCommunitySentenceCompatible(sentence, identity))
+    .join(" ")
+    .trim();
+}
+
+function sealedRipFilterCollectorItems(values, identity = {}) {
+  return (Array.isArray(values) ? values : [])
+    .map(value => String(value || "").trim())
+    .filter(value => value && sealedRipCommunitySentenceCompatible(value, identity))
+    .slice(0, 4);
+}
+
+function sealedRipCollectorFormatConflict(raw, identity = {}) {
+  const pieces = [
+    String(raw?.collectorTake || ""),
+    ...(Array.isArray(raw?.positives) ? raw.positives : []),
+    ...(Array.isArray(raw?.negatives) ? raw.negatives : []),
+  ].map(value => String(value || "").trim()).filter(Boolean);
+  return pieces.some(piece => {
+    const explicit = sealedRipExplicitFormatKeys(piece);
+    if (!explicit.size && !/\b(?:fanatics|walmart|target)\b/i.test(piece)) return false;
+    return !sealedRipCommunitySentenceCompatible(piece, identity);
+  });
+}
+
 function sealedRipTemperCollectorSummary(value, communitySourceCount = 0) {
   let text = sealedRipTemperCollectorLanguage(value, communitySourceCount);
   const sentences = text.split(/(?<=[.!?])\s+/).map(x => x.trim()).filter(Boolean);
@@ -1130,7 +1159,17 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
   const pullEvidenceAvailable = pullOdds.length > 0;
   const communitySourceCount = evidenceRows.filter(row => sealedRipCommunityRowCompatible(row, identity)).length;
   const communityEvidenceText = sealedRipCommunityEvidenceText(evidenceRows, identity);
-  const sentimentEvidenceAvailable = Boolean(raw?.sentimentEvidenceAvailable) && communitySourceCount >= 2 && communityEvidenceText.length >= 80;
+  const collectorFormatConflict = sealedRipCollectorFormatConflict(raw, identity);
+  const collectorTakeFiltered = sealedRipFilterCollectorText(raw?.collectorTake, identity);
+  const collectorTakeClean = collectorTakeFiltered ? sealedRipTemperCollectorSummary(collectorTakeFiltered, communitySourceCount).slice(0, 700) : "";
+  const positivesClean = sealedRipFilterCollectorItems(raw?.positives, identity).map(x => x.slice(0, 220));
+  const negativesClean = sealedRipFilterCollectorItems(raw?.negatives, identity).map(x => x.slice(0, 220));
+  const collectorContentAvailable = Boolean(collectorTakeClean || positivesClean.length || negativesClean.length);
+  const sentimentEvidenceAvailable = Boolean(raw?.sentimentEvidenceAvailable)
+    && communitySourceCount >= 2
+    && communityEvidenceText.length >= 80
+    && collectorContentAvailable
+    && !collectorFormatConflict;
   const priceScore = sealedRipPriceScore(market?.shelfPrice, market?.median);
   const parts = {
     priceScore,
@@ -1171,9 +1210,9 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
     qualitySummary,
     chaseCards,
     pullOdds,
-    collectorTake: sentimentEvidenceAvailable ? sealedRipTemperCollectorSummary(raw?.collectorTake, communitySourceCount).slice(0, 700) : "Scout did not find enough recurring exact-product collector discussion to score sentiment.",
-    positives: sentimentEvidenceAvailable ? (Array.isArray(raw?.positives) ? raw.positives : []).map(x => String(x || "").trim().slice(0, 220)).filter(Boolean).slice(0, 4) : [],
-    negatives: sentimentEvidenceAvailable ? (Array.isArray(raw?.negatives) ? raw.negatives : []).map(x => String(x || "").trim().slice(0, 220)).filter(Boolean).slice(0, 4) : [],
+    collectorTake: sentimentEvidenceAvailable ? collectorTakeClean : (collectorFormatConflict ? "Scout discarded collector sentiment because the synthesized comments mixed a different sealed format into this product." : "Scout did not find enough recurring exact-product collector discussion to score sentiment."),
+    positives: sentimentEvidenceAvailable ? positivesClean : [],
+    negatives: sentimentEvidenceAvailable ? negativesClean : [],
     confidence: evidenceCount < 2 ? "low" : (["high", "medium", "low"].includes(confidenceRaw) ? confidenceRaw : recommendationConfidence),
   };
 }
