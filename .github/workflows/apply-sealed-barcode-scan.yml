@@ -1,0 +1,42 @@
+name: Apply Sealed Barcode Scanner
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apply-sealed-barcode-scan.py
+      - .github/workflows/apply-sealed-barcode-scan.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply barcode scanner migration
+        run: python apply-sealed-barcode-scan.py
+
+      - name: Check JavaScript syntax
+        run: node --check src/index.js && node --check sealed-product-scout.js
+
+      - name: Run regression suite
+        run: |
+          node collection-intelligence.test.cjs
+          for f in tests/*.test.cjs; do
+            echo "Running $f"
+            node "$f"
+          done
+
+      - name: Commit scanner and remove migration files
+        run: |
+          git config user.name "HOF Card Scout Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git rm apply-sealed-barcode-scan.py .github/workflows/apply-sealed-barcode-scan.yml
+          git add src/index.js sealed-product-scout.js tests/*.test.cjs
+          git commit -m "Add sealed product barcode identification"
+          git push origin main
