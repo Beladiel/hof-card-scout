@@ -1,4 +1,4 @@
-const VERSION = "3.44.0";
+const VERSION = "3.45.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -344,7 +344,7 @@ function sealedRipIntelligenceCacheKey(identity, mode = "single") {
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v15:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v16:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -1488,6 +1488,8 @@ function sealedRipNormalizeChaseValues(raw, evidenceRows = [], identity = {}) {
     if (!proof) continue;
     item.priceBasis = proof.priceBasis;
     item.verifiedSource = proof.sourceHost;
+    item.cardNumber = sealedRipChaseCardNumber(item.name);
+    item.canonicalKey = sealedRipChaseCanonicalKey(item);
     const key = `${item.name}|${item.treatment}`.toLowerCase().replace(/\s+/g, " ");
     if (seen.has(key)) continue;
     seen.add(key);
@@ -1496,16 +1498,107 @@ function sealedRipNormalizeChaseValues(raw, evidenceRows = [], identity = {}) {
   return out.sort((a,b) => b.marketPrice - a.marketPrice).slice(0, 15);
 }
 
+function sealedRipChaseTreatmentSegment(value) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  if (/\b(?:parallel|refractor|prizm|foil|holo(?:graphic)?|rainbow|wave|shimmer|mojo|cracked ice|laser|disco|pulsar|velocity|checkerboard|negative|sepia|x-fractor|borderless|showcase|extended art|cosmic foil|etched foil|surge|galaxy|neon|hyper|scope|fractal|color match|numbered|serial(?:ized)?|image variation|printing plate|superfractor)\b/i.test(text)) return true;
+  return /^(?:red|blue|green|gold|silver|black|purple|orange|pink|teal|aqua|white|yellow|bronze)(?:\s+(?:red|blue|green|gold|silver|black|purple|orange|pink|teal|aqua|white|yellow|bronze))*$/i.test(text);
+}
+
+function sealedRipChaseCardNumber(value) {
+  const text = String(value || "");
+  let match = text.match(/#\s*([A-Z0-9][A-Z0-9-]{0,15})\b/i);
+  if (!match) match = text.match(/\b(?:CN|collector\s*(?:no\.?|number)?|card\s*(?:no\.?|number))\s*[:#-]?\s*([A-Z0-9][A-Z0-9-]{0,15})\b/i);
+  if (!match) match = text.match(/\b(\d{1,4}\/\d{1,4})\b/);
+  return match ? String(match[1] || '').toUpperCase() : '';
+}
+
+function sealedRipChaseCanonicalIdentity(card = {}) {
+  const original = String(card?.name || "").trim();
+  const treatment = String(card?.treatment || "").trim();
+  const cardNumber = String(card?.cardNumber || sealedRipChaseCardNumber(original)).trim().toUpperCase();
+  let base = original;
+
+  // Remove only an explicitly extracted treatment phrase, never generic player-name words.
+  if (treatment) {
+    const escaped = treatment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    base = base.replace(new RegExp(`(?:\\[|\\()?\\s*${escaped}\\s*(?:\\]|\\))?`, "ig"), " ");
+  }
+
+  // Bracketed/parenthetical and pipe/dash segments are safe places to remove obvious treatments.
+  base = base.replace(/\[([^\]]{1,100})\]|\(([^)]{1,100})\)/g, (whole, square, paren) => {
+    const inner = square || paren || "";
+    return sealedRipChaseTreatmentSegment(inner) ? " " : whole;
+  });
+  base = base.split(/\s+(?:\||·|[-–—])\s+/).filter(segment => !sealedRipChaseTreatmentSegment(segment)).join(" ");
+
+  // Sports serial numbering is usually presented as " /249". Preserve collector numbers such as 199/165.
+  base = base.replace(/\s+\/\s*\d{1,6}\b/g, " ");
+
+  if (cardNumber) {
+    const escapedNumber = cardNumber.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    base = base
+      .replace(new RegExp(`#\\s*${escapedNumber}\\b`, "ig"), " ")
+      .replace(new RegExp(`\\b(?:CN|collector\\s*(?:no\\.?|number)?|card\\s*(?:no\\.?|number))\\s*[:#-]?\\s*${escapedNumber}\\b`, "ig"), " ")
+      .replace(new RegExp(`\\b${escapedNumber}\\b`, "ig"), " ");
+  }
+
+  // These are treatment nouns, not identity-bearing card concepts. Keep autograph/relic/rookie/insert wording.
+  base = base.replace(/\b(?:parallel|refractor|foil|holo(?:graphic)?|borderless|showcase|extended art|numbered)\b/ig, " ");
+  base = base.toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!base) base = original.toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+  const key = `${base}${cardNumber ? `|#${cardNumber.toLowerCase()}` : ""}`;
+  const label = `${base}${cardNumber ? ` #${cardNumber}` : ""}`.trim();
+  return { key, label, cardNumber };
+}
+
+function sealedRipChaseCanonicalKey(card = {}) {
+  return sealedRipChaseCanonicalIdentity(card).key;
+}
+
+function sealedRipChaseIdentityGroups(cards = []) {
+  const groups = new Map();
+  for (const row of (Array.isArray(cards) ? cards : [])) {
+    const price = Number(row?.marketPrice);
+    if (!Number.isFinite(price) || price <= 0) continue;
+    const canonical = sealedRipChaseCanonicalIdentity(row);
+    const key = canonical.key || String(row?.name || "").toLowerCase();
+    if (!groups.has(key)) groups.set(key, { key, label: canonical.label, variants: [], representative: null });
+    const group = groups.get(key);
+    group.variants.push(row);
+    if (!group.representative || price > Number(group.representative.marketPrice || 0)) group.representative = row;
+  }
+  return [...groups.values()].filter(group => group.representative);
+}
+
 function sealedRipChaseDepthMetrics(cards = []) {
-  const rows = (Array.isArray(cards) ? cards : []).filter(row => Number.isFinite(Number(row?.marketPrice)) && Number(row.marketPrice) > 0).slice().sort((a,b) => Number(b.marketPrice)-Number(a.marketPrice));
-  if (rows.length < 2) return { available:false, score:null, label:"N/A", summary:"Scout could not verify enough set-level singles prices to measure chase depth yet.", count20:0, count50:0, count100:0, top5Total:null, top10Total:null, concentration:null };
-  const prices = rows.map(row => Number(row.marketPrice));
+  const verifiedRows = (Array.isArray(cards) ? cards : [])
+    .filter(row => Number.isFinite(Number(row?.marketPrice)) && Number(row.marketPrice) > 0)
+    .slice()
+    .sort((a,b) => Number(b.marketPrice)-Number(a.marketPrice));
+  if (verifiedRows.length < 2) return {
+    available:false, score:null, label:"N/A",
+    summary:"Scout could not verify enough set-level singles prices to measure chase depth yet.",
+    count20:0, count50:0, count100:0, top5Total:null, top10Total:null, concentration:null,
+    uniqueCount:verifiedRows.length, variantCount:verifiedRows.length, parallelBreadth:0, diversityRatio:null,
+  };
+
+  const groups = sealedRipChaseIdentityGroups(verifiedRows);
+  const uniqueRows = groups.map(group => group.representative)
+    .sort((a,b) => Number(b.marketPrice)-Number(a.marketPrice));
+  const variantCount = verifiedRows.length;
+  const uniqueCount = uniqueRows.length;
+  const parallelBreadth = Math.max(0, variantCount - uniqueCount);
+  const diversityRatio = variantCount > 0 ? uniqueCount / variantCount : 0;
+  const prices = uniqueRows.map(row => Number(row.marketPrice));
   const count20 = prices.filter(x => x >= 20).length;
   const count50 = prices.filter(x => x >= 50).length;
   const count100 = prices.filter(x => x >= 100).length;
   const top5Total = Number(prices.slice(0,5).reduce((a,b)=>a+b,0).toFixed(2));
   const top10Total = Number(prices.slice(0,10).reduce((a,b)=>a+b,0).toFixed(2));
-  const concentration = top10Total > 0 ? prices[0] / top10Total : 1;
+  const concentration = top10Total > 0 && prices.length ? prices[0] / top10Total : 1;
+
+  // Score only canonical chase identities. Extra parallels are reported as breadth, not counted as extra $20/$50/$100 chases.
   let score = 20;
   score += Math.min(24, count20 * 3);
   score += Math.min(18, count50 * 5);
@@ -1514,12 +1607,20 @@ function sealedRipChaseDepthMetrics(cards = []) {
   if (concentration >= .75) score -= 18;
   else if (concentration >= .60) score -= 12;
   else if (concentration >= .45) score -= 6;
-  if (rows.length < 4) score = Math.min(score, 58);
+  if (uniqueCount < 2) score = Math.min(score, 35);
+  else if (uniqueCount < 4) score = Math.min(score, 58);
   score = Math.max(0, Math.min(100, Math.round(score)));
-  const label = concentration >= .68 && count20 <= 4 ? "LOTTERY-TICKET" : score >= 78 ? "DEEP" : score >= 62 ? "SOLID" : score >= 45 ? "MODERATE" : "THIN";
-  const top = rows[0];
-  const summary = `${label} set-level chase pool · ${count100} verified at $100+ · ${count50} at $50+ · ${count20} at $20+ · top 10 verified values total $${top10Total.toFixed(2)}${top?.name?` · top verified card: ${top.name} ($${Number(top.marketPrice).toFixed(2)})`:""}. Exact-format access is scored separately.`;
-  return { available:true, score, label, summary, count20, count50, count100, top5Total, top10Total, concentration:Number(concentration.toFixed(3)) };
+
+  const label = uniqueCount <= 1 && variantCount >= 2 ? "CONCENTRATED"
+    : concentration >= .68 && count20 <= 4 ? "LOTTERY-TICKET"
+    : score >= 78 ? "DEEP" : score >= 62 ? "SOLID" : score >= 45 ? "MODERATE" : "THIN";
+  const top = uniqueRows[0];
+  const summary = `${label} set-level chase pool · ${uniqueCount} unique chase identit${uniqueCount===1?"y":"ies"} across ${variantCount} verified priced variant${variantCount===1?"":"s"} · ${parallelBreadth} extra parallel/treatment variant${parallelBreadth===1?"":"s"} · ${count100} unique at $100+ · ${count50} at $50+ · ${count20} at $20+ · top 10 unique values total $${top10Total.toFixed(2)}${top?.name?` · top canonical chase: ${top.name} ($${Number(top.marketPrice).toFixed(2)})`:""}. Exact-format access is scored separately.`;
+  return {
+    available:true, score, label, summary, count20, count50, count100, top5Total, top10Total,
+    concentration:Number(concentration.toFixed(3)), uniqueCount, variantCount, parallelBreadth,
+    diversityRatio:Number(diversityRatio.toFixed(3)),
+  };
 }
 
 function sealedRipPriceGuideEvidenceText(evidenceRows = [], identity = {}) {
@@ -1619,6 +1720,10 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}, researchMo
     chaseDepthTop5Total: chaseDepth.top5Total,
     chaseDepthTop10Total: chaseDepth.top10Total,
     chaseDepthConcentration: chaseDepth.concentration,
+    chaseDepthUniqueCount: chaseDepth.uniqueCount,
+    chaseDepthVariantCount: chaseDepth.variantCount,
+    chaseDepthParallelBreadth: chaseDepth.parallelBreadth,
+    chaseDepthDiversityRatio: chaseDepth.diversityRatio,
     chaseValueCards,
     formatAccessScore,
     formatAccessEvidenceAvailable,

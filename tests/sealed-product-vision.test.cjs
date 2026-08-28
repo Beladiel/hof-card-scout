@@ -5,7 +5,7 @@ const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const index=fs.readFileSync('index.html','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.44\.0"/);
+assert.match(worker,/const VERSION = "3\.45\.0"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
@@ -66,7 +66,7 @@ assert.match(ripRoute,/marketplaceSearchesUsed:\s*0/,'rip-quality research must 
 assert.doesNotMatch(ripRoute,/engine", "ebay|APIFY_TOKEN|CARD_API_KEY/i,'rip-quality route must not spend marketplace-provider calls');
 assert.ok(worker.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),'rip-quality synthesis must use the Cloudflare text model');
 assert.ok(worker.includes('NEVER invent, estimate, calculate, or extrapolate an exact pull odd'),'rip-quality prompt must prohibit invented pull odds');
-assert.match(worker,/sealed:intel:v15:/,'sealed product intelligence must use a reusable mode-scoped product cache');
+assert.match(worker,/sealed:intel:v16:/,'sealed product intelligence must use a reusable mode-scoped product cache');
 assert.match(worker,/sealedRipWeightedScore/,'final verdict must combine price, chases, pull evidence, and sentiment');
 assert.match(worker,/sealedRipProductEvidenceCount/,'buy recommendation must count the three product-quality evidence pillars');
 assert.match(worker,/sealedRipProductEvidenceCount\(parts\) < 2/,'buy recommendation must require two of three product-quality pillars');
@@ -157,6 +157,12 @@ assert.ok(worker.includes('const formatAccessEvidenceAvailable = formatAccessCon
 assert.ok(worker.includes('researchMode === "showdown"'),'Showdown must swap community research for aggregate price-guide research');
 assert.ok(app.includes('researchMode:"showdown"'),'front end must request Showdown research mode');
 assert.ok(app.includes('CHASE DEPTH'),'Showdown must display Chase Depth');
+assert.match(worker,/function sealedRipChaseCanonicalIdentity/,'Chase Depth must canonicalize parallel treatments into core card identities');
+assert.match(worker,/function sealedRipChaseIdentityGroups/,'Chase Depth must group verified price-guide rows by canonical card identity');
+assert.ok(worker.includes('const uniqueRows = groups.map(group => group.representative)'),'Chase Depth thresholds must use one representative price per canonical identity');
+assert.ok(worker.includes('const parallelBreadth = Math.max(0, variantCount - uniqueCount)'),'parallel breadth must be measured separately from unique chase depth');
+assert.ok(worker.includes('chaseDepthUniqueCount'),'normalized response must expose unique chase identity count');
+assert.ok(worker.includes('top 10 unique values total'),'Chase Depth summary must describe canonicalized value totals');
 assert.ok(app.includes('let weighted=depth*.35+format*.25+price*.20+set*.15'),'Showdown weights must prioritize Chase Depth without inventing missing support');
 assert.ok(app.includes('const rankable=missing.length===0'),'Showdown must explicitly mark incomplete products unrankable');
 assert.ok(app.includes('INCOMPLETE · NOT RANKED'),'Showdown must visibly label incomplete products');
