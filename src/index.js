@@ -1,4 +1,4 @@
-const VERSION = "3.41.0";
+const VERSION = "3.41.1";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -340,7 +340,7 @@ function sealedRipIntelligenceCacheKey(identity) {
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v9:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v10:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -627,7 +627,10 @@ function sealedRipAuthorityQuery(identity, researchSet, authoritySite, formatTer
 }
 
 function sealedRipFormatTerms(identity) {
-  const type = String(identity?.productType || identity?.boxType || "").trim().toLowerCase();
+  const type = `${identity?.variant || ""} ${identity?.productType || identity?.boxType || ""}`.trim().toLowerCase();
+  if (type.includes("collector booster")) return '"collector booster"';
+  if (type.includes("play booster")) return '"play booster"';
+  if (type.includes("jumpstart booster")) return '"jumpstart booster"';
   if (type.includes("blaster")) return '("blaster" OR "value box")';
   if (type.includes("mega")) return '"mega box"';
   if (type.includes("hanger")) return 'hanger';
@@ -974,7 +977,10 @@ function sealedRipEvidenceRowMatchesIdentity(row, identity = {}) {
 }
 
 function sealedRipExactFormatKey(identity = {}) {
-  const type = String(identity?.boxType || identity?.productType || "").trim().toLowerCase();
+  const type = `${identity?.variant || ""} ${identity?.boxType || identity?.productType || ""}`.trim().toLowerCase();
+  if (/collector\s+booster/.test(type)) return "collector_booster";
+  if (/play\s+booster/.test(type)) return "play_booster";
+  if (/jumpstart\s+booster/.test(type)) return "jumpstart_booster";
   if (/blaster/.test(type)) return "blaster";
   if (/mega/.test(type)) return "mega";
   if (/hobby/.test(type)) return "hobby";
@@ -997,6 +1003,9 @@ function sealedRipExplicitFormatKeys(value) {
   const text = String(value || "").toLowerCase().replace(/[–—]/g, "-");
   const keys = new Set();
   const rules = [
+    ["collector_booster", /\bcollector\s+boosters?(?:\s+(?:box|pack|display))?\b/],
+    ["play_booster", /\bplay\s+boosters?(?:\s+(?:box|pack|display))?\b/],
+    ["jumpstart_booster", /\bjumpstart\s+boosters?(?:\s+(?:box|pack|display))?\b/],
     ["value_box", /\bvalue\s+box\b/],
     ["blaster", /\bblaster(?:\s+box)?\b/],
     ["mega", /\bmega(?:\s+box)?\b/],
@@ -1043,6 +1052,26 @@ function sealedRipVariantTextCompatible(value, identity = {}) {
     if (new RegExp(`\\b${marker}\\b`, "i").test(text) && !identityText.includes(marker)) return false;
   }
   return true;
+}
+
+function sealedRipFormatAccessContextSupported(evidenceRows, identity = {}) {
+  const compatible = sealedRipCompatibleFormatKeys(identity);
+  if (!compatible.size) return false;
+  const key = sealedRipCategoryKey(identity?.category);
+  const signal = key === "magic"
+    ? /\b(?:mythic(?: rare)?|borderless|showcase|serialized|special guests?|bonus sheet|foil|headliner|extended art|source material)\b/i
+    : key === "pokemon"
+      ? /\b(?:special illustration rare|illustration rare|hyper rare|secret rare|ultra rare|promo|special treatment)\b/i
+      : /\b(?:rookies?|autographs?|signatures?|parallel|exclusive|numbered|case hit|ssp|short print|insert)\b/i;
+  return (Array.isArray(evidenceRows) ? evidenceRows : []).some(row => {
+    if (row?.sourceType === "community") return false;
+    if (!sealedRipEvidenceRowMatchesIdentity(row, identity)) return false;
+    const text = `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`;
+    if (!sealedRipVariantTextCompatible(text, identity)) return false;
+    const explicit = sealedRipExplicitFormatKeys(text);
+    if (!explicit.size || !Array.from(explicit).some(format => compatible.has(format))) return false;
+    return signal.test(text);
+  });
 }
 
 function sealedRipOddsRowSupported(row, evidenceRows, identity = {}) {
@@ -1214,6 +1243,13 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
   const chaseContextAvailable = sealedRipChaseContextSupported(evidenceRows, identity?.category);
   const chaseEvidenceAvailable = chaseCards.length > 0 || chaseContextAvailable;
   const pullEvidenceAvailable = pullOdds.length > 0;
+  const formatAccessContextAvailable = sealedRipFormatAccessContextSupported(evidenceRows, identity);
+  const formatAccessEvidenceAvailable = Boolean(raw?.formatAccessEvidenceAvailable) && formatAccessContextAvailable;
+  const formatAccessScore = formatAccessEvidenceAvailable ? sealedRipClampScore(raw?.formatAccessScore) : null;
+  const rawFormatSummary = String(raw?.formatAccessSummary || "").trim().slice(0, 500);
+  const formatAccessSummary = formatAccessEvidenceAvailable && sealedRipFormatTextCompatible(rawFormatSummary, identity) && sealedRipVariantTextCompatible(rawFormatSummary, identity)
+    ? rawFormatSummary
+    : (formatAccessContextAvailable ? "Scout verified exact-format evidence, but could not safely summarize how deeply this configuration reaches the set's desirable cards." : "Scout could not verify exact-format access to the set's desirable cards or treatments.");
   const communitySourceCount = evidenceRows.filter(row => sealedRipCommunityRowCompatible(row, identity)).length;
   const communityEvidenceText = sealedRipCommunityEvidenceText(evidenceRows, identity);
   const collectorFormatConflict = sealedRipCollectorFormatConflict(raw, identity);
@@ -1255,6 +1291,10 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
     chaseEvidenceAvailable,
     chaseContextAvailable,
     namedChasesVerified: chaseCards.length,
+    formatAccessScore,
+    formatAccessEvidenceAvailable,
+    formatAccessContextAvailable,
+    formatAccessSummary,
     pullScore: parts.pullScore,
     pullEvidenceAvailable,
     sentimentScore: parts.sentimentScore,
@@ -1302,6 +1342,9 @@ function sealedBarcodeIdentity(item, barcode) {
 
   let productType = "";
   const productRules = [
+    [/\bcollector\s+booster(?:\s+(?:box|pack|display))?\b/i, "Collector Booster"],
+    [/\bplay\s+booster(?:\s+(?:box|pack|display))?\b/i, "Play Booster"],
+    [/\bjumpstart\s+booster(?:\s+(?:box|pack|display))?\b/i, "Jumpstart Booster"],
     [/\bmega\s+box\b/i, "Mega Box"],
     [/\bblaster\s+box\b|\bblaster\b/i, "Blaster Box"],
     [/\bhobby\s+box\b/i, "Hobby Box"],
@@ -1659,6 +1702,9 @@ export default {
           qualitySummary: { type: "string" },
           chaseScore: { type: "number" },
           chaseEvidenceAvailable: { type: "boolean" },
+          formatAccessScore: { type: "number" },
+          formatAccessEvidenceAvailable: { type: "boolean" },
+          formatAccessSummary: { type: "string" },
           pullScore: { type: "number" },
           pullEvidenceAvailable: { type: "boolean" },
           sentimentScore: { type: "number" },
@@ -1671,13 +1717,15 @@ export default {
           negatives: { type: "array", items: { type: "string" }, maxItems: 4 },
           confidence: { type: "string", enum: ["high", "medium", "low"] }
         },
-        required: ["qualitySummary", "chaseScore", "chaseEvidenceAvailable", "pullScore", "pullEvidenceAvailable", "sentimentScore", "sentimentEvidenceAvailable", "sentimentLabel", "chaseCards", "pullOdds", "collectorTake", "positives", "negatives", "confidence"]
+        required: ["qualitySummary", "chaseScore", "chaseEvidenceAvailable", "formatAccessScore", "formatAccessEvidenceAvailable", "formatAccessSummary", "pullScore", "pullEvidenceAvailable", "sentimentScore", "sentimentEvidenceAvailable", "sentimentLabel", "chaseCards", "pullOdds", "collectorTake", "positives", "negatives", "confidence"]
       };
       const prompt = `You are evaluating whether a collector should OPEN/RIP an exact sealed trading-card product, not whether it is good for sealed resale. Product: ${productLabel}. Exact format: ${String(identity?.productType || identity?.boxType || "")}. Category: ${String(identity?.category || "")}. Year: ${String(identity?.year || "")}. Set: ${String(identity?.set || "")}.
 
 ${sealedRipCategoryGuidance(identity?.category)}
 
 Use ONLY the research evidence below. Do not rely on memory. NEVER invent, estimate, calculate, or extrapolate an exact pull odd. Only include an odds string in pullOdds when that exact odds text is literally supported by the supplied evidence and applies to this exact product format. Every pullOdds.note MUST name the applicable sealed format/configuration when the source distinguishes formats (for example Value Box, Blaster, Hanger Box, Hobby, Mega, Fanatics, Booster Box, Bundle, or ETB). Never return odds labeled for a different format or retailer-exclusive variant. If reliable format-specific odds are not supported, set pullEvidenceAvailable=false and return an empty pullOdds array. Clearly distinguish official/checklist odds from community-reported observations; community anecdotes are not official odds.
+
+Evaluate exact-format access separately for Shelf Showdown. Set formatAccessEvidenceAvailable=true ONLY when official/checklist/editorial evidence explicitly identifies this exact sealed format (including a clearly compatible retail alias) and describes desirable rarity/treatment/chase families that this configuration can contain. Score formatAccessScore 0-100 for how well THIS exact configuration reaches the desirable parts of the set, not for the set's overall quality. A format that excludes major desirable treatments should score lower; a format with broad access to the important chase structure can score higher. If the evidence is only set-level and does not establish exact-format access, set formatAccessEvidenceAvailable=false, formatAccessScore=0, and say so in formatAccessSummary. Never infer format access from another box type, retailer-exclusive variant, or community anecdote.
 
 Named items in chaseCards must be explicitly supported by the supplied evidence; do not invent card names, players, Pokémon, treatments, inserts, or variants. Use the CATEGORY PLAYBOOK above to decide what counts as strong chase/set quality for this product. chaseCards may contain named chase cards, characters/players, treatment or insert families, or other category-appropriate named targets when the evidence supports them. Separately, set chaseEvidenceAvailable=true when trustworthy official/checklist/editorial evidence supports meaningful chase or set structure for this category even if individual names cannot be safely validated. Score chaseScore 0-100 only when chaseEvidenceAvailable=true, following the category playbook rather than a universal sports-card rubric. Preserve any exact pull-rate/odds notation literally as written in evidence. Community-reported pull rates are allowed only when clearly labeled as community/reported and supported by the exact evidence; they are never official manufacturer odds unless an official source says so. Missing exact odds are not by themselves a reason to withhold a recommendation. For collector/player sentiment, summarize recurring product-specific themes rather than one lucky or angry opening. Set sentimentEvidenceAvailable=false when community evidence is too thin; require recurring support from at least two independent community sources. Product/checklist facts are not collector sentiment by themselves. collectorTake, positives, and negatives must describe opinions, complaints, praise, price/value reactions, quality-control reports, collation reports, or opening experiences that are actually present in COMMUNITY EVIDENCE. Generic set-level opinions about card design, card stock, photography, or overall set appeal may be summarized. Format-specific claims about autograph guarantees, pack counts, pull experience, exclusives, or box value may be used only when the community evidence applies to the exact requested sealed format. Never import Hobby, Mega, Hanger, Fanatics, or another format's opening economics into a different product. Do not copy checklist features into the collector-sentiment fields. Never say "many collectors", "most collectors", "collector consensus", or make another broad consensus claim unless at least three independent community sources support the same recurring theme. Keep conclusions conservative when evidence is thin.
 
