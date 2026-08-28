@@ -5,7 +5,7 @@ const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const index=fs.readFileSync('index.html','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.40\.6"/);
+assert.match(worker,/const VERSION = "3\.41\.0"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
@@ -66,7 +66,7 @@ assert.match(ripRoute,/marketplaceSearchesUsed:\s*0/,'rip-quality research must 
 assert.doesNotMatch(ripRoute,/engine", "ebay|APIFY_TOKEN|CARD_API_KEY/i,'rip-quality route must not spend marketplace-provider calls');
 assert.ok(worker.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),'rip-quality synthesis must use the Cloudflare text model');
 assert.ok(worker.includes('NEVER invent, estimate, calculate, or extrapolate an exact pull odd'),'rip-quality prompt must prohibit invented pull odds');
-assert.match(worker,/sealed:intel:v8:/,'sealed product intelligence must use a reusable product cache');
+assert.match(worker,/sealed:intel:v9:/,'sealed product intelligence must use a reusable product cache');
 assert.match(worker,/sealedRipWeightedScore/,'final verdict must combine price, chases, pull evidence, and sentiment');
 assert.match(worker,/sealedRipProductEvidenceCount/,'buy recommendation must count the three product-quality evidence pillars');
 assert.match(worker,/sealedRipProductEvidenceCount\(parts\) < 2/,'buy recommendation must require two of three product-quality pillars');
@@ -103,6 +103,12 @@ assert.ok(worker.includes('community pull-rate or hit-rate samples'),'Pokémon g
 assert.ok(worker.includes('borderless/showcase treatments'),'Magic guidance must know borderless/showcase treatments');
 assert.ok(worker.includes('Special Guests/bonus sheets'),'Magic guidance must know Special Guests and bonus sheets');
 assert.ok(worker.includes('PLAYABLE/VALUE QUALITY'),'Magic chase scoring must include playable/set value');
+assert.match(worker,/function sealedRipAuthorityQuery/,'authority discovery must route by category');
+assert.ok(worker.includes('product \"card image gallery\" collecting booster contents'),'Magic authority search must discover Wizards set-level pages before exact-format extraction');
+assert.match(worker,/function sealedRipPromptSignals\(rows, category = ""\)/,'compact evidence extraction must be category aware');
+assert.ok(worker.includes('cosmic foil'),'Magic signal extraction must understand Magic-specific treatments');
+assert.ok(worker.includes('special illustration rare'),'category-aware extraction must retain Pokémon chase vocabulary');
+assert.match(worker,/function sealedRipVerifiedChaseScore/,'verified Magic structure must protect against contradictory zero set-value scores');
 assert.match(worker,/researchTerms\.authority/,'authority query must use category-specific research terms');
 assert.match(worker,/researchTerms\.community/,'community query must use category-specific research terms');
 assert.match(worker,/url\.searchParams\.set\(\"num\", \"20\"\)/,'rip research should inspect a broader Google result page without adding a third search');

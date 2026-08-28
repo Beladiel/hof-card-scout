@@ -1,4 +1,4 @@
-const VERSION = "3.40.6";
+const VERSION = "3.41.0";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -340,7 +340,7 @@ function sealedRipIntelligenceCacheKey(identity) {
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v8:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v9:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -607,6 +607,25 @@ function sealedRipPrimaryAuthoritySite(category) {
   return "";
 }
 
+function sealedRipAuthorityQuery(identity, researchSet, authoritySite, formatTerms, researchTerms) {
+  const key = sealedRipCategoryKey(identity?.category);
+  const authorityYear = String(identity?.year || "").replace(/[^0-9]+/g, " ").trim();
+  const setText = String(researchSet || "").replace(/\bmagic\s*:?\s*the\s+gathering\b/ig, " ").replace(/\s+/g, " ").trim();
+  if (key === "magic") {
+    // Wizards organizes useful evidence around the set/product hub, card-image gallery,
+    // collecting guide, and set archive. Requiring an exact box phrase during discovery
+    // can hide those canonical pages, so discover the set first and enforce format later.
+    return `${setText || researchSet} ${authoritySite} product "card image gallery" collecting booster contents`.replace(/\s+/g, " ").trim();
+  }
+  if (key === "pokemon") {
+    // Pokémon official pages are likewise set-first; exact pack/box experience belongs
+    // in extraction/community validation rather than in the authority discovery query.
+    return `${authorityYear} ${setText || researchSet} ${authoritySite} set cards product`.replace(/\s+/g, " ").trim();
+  }
+  const authorityCategory = String(identity?.category || "").trim().toLowerCase();
+  return `${authorityYear} ${researchSet} ${authorityCategory} ${authoritySite} ${formatTerms} ${researchTerms.authority}`.replace(/\s+/g, " ").trim();
+}
+
 function sealedRipFormatTerms(identity) {
   const type = String(identity?.productType || identity?.boxType || "").trim().toLowerCase();
   if (type.includes("blaster")) return '("blaster" OR "value box")';
@@ -694,7 +713,11 @@ function sealedRipPageExcerpt(html) {
   text = sealedRipDecodeHtml(text).replace(/\s+/g, " ").trim();
   if (!text) return "";
   const lower = text.toLowerCase();
-  const needles = ["1:", "odds", "blaster", "value box", "what to expect in a value box", "rookie", "signature", "hyper signatures", "autograph", "case hit", "block by block", "boom shaka laka", "green hoops", "light burst", "parallel", "exclusive", "short print", "ssp"];
+  const needles = [
+    "1:", "odds", "blaster", "value box", "what to expect in a value box", "rookie", "signature", "hyper signatures", "autograph", "case hit", "block by block", "boom shaka laka", "green hoops", "light burst", "parallel", "exclusive", "short print", "ssp",
+    "mythic", "rare", "borderless", "showcase", "serialized", "special guest", "bonus sheet", "foil", "collector booster", "play booster", "booster contents", "headliner", "extended art", "source material", "commander",
+    "special illustration rare", "illustration rare", "hyper rare", "secret rare", "ultra rare", "pull rate", "hit rate"
+  ];
   const chunks = [];
   const used = new Set();
   for (const needle of needles) {
@@ -808,15 +831,23 @@ async function sealedRipExpandEvidenceRows(rows) {
   return list.map((row, index) => ({ ...row, pageText: byIndex.get(index) || "" }));
 }
 
-function sealedRipPromptSignals(rows) {
+function sealedRipPromptSignals(rows, category = "") {
   const ordered = (Array.isArray(rows) ? rows.slice() : [])
     .sort((a, b) => sealedRipEvidencePriority(a) - sealedRipEvidencePriority(b));
   const chunks = [];
   const seen = new Set();
-  const patterns = [
-    /\b1\s*:\s*\d{1,7}\b/ig,
+  const key = sealedRipCategoryKey(category);
+  const common = [/\b1\s*:\s*\d{1,7}\b/ig];
+  const sports = [
     /\b(?:retail[- ]only|retail exclusive|value box|blaster|case hit|rookie signatures?|hyper signatures?|autographs?|light burst|green hoops|numbered|parallel|ssp|short print|rookies?)\b/ig,
   ];
+  const pokemon = [
+    /\b(?:special illustration rare|illustration rare|hyper rare|secret rare|ultra rare|full art|special treatment|sir|ir|pull rate|hit rate|booster bundle|elite trainer box|etb)\b/ig,
+  ];
+  const magic = [
+    /\b(?:mythic(?: rare)?|rare|borderless|showcase|serialized|special guests?|bonus sheet|foil|cosmic foil|collector boosters?|play boosters?|booster contents|headliner|extended art|source material|commander|playable|staple)\b/ig,
+  ];
+  const patterns = [...common, ...(key === "magic" ? magic : key === "pokemon" ? pokemon : sports)];
   for (const row of ordered) {
     const text = `${row?.snippet || ""} ${row?.pageText || ""}`.replace(/\s+/g, " ").trim();
     if (!text) continue;
@@ -824,23 +855,23 @@ function sealedRipPromptSignals(rows) {
       pattern.lastIndex = 0;
       let match;
       let hits = 0;
-      while ((match = pattern.exec(text)) && hits < 5) {
+      while ((match = pattern.exec(text)) && hits < 7) {
         const start = Math.max(0, match.index - 260);
-        const end = Math.min(text.length, match.index + match[0].length + 620);
+        const end = Math.min(text.length, match.index + match[0].length + 700);
         const excerpt = text.slice(start, end).trim();
-        const key = excerpt.toLowerCase().replace(/[^a-z0-9]+/g, " ").slice(0, 160);
-        if (excerpt && !seen.has(key)) {
-          seen.add(key);
+        const dedupeKey = excerpt.toLowerCase().replace(/[^a-z0-9]+/g, " ").slice(0, 180);
+        if (excerpt && !seen.has(dedupeKey)) {
+          seen.add(dedupeKey);
           chunks.push(`[${row.sourceType}] ${row.title}: ${excerpt}`);
         }
         hits++;
-        if (chunks.length >= 18) break;
+        if (chunks.length >= 22) break;
       }
-      if (chunks.length >= 18) break;
+      if (chunks.length >= 22) break;
     }
-    if (chunks.length >= 18) break;
+    if (chunks.length >= 22) break;
   }
-  return chunks.join("\n---\n").slice(0, 14000);
+  return chunks.join("\\n---\\n").slice(0, 18000);
 }
 
 function sealedRipChaseSupported(name, evidenceText) {
@@ -1141,6 +1172,32 @@ function sealedRipChaseContextSupported(evidenceRows, category = "") {
   return signals.some(pattern => pattern.test(text));
 }
 
+function sealedRipVerifiedChaseScore(rawScore, evidenceRows = [], category = "") {
+  const aiScore = sealedRipClampScore(rawScore);
+  const key = sealedRipCategoryKey(category);
+  if (key !== "magic") return aiScore;
+  const authorityText = (Array.isArray(evidenceRows) ? evidenceRows : [])
+    .filter(row => row?.sourceType !== "community")
+    .map(row => `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`)
+    .join(" ")
+    .toLowerCase();
+  if (!authorityText) return aiScore;
+  const families = [
+    /\bmythic(?: rare)?s?\b/,
+    /\b(?:borderless|showcase|extended art|source material)\b/,
+    /\b(?:serialized|headliner|cosmic foil)\b/,
+    /\b(?:special guests?|bonus sheet)\b/,
+    /\bfoils?\b/,
+    /\b(?:collector boosters?|play boosters?|commander)\b/,
+  ];
+  const count = families.filter(pattern => pattern.test(authorityText)).length;
+  // This is only a contradiction guard, not a declaration that the set is valuable.
+  // Verified Magic rarity/treatment/product structure should not display as 0/100 just
+  // because the synthesis model emitted zero. Community/player evidence can raise it.
+  const floor = count >= 4 ? 25 : count >= 2 ? 18 : count >= 1 ? 10 : 0;
+  return Math.max(aiScore, floor);
+}
+
 function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
   const evidenceText = evidenceRows.map(row => `${row.title} ${row.snippet} ${row.pageText || ""}`).join("\n");
   const chaseCards = (Array.isArray(raw?.chaseCards) ? raw.chaseCards : []).slice(0, 5).map(row => ({
@@ -1173,7 +1230,7 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
   const priceScore = sealedRipPriceScore(market?.shelfPrice, market?.median);
   const parts = {
     priceScore,
-    chaseScore: chaseEvidenceAvailable ? sealedRipClampScore(raw?.chaseScore) : null,
+    chaseScore: chaseEvidenceAvailable ? sealedRipVerifiedChaseScore(raw?.chaseScore, evidenceRows, identity?.category) : null,
     chaseEvidenceAvailable,
     pullScore: pullEvidenceAvailable ? sealedRipVerifiedPullScore(raw?.pullScore, pullOdds) : null,
     pullEvidenceAvailable,
@@ -1544,10 +1601,8 @@ export default {
       // to mention the exact retail format. Beckett's set page contains the Value/Blaster
       // odds in the body, but forcing "blaster"/"value box" into discovery can suppress it.
       // Avoid a quoted season string too: sources may write 2025-26, 2025/26, or 2025 26.
-      const authorityYear = String(identity?.year || "").replace(/[^0-9]+/g, " ").trim();
-      const authorityCategory = String(identity?.category || "").trim().toLowerCase();
       const researchTerms = sealedRipResearchTerms(identity?.category);
-      const checklistQuery = `${authorityYear} ${researchSet} ${authorityCategory} ${authoritySite} ${formatTerms} ${researchTerms.authority}`.replace(/\s+/g, " ").trim();
+      const checklistQuery = sealedRipAuthorityQuery(identity, researchSet, authoritySite, formatTerms, researchTerms);
       const communityQuery = `"${exactSet}" ${formatTerms} ${researchTerms.community} ${sealedRipCommunitySite(identity?.category)}`;
       let checklistData = {}, communityData = {};
       let researchSearchesUsed = 0;
@@ -1593,7 +1648,7 @@ export default {
         community: evidenceRows.filter(row => row.queryKind === "collector-reports" && sealedRipCommunityRowCompatible(row, identity)).length,
         expandedPages: evidenceRows.filter(row => String(row.pageText || "").trim()).length,
       };
-      const evidenceSignals = sealedRipPromptSignals(evidenceRows);
+      const evidenceSignals = sealedRipPromptSignals(evidenceRows, identity?.category);
       const evidenceForPrompt = evidenceRows.slice(0, 18).map((row, index) =>
         `[${index + 1}] TYPE=${row.sourceType}; SEARCH=${row.queryKind}; TITLE=${row.title}; SOURCE=${row.source}; URL=${row.link}; SNIPPET=${row.snippet}; PAGE=${row.pageText || ""}`
       ).join("\n\n").slice(0, 34000);
