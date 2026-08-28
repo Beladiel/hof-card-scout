@@ -1,0 +1,111 @@
+name: Ship Shelf Showdown V1
+
+on:
+  push:
+    paths:
+      - '.github/workflows/add-shelf-showdown-v1-ship.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Normalize sealed style insertion point
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('sealed-product-scout.js')
+          text=p.read_text(encoding='utf-8')
+          old='}.sealed-rip-note{font-size:9px;color:var(--muted);line-height:1.45;margin-top:10px}.sealed-next{opacity:1}.sealed-next strong{color:var(--gold)}'
+          new='}\n      .sealed-rip-note{font-size:9px;color:var(--muted);line-height:1.45;margin-top:10px}.sealed-next{opacity:1}.sealed-next strong{color:var(--gold)}'
+          if old not in text:
+              raise SystemExit('missing compact sealed style anchor')
+          p.write_text(text.replace(old,new,1),encoding='utf-8')
+          PY
+
+      - name: Apply Shelf Showdown migration
+        run: python3 scripts/add-shelf-showdown-v1.py
+
+      - name: Preserve compatibility copy and cache test
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p=Path('sealed-product-scout.js')
+          text=p.read_text(encoding='utf-8')
+          old='Scout can use a front photo for just that missing detail.</div>'
+          new='Scout can use a front photo with Cloudflare Workers AI for just that missing detail.</div>'
+          if old not in text:
+              raise SystemExit('missing barcode-first photo disclosure copy')
+          text=text.replace(old,new,1)
+          old2='OPTIONAL · SINGLE PRODUCT DEEP DIVE'
+          new2='OPTIONAL · STEP 4 · SHOULD I BUY THIS?'
+          if old2 not in text:
+              raise SystemExit('missing optional single-product heading')
+          text=text.replace(old2,new2,1)
+          p.write_text(text,encoding='utf-8')
+
+          t=Path('tests/sealed-product-vision.test.cjs')
+          tests=t.read_text(encoding='utf-8')
+          old3=r"assert.match(index,/sealed-product-scout\.js\?v=6\.3\.0/,'sealed scanner cache-bust must advance for the new buy-call UI');"
+          new3=r"assert.match(index,/sealed-product-scout\.js\?v=6\.4\.0/,'sealed scanner cache-bust must advance for Shelf Showdown UI');"
+          if old3 not in tests:
+              raise SystemExit('missing old sealed scanner cache-bust assertion')
+          tests=tests.replace(old3,new3,1)
+          t.write_text(tests,encoding='utf-8')
+          PY
+
+      - name: Validate Shelf Showdown
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check src/index.js
+          node --check sealed-product-scout.js
+          node tests/sealed-product-vision.test.cjs
+          grep -q 'const VERSION = "3.41.1"' src/index.js
+          grep -q 'sealed:intel:v10:' src/index.js
+          grep -q 'sealedRipFormatAccessContextSupported' src/index.js
+          grep -q 'scoutSealedShelfShowdownV1' sealed-product-scout.js
+          grep -q 'RANK MY SHELF' sealed-product-scout.js
+          grep -q 'OPTIONAL · STEP 4 · SHOULD I BUY THIS?' sealed-product-scout.js
+          grep -q 'sealed-product-scout.js?v=6.4.0' index.html
+          git diff --check
+
+      - name: Commit feature
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'HOF Card Scout Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/index.js sealed-product-scout.js index.html tests/sealed-product-vision.test.cjs
+          git commit -m 'Add Shelf Showdown barcode ranking'
+          git push
+
+      - name: Deploy Worker
+        env:
+          CF_API_TOKEN_RAW: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID_RAW: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$CF_API_TOKEN_RAW" =~ (cfut_[A-Za-z0-9_-]+) ]]; then
+            export CLOUDFLARE_API_TOKEN="${BASH_REMATCH[1]}"
+          else
+            TOKEN_CLEAN="$(printf '%s' "$CF_API_TOKEN_RAW" | tr -d '\r\n\t ')"
+            TOKEN_CLEAN="${TOKEN_CLEAN#Bearer}"
+            TOKEN_CLEAN="${TOKEN_CLEAN#bearer}"
+            TOKEN_CLEAN="${TOKEN_CLEAN//\"/}"
+            TOKEN_CLEAN="${TOKEN_CLEAN//\'/}"
+            export CLOUDFLARE_API_TOKEN="$TOKEN_CLEAN"
+          fi
+          export CLOUDFLARE_ACCOUNT_ID="$(printf '%s' "$CF_ACCOUNT_ID_RAW" | tr -d '\r\n\t ')"
+          npx --yes wrangler@4 deploy
