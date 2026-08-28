@@ -1,0 +1,66 @@
+name: Fix Showdown Evidence Lanes
+
+on:
+  push:
+    paths:
+      - 'scripts/fix-showdown-evidence-lanes.py'
+      - '.github/workflows/fix-showdown-evidence-lanes.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply typed evidence lanes
+        run: python3 scripts/fix-showdown-evidence-lanes.py
+
+      - name: Validate evidence lanes
+        run: |
+          set -euo pipefail
+          node --check src/index.js
+          node --check sealed-product-scout.js
+          node tests/sealed-product-vision.test.cjs
+          grep -q 'const VERSION = "3.43.0"' src/index.js
+          grep -q 'sealed:intel:v14:' src/index.js
+          grep -q 'AUTHORITY-ONLY RECOVERY' src/index.js
+          grep -q 'PRICE-GUIDE-ONLY RECOVERY' src/index.js
+          grep -q 'Evidence lanes:' sealed-product-scout.js
+          grep -q 'sealed-product-scout.js?v=6.5.2' index.html
+          git diff --check
+
+      - name: Commit evidence lane fix
+        run: |
+          set -euo pipefail
+          git config user.name 'HOF Card Scout Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/index.js sealed-product-scout.js index.html tests/sealed-product-vision.test.cjs
+          git commit -m 'Separate Showdown evidence lanes'
+          git push
+
+      - name: Deploy Worker
+        env:
+          CF_API_TOKEN_RAW: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID_RAW: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ "$CF_API_TOKEN_RAW" =~ (cfut_[A-Za-z0-9_-]+) ]]; then
+            export CLOUDFLARE_API_TOKEN="${BASH_REMATCH[1]}"
+          else
+            TOKEN_CLEAN="$(printf '%s' "$CF_API_TOKEN_RAW" | tr -d '\r\n\t ')"
+            TOKEN_CLEAN="${TOKEN_CLEAN#Bearer}"
+            TOKEN_CLEAN="${TOKEN_CLEAN#bearer}"
+            TOKEN_CLEAN="${TOKEN_CLEAN//\"/}"
+            TOKEN_CLEAN="${TOKEN_CLEAN//\'/}"
+            export CLOUDFLARE_API_TOKEN="$TOKEN_CLEAN"
+          fi
+          export CLOUDFLARE_ACCOUNT_ID="$(printf '%s' "$CF_ACCOUNT_ID_RAW" | tr -d '\r\n\t ')"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          npx --yes wrangler@4 deploy
