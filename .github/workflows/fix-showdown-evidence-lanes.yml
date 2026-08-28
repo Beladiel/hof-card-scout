@@ -19,7 +19,15 @@ jobs:
           fetch-depth: 0
 
       - name: Apply typed evidence lanes
-        run: python3 scripts/fix-showdown-evidence-lanes.py
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/fix-showdown-evidence-lanes.py')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('pattern.subn(replacement, worker, count=1)', 'pattern.subn(lambda _m: replacement, worker, count=1)')
+          p.write_text(s, encoding='utf-8')
+          PY
+          python3 scripts/fix-showdown-evidence-lanes.py
 
       - name: Validate evidence lanes
         run: |
