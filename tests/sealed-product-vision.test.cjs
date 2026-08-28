@@ -4,7 +4,7 @@ const worker=fs.readFileSync('src/index.js','utf8');
 const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.38\.12"/);
+assert.match(worker,/const VERSION = "3\.38\.13"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
@@ -65,10 +65,15 @@ assert.match(ripRoute,/marketplaceSearchesUsed:\s*0/,'rip-quality research must 
 assert.doesNotMatch(ripRoute,/engine", "ebay|APIFY_TOKEN|CARD_API_KEY/i,'rip-quality route must not spend marketplace-provider calls');
 assert.ok(worker.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),'rip-quality synthesis must use the Cloudflare text model');
 assert.ok(worker.includes('NEVER invent, estimate, calculate, or extrapolate an exact pull odd'),'rip-quality prompt must prohibit invented pull odds');
-assert.match(worker,/sealed:rip:v9:/,'rip-quality research must be cached');
+assert.match(worker,/sealed:rip:v10:/,'rip-quality research must be cached');
 assert.match(worker,/sealedRipWeightedScore/,'final verdict must combine price, chases, pull evidence, and sentiment');
 assert.match(worker,/sealedRipExpandEvidenceRows/,'rip research must expand high-quality source pages beyond search snippets');
 assert.match(worker,/sealedRipReaderPageText/,'trusted authority pages must have a rendered-reader fallback when direct HTML is thin or blocked');
+assert.match(worker,/sealedRipSerpEvidenceText/,'rip research must retain structured Google evidence when publisher page reading is blocked');
+assert.match(worker,/ampLink/,'authority research must retain Google AMP links when available');
+assert.match(worker,/cachedPageLink/,'authority research must retain Google cached-page links when available');
+assert.match(worker,/device = \"\"/,'Google research helper must support a mobile authority request');
+assert.match(worker,/sealedRipGoogleSearch\(checklistQuery, env\.SERPAPI_KEY, 18000, \"mobile\"\)/,'authority lookup must request mobile results so AMP links can be exposed');
 assert.match(worker,/https:\/\/r\.jina\.ai\//,'authority reader fallback must use the documented Jina Reader URL prefix');
 assert.match(worker,/sealedRipCanUseReader/,'reader fallback must be restricted to trusted authority domains');
 assert.match(worker,/sealedRipPageHasUsefulSignals/,'authority page expansion must verify useful chase or odds signals before accepting direct HTML');
@@ -76,8 +81,7 @@ assert.match(worker,/sealedRipEvidencePriority/,'rip research must prioritize of
 assert.match(worker,/sealedRipPrimaryAuthoritySite/,'rip research must use one reliable primary authority domain per category');
 assert.match(worker,/site:beckett\.com/,'sports rip research must force the authoritative search onto Beckett');
 assert.match(worker,/const authorityYear = String\(identity\?\.year/,'authority discovery must normalize season punctuation');
-assert.match(worker,/const checklistQuery = `\$\{authorityYear\} \$\{researchSet\} \$\{authorityCategory\} \$\{authoritySite\}`/,'authority discovery must search the set broadly without requiring retail-format terms');
-assert.match(worker,/sealedRipGoogleSearch\(checklistQuery, env\.SERPAPI_KEY, 18000\)/,'authority discovery must have enough timeout budget to finish');
+assert.match(worker,/const checklistQuery = `\$\{authorityYear\} \$\{researchSet\} \$\{authorityCategory\} \$\{authoritySite\} \$\{formatTerms\} odds chases`/,'authority discovery must nudge Google toward exact-format odds and chase snippets');
 assert.match(worker,/url\.searchParams\.set\(\"num\", \"20\"\)/,'rip research should inspect a broader Google result page without adding a third search');
 assert.match(worker,/out\.length >= 12/,'rip research should retain enough candidates to reach lower-ranked odds sources');
 assert.match(worker,/const chaseEvidenceAvailable = chaseCards\.length > 0/,'validated named chases must establish chase evidence even if the model boolean is inconsistent');

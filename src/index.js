@@ -1,4 +1,4 @@
-const VERSION = "3.38.12";
+const VERSION = "3.38.13";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -420,8 +420,13 @@ function sealedRipEvidenceRows(data, queryKind) {
     const title = String(row?.title || "").trim();
     const link = String(row?.link || "").trim();
     const rich = row?.rich_snippet ? JSON.stringify(row.rich_snippet) : "";
+    const richTable = row?.rich_snippet_table ? JSON.stringify(row.rich_snippet_table) : "";
     const about = row?.about_this_result ? JSON.stringify(row.about_this_result) : "";
-    const snippet = [row?.snippet, row?.snippet_highlighted_words?.join(" "), rich, about]
+    const answers = row?.answers ? JSON.stringify(row.answers) : "";
+    const related = row?.related_questions ? JSON.stringify(row.related_questions) : "";
+    const sitelinks = row?.sitelinks ? JSON.stringify(row.sitelinks) : "";
+    const extensions = row?.extensions ? JSON.stringify(row.extensions) : "";
+    const snippet = [row?.snippet, row?.snippet_highlighted_words?.join(" "), rich, richTable, answers, related, sitelinks, extensions, about]
       .filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
     if (!title || !/^https?:\/\//i.test(link) || sealedRipIsShoppingSource(row) || /facebook\.com|instagram\.com|tiktok\.com/i.test(link)) continue;
     const key = link.replace(/[?#].*$/, "").toLowerCase();
@@ -434,19 +439,50 @@ function sealedRipEvidenceRows(data, queryKind) {
       source: String(row?.source || "").trim().slice(0, 120),
       sourceType: sealedRipSourceType(row),
       queryKind,
+      ampLink: /^https?:\/\//i.test(String(row?.amp_link || "")) ? String(row.amp_link).slice(0, 700) : "",
+      cachedPageLink: /^https?:\/\//i.test(String(row?.cached_page_link || "")) ? String(row.cached_page_link).slice(0, 1000) : "",
     });
     if (out.length >= 12) break;
   }
   return out;
 }
 
-async function sealedRipGoogleSearch(query, apiKey, timeoutMs = 15000) {
+function sealedRipSerpEvidenceText(data) {
+  const chunks = [];
+  const add = value => {
+    if (value === null || value === undefined || value === "") return;
+    const text = typeof value === "string" ? value : JSON.stringify(value);
+    if (text && text !== "{}" && text !== "[]") chunks.push(text);
+  };
+  add(data?.answer_box);
+  add(data?.ai_overview);
+  add(data?.related_questions);
+  const rows = Array.isArray(data?.organic_results) ? data.organic_results.slice(0, 8) : [];
+  for (const row of rows) {
+    add({
+      title: row?.title,
+      link: row?.link,
+      snippet: row?.snippet,
+      highlighted: row?.snippet_highlighted_words,
+      rich: row?.rich_snippet,
+      richTable: row?.rich_snippet_table,
+      answers: row?.answers,
+      relatedQuestions: row?.related_questions,
+      sitelinks: row?.sitelinks,
+      extensions: row?.extensions,
+    });
+  }
+  return chunks.join("\n---\n").replace(/\s+/g, " ").slice(0, 24000);
+}
+
+async function sealedRipGoogleSearch(query, apiKey, timeoutMs = 15000, device = "") {
   const url = new URL("https://serpapi.com/search.json");
   url.searchParams.set("engine", "google");
   url.searchParams.set("q", query);
   url.searchParams.set("num", "20");
   url.searchParams.set("hl", "en");
   url.searchParams.set("gl", "us");
+  if (device) url.searchParams.set("device", device);
   url.searchParams.set("api_key", apiKey);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), Math.max(8000, Number(timeoutMs) || 15000));
@@ -601,32 +637,38 @@ async function sealedRipReaderPageText(row) {
 
 async function sealedRipFetchPageText(row) {
   if (!row || row.sourceType === "community" || !/^https?:\/\//i.test(String(row.link || ""))) return "";
-  let directExcerpt = "";
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 7500);
-  try {
-    const response = await fetch(row.link, {
-      signal: controller.signal,
-      redirect: "follow",
-      headers: { "User-Agent": "Mozilla/5.0 HOF-Card-Scout/1.0", "Accept": "text/html,application/xhtml+xml" },
-    });
-    if (response.ok) {
-      const contentType = String(response.headers.get("content-type") || "").toLowerCase();
-      if (!contentType || contentType.includes("text/html") || contentType.includes("application/xhtml")) {
-        const html = (await response.text()).slice(0, 900000);
-        directExcerpt = sealedRipPageExcerpt(html);
-        if (sealedRipPageHasUsefulSignals(directExcerpt)) return directExcerpt;
+  let bestExcerpt = "";
+  const candidates = [row?.ampLink, row?.cachedPageLink, row?.link]
+    .map(value => String(value || "").trim())
+    .filter((value, index, all) => /^https?:\/\//i.test(value) && all.indexOf(value) === index);
+  for (const target of candidates) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8500);
+    try {
+      const response = await fetch(target, {
+        signal: controller.signal,
+        redirect: "follow",
+        headers: { "User-Agent": "Mozilla/5.0 HOF-Card-Scout/1.0", "Accept": "text/html,application/xhtml+xml,text/plain;q=0.8" },
+      });
+      if (response.ok) {
+        const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+        if (!contentType || /text\/(?:html|plain)|application\/xhtml/.test(contentType)) {
+          const body = (await response.text()).slice(0, 1000000);
+          const excerpt = sealedRipPageExcerpt(body);
+          if (excerpt.length > bestExcerpt.length) bestExcerpt = excerpt;
+          if (sealedRipPageHasUsefulSignals(excerpt)) return excerpt;
+        }
       }
+    } catch {
+      // Try the next Google-provided/publisher URL.
+    } finally {
+      clearTimeout(timeout);
     }
-  } catch {
-    // Fall through to the trusted reader fallback below.
-  } finally {
-    clearTimeout(timeout);
   }
 
   const readerExcerpt = await sealedRipReaderPageText(row);
   if (sealedRipPageHasUsefulSignals(readerExcerpt)) return readerExcerpt;
-  return readerExcerpt || directExcerpt;
+  return readerExcerpt || bestExcerpt;
 }
 
 function sealedRipEvidencePriority(row) {
@@ -1072,7 +1114,7 @@ export default {
         return json({ ok: false, error: "missing_market", message: "Run the market-price check first so Scout can combine price and rip quality.", researchSearchesUsed: 0, marketplaceSearchesUsed: 0 }, 400, cors);
       }
 
-      const cacheKey = `sealed:rip:v9:${encodeURIComponent(productLabel.toLowerCase()).slice(0, 300)}`;
+      const cacheKey = `sealed:rip:v10:${encodeURIComponent(productLabel.toLowerCase()).slice(0, 300)}`;
       if (env.SCOUT_DATA) {
         try {
           const cached = await env.SCOUT_DATA.get(cacheKey, { type: "json" });
@@ -1099,13 +1141,13 @@ export default {
       // Avoid a quoted season string too: sources may write 2025-26, 2025/26, or 2025 26.
       const authorityYear = String(identity?.year || "").replace(/[^0-9]+/g, " ").trim();
       const authorityCategory = String(identity?.category || "").trim().toLowerCase();
-      const checklistQuery = `${authorityYear} ${researchSet} ${authorityCategory} ${authoritySite}`.replace(/\s+/g, " ").trim();
+      const checklistQuery = `${authorityYear} ${researchSet} ${authorityCategory} ${authoritySite} ${formatTerms} odds chases`.replace(/\s+/g, " ").trim();
       const communityQuery = `"${exactSet}" ${formatTerms} pulls review ${sealedRipCommunitySite(identity?.category)}`;
       let checklistData = {}, communityData = {};
       let researchSearchesUsed = 0;
       try {
         const results = await Promise.allSettled([
-          sealedRipGoogleSearch(checklistQuery, env.SERPAPI_KEY, 18000),
+          sealedRipGoogleSearch(checklistQuery, env.SERPAPI_KEY, 18000, "mobile"),
           sealedRipGoogleSearch(communityQuery, env.SERPAPI_KEY, 12000),
         ]);
         researchSearchesUsed = 2;
@@ -1119,11 +1161,24 @@ export default {
       ];
       evidenceRows = sealedRipFilterRelevantEvidence(evidenceRows, identity);
       evidenceRows = await sealedRipExpandEvidenceRows(evidenceRows);
+      const authoritySerpEvidence = sealedRipSerpEvidenceText(checklistData);
+      if (authoritySerpEvidence) {
+        evidenceRows.push({
+          title: "Authoritative search evidence",
+          link: "",
+          snippet: authoritySerpEvidence.slice(0, 1400),
+          pageText: authoritySerpEvidence,
+          source: "Google structured result",
+          sourceType: "checklist/editorial",
+          queryKind: "checklist-and-odds",
+          synthetic: true,
+        });
+      }
       if (!evidenceRows.length) {
         return json({ ok: false, error: "rip_research_too_thin", message: "Scout could not find even one trustworthy product-specific rip source yet. Try again later or judge this one manually.", researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);
       }
 
-      const sources = evidenceRows.slice(0, 12).map(row => ({ title: row.title, link: row.link, sourceType: row.sourceType, queryKind: row.queryKind }));
+      const sources = evidenceRows.filter(row => /^https?:\/\//i.test(String(row?.link || ""))).slice(0, 12).map(row => ({ title: row.title, link: row.link, sourceType: row.sourceType, queryKind: row.queryKind }));
       const researchMix = {
         authoritative: evidenceRows.filter(row => row.queryKind === "checklist-and-odds").length,
         community: evidenceRows.filter(row => row.queryKind === "collector-reports").length,
