@@ -34,7 +34,7 @@ jobs:
       - name: Apply Chase Depth migration
         run: python3 scripts/add-sealed-chase-depth-v1.py
 
-      - name: Update cache TTL regression test
+      - name: Update regression tests
         shell: bash
         run: |
           python3 - <<'PY'
@@ -47,7 +47,11 @@ jobs:
           new=new.replace('\\n','\n')
           if old not in text:
               raise SystemExit('missing old fixed-TTL assertion')
-          p.write_text(text.replace(old,new,1),encoding='utf-8')
+          text=text.replace(old,new,1)
+          text=text.replace("assert.ok(front.includes('researchMode:\"showdown\"'),'front end must request Showdown research mode');","assert.ok(app.includes('researchMode:\"showdown\"'),'front end must request Showdown research mode');")
+          text=text.replace("assert.ok(front.includes('CHASE DEPTH'),'Showdown must display Chase Depth');","assert.ok(app.includes('CHASE DEPTH'),'Showdown must display Chase Depth');")
+          text=text.replace("assert.ok(front.includes('depth*.35+format*.25+price*.20+set*.15+support*.05'),'Showdown weights must prioritize Chase Depth without over-weighting support');","assert.ok(app.includes('depth*.35+format*.25+price*.20+set*.15+support*.05'),'Showdown weights must prioritize Chase Depth without over-weighting support');")
+          p.write_text(text,encoding='utf-8')
           PY
 
       - name: Validate Chase Depth
