@@ -1,4 +1,4 @@
-const VERSION = "3.40.4";
+const VERSION = "3.40.5";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -340,7 +340,7 @@ function sealedRipIntelligenceCacheKey(identity) {
     String(identity?.productType || identity?.boxType || "").trim(),
     String(identity?.variant || "").trim(),
   ].map(value => value.toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
-  return `sealed:intel:v6:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
+  return `sealed:intel:v7:${encodeURIComponent(parts.join("|")).slice(0, 420)}`;
 }
 
 function sealedRipPriceScore(shelfPrice, median) {
@@ -1036,10 +1036,38 @@ function sealedRipOddsRowSupported(row, evidenceRows, identity = {}) {
   });
 }
 
-function sealedRipCommunityEvidenceText(evidenceRows = []) {
+function sealedRipCommunityRowCompatible(row, identity = {}) {
+  if (row?.sourceType !== "community") return false;
+  if (!sealedRipEvidenceRowMatchesIdentity(row, identity)) return false;
+  // A community thread whose title explicitly names another sealed format is not
+  // evidence about this exact product's opening experience. Generic set-level
+  // threads remain useful for card-design/quality sentiment.
+  const hardScopeText = `${row?.title || ""} ${row?.link || ""}`;
+  if (!sealedRipFormatTextCompatible(hardScopeText, identity)) return false;
+  if (!sealedRipVariantTextCompatible(hardScopeText, identity)) return false;
+  return true;
+}
+
+function sealedRipCommunitySentenceCompatible(value, identity = {}) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  if (!sealedRipFormatTextCompatible(text, identity)) return false;
+  if (!sealedRipVariantTextCompatible(text, identity)) return false;
+  return true;
+}
+
+function sealedRipCommunityEvidenceText(evidenceRows = [], identity = {}) {
   return (Array.isArray(evidenceRows) ? evidenceRows : [])
-    .filter(row => row?.sourceType === "community")
-    .map(row => `${row?.title || ""} ${row?.snippet || ""} ${row?.pageText || ""}`.trim())
+    .filter(row => sealedRipCommunityRowCompatible(row, identity))
+    .map(row => {
+      const title = String(row?.title || "").trim();
+      const body = `${row?.snippet || ""} ${row?.pageText || ""}`.trim();
+      const bodyPieces = body
+        .split(/(?<=[.!?])\s+|\n+/)
+        .map(piece => piece.trim())
+        .filter(piece => sealedRipCommunitySentenceCompatible(piece, identity));
+      return [title, ...bodyPieces].filter(Boolean).join(" ").trim();
+    })
     .filter(Boolean)
     .join("\n\n")
     .slice(0, 12000);
@@ -1100,8 +1128,8 @@ function sealedRipNormalize(raw, evidenceRows, market, identity = {}) {
   const chaseContextAvailable = sealedRipChaseContextSupported(evidenceRows, identity?.category);
   const chaseEvidenceAvailable = chaseCards.length > 0 || chaseContextAvailable;
   const pullEvidenceAvailable = pullOdds.length > 0;
-  const communitySourceCount = evidenceRows.filter(row => row?.sourceType === "community").length;
-  const communityEvidenceText = sealedRipCommunityEvidenceText(evidenceRows);
+  const communitySourceCount = evidenceRows.filter(row => sealedRipCommunityRowCompatible(row, identity)).length;
+  const communityEvidenceText = sealedRipCommunityEvidenceText(evidenceRows, identity);
   const sentimentEvidenceAvailable = Boolean(raw?.sentimentEvidenceAvailable) && communitySourceCount >= 2 && communityEvidenceText.length >= 80;
   const priceScore = sealedRipPriceScore(market?.shelfPrice, market?.median);
   const parts = {
@@ -1517,10 +1545,13 @@ export default {
         return json({ ok: false, error: "rip_research_too_thin", message: "Scout could not find even one trustworthy product-specific rip source yet. Try again later or judge this one manually.", researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);
       }
 
-      const sources = evidenceRows.filter(row => /^https?:\/\//i.test(String(row?.link || ""))).slice(0, 12).map(row => ({ title: row.title, link: row.link, sourceType: row.sourceType, queryKind: row.queryKind }));
+      const sources = evidenceRows
+        .filter(row => /^https?:\/\//i.test(String(row?.link || "")) && (row?.sourceType !== "community" || sealedRipCommunityRowCompatible(row, identity)))
+        .slice(0, 12)
+        .map(row => ({ title: row.title, link: row.link, sourceType: row.sourceType, queryKind: row.queryKind }));
       const researchMix = {
         authoritative: evidenceRows.filter(row => row.queryKind === "checklist-and-odds").length,
-        community: evidenceRows.filter(row => row.queryKind === "collector-reports").length,
+        community: evidenceRows.filter(row => row.queryKind === "collector-reports" && sealedRipCommunityRowCompatible(row, identity)).length,
         expandedPages: evidenceRows.filter(row => String(row.pageText || "").trim()).length,
       };
       const evidenceSignals = sealedRipPromptSignals(evidenceRows);
@@ -1554,10 +1585,10 @@ ${sealedRipCategoryGuidance(identity?.category)}
 
 Use ONLY the research evidence below. Do not rely on memory. NEVER invent, estimate, calculate, or extrapolate an exact pull odd. Only include an odds string in pullOdds when that exact odds text is literally supported by the supplied evidence and applies to this exact product format. Every pullOdds.note MUST name the applicable sealed format/configuration when the source distinguishes formats (for example Value Box, Blaster, Hanger Box, Hobby, Mega, Fanatics, Booster Box, Bundle, or ETB). Never return odds labeled for a different format or retailer-exclusive variant. If reliable format-specific odds are not supported, set pullEvidenceAvailable=false and return an empty pullOdds array. Clearly distinguish official/checklist odds from community-reported observations; community anecdotes are not official odds.
 
-Named items in chaseCards must be explicitly supported by the supplied evidence; do not invent card names, players, Pokémon, treatments, inserts, or variants. Use the CATEGORY PLAYBOOK above to decide what counts as strong chase/set quality for this product. chaseCards may contain named chase cards, characters/players, treatment or insert families, or other category-appropriate named targets when the evidence supports them. Separately, set chaseEvidenceAvailable=true when trustworthy official/checklist/editorial evidence supports meaningful chase or set structure for this category even if individual names cannot be safely validated. Score chaseScore 0-100 only when chaseEvidenceAvailable=true, following the category playbook rather than a universal sports-card rubric. Preserve any exact pull-rate/odds notation literally as written in evidence. Community-reported pull rates are allowed only when clearly labeled as community/reported and supported by the exact evidence; they are never official manufacturer odds unless an official source says so. Missing exact odds are not by themselves a reason to withhold a recommendation. For collector/player sentiment, summarize recurring product-specific themes rather than one lucky or angry opening. Set sentimentEvidenceAvailable=false when community evidence is too thin; require recurring support from at least two independent community sources. Product/checklist facts are not collector sentiment by themselves. collectorTake, positives, and negatives must describe opinions, complaints, praise, price/value reactions, quality-control reports, collation reports, or opening experiences that are actually present in COMMUNITY EVIDENCE. Do not copy checklist features into the collector-sentiment fields. Never say "many collectors", "most collectors", "collector consensus", or make another broad consensus claim unless at least three independent community sources support the same recurring theme. Keep conclusions conservative when evidence is thin.
+Named items in chaseCards must be explicitly supported by the supplied evidence; do not invent card names, players, Pokémon, treatments, inserts, or variants. Use the CATEGORY PLAYBOOK above to decide what counts as strong chase/set quality for this product. chaseCards may contain named chase cards, characters/players, treatment or insert families, or other category-appropriate named targets when the evidence supports them. Separately, set chaseEvidenceAvailable=true when trustworthy official/checklist/editorial evidence supports meaningful chase or set structure for this category even if individual names cannot be safely validated. Score chaseScore 0-100 only when chaseEvidenceAvailable=true, following the category playbook rather than a universal sports-card rubric. Preserve any exact pull-rate/odds notation literally as written in evidence. Community-reported pull rates are allowed only when clearly labeled as community/reported and supported by the exact evidence; they are never official manufacturer odds unless an official source says so. Missing exact odds are not by themselves a reason to withhold a recommendation. For collector/player sentiment, summarize recurring product-specific themes rather than one lucky or angry opening. Set sentimentEvidenceAvailable=false when community evidence is too thin; require recurring support from at least two independent community sources. Product/checklist facts are not collector sentiment by themselves. collectorTake, positives, and negatives must describe opinions, complaints, praise, price/value reactions, quality-control reports, collation reports, or opening experiences that are actually present in COMMUNITY EVIDENCE. Generic set-level opinions about card design, card stock, photography, or overall set appeal may be summarized. Format-specific claims about autograph guarantees, pack counts, pull experience, exclusives, or box value may be used only when the community evidence applies to the exact requested sealed format. Never import Hobby, Mega, Hanger, Fanatics, or another format's opening economics into a different product. Do not copy checklist features into the collector-sentiment fields. Never say "many collectors", "most collectors", "collector consensus", or make another broad consensus claim unless at least three independent community sources support the same recurring theme. Keep conclusions conservative when evidence is thin.
 
 COMMUNITY EVIDENCE — use ONLY this section for collectorTake / positives / negatives:\
-${sealedRipCommunityEvidenceText(evidenceRows) || "No community evidence available."}\
+${sealedRipCommunityEvidenceText(evidenceRows, identity) || "No compatible community evidence available."}\
 \
 High-signal excerpts extracted from the best sources (read these first):\n${evidenceSignals || "No compact signals extracted."}\n\nFull research evidence:\n${evidenceForPrompt}`;
 
