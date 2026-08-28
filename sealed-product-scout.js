@@ -34,7 +34,7 @@
       .sealed-confirmed{margin-top:12px;border:1px solid rgba(86,197,138,.38);border-radius:16px;padding:12px;background:rgba(86,197,138,.07)}.sealed-confirmed[hidden]{display:none}.sealed-confirmed-label{font-size:16px;font-weight:950;line-height:1.35}.sealed-confirmed-meta{font-size:10px;color:var(--muted);line-height:1.5;margin-top:5px}.sealed-zero{display:inline-flex;margin-top:8px;border-radius:999px;padding:5px 8px;background:rgba(86,197,138,.13);color:#aee9c8;border:1px solid rgba(86,197,138,.28);font-size:9px;font-weight:950;letter-spacing:.04em}
       .sealed-barcode-box{margin-top:10px;border:1px solid rgba(117,174,233,.28);border-radius:14px;padding:11px;background:rgba(117,174,233,.07)}.sealed-barcode-box[hidden]{display:none}.sealed-barcode-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}.sealed-barcode-preview{margin-top:10px;border:1px dashed rgba(117,174,233,.35);border-radius:12px;padding:8px;background:rgba(0,0,0,.12)}.sealed-barcode-preview[hidden]{display:none}.sealed-barcode-preview img{display:block;width:100%;max-height:240px;object-fit:contain;background:#111;border-radius:8px}.sealed-barcode-result{margin-top:9px;font-size:11px;line-height:1.5;color:var(--muted)}.sealed-barcode-result strong{color:var(--ink)}
       .sealed-market-result{margin-top:12px;border:1px solid rgba(230,189,99,.38);border-radius:16px;padding:12px;background:rgba(230,189,99,.07)}.sealed-market-result[hidden]{display:none}.sealed-market-verdict{font-size:24px;font-weight:950;line-height:1.1}.sealed-market-meta{font-size:11px;color:var(--muted);line-height:1.5;margin-top:7px}.sealed-market-list{display:grid;gap:7px;margin-top:10px}.sealed-market-item{border-top:1px solid var(--line);padding-top:7px;font-size:11px;line-height:1.4}.sealed-market-item a{color:var(--gold);text-decoration:none}.sealed-market-price{font-weight:950;color:var(--text)}
-      .sealed-next{opacity:1}.sealed-next strong{color:var(--gold)}
+      .sealed-rip-result{margin-top:12px;border:1px solid rgba(86,197,138,.38);border-radius:16px;padding:12px;background:linear-gradient(145deg,rgba(86,197,138,.09),rgba(230,189,99,.05))}.sealed-rip-result[hidden]{display:none}.sealed-final-verdict{font-size:28px;font-weight:950;line-height:1.05;margin-top:3px}.sealed-score-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}.sealed-score{border:1px solid var(--line);border-radius:12px;padding:8px;background:rgba(0,0,0,.08)}.sealed-score-label{font-size:8px;color:var(--muted);font-weight:950;letter-spacing:.08em}.sealed-score-value{font-size:17px;font-weight:950;margin-top:3px}.sealed-rip-section{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}.sealed-rip-section-title{font-size:10px;font-weight:950;letter-spacing:.1em;color:var(--gold)}.sealed-rip-copy{font-size:11px;line-height:1.55;color:var(--muted);margin-top:5px}.sealed-rip-list{display:grid;gap:6px;margin-top:7px}.sealed-rip-item{font-size:11px;line-height:1.45}.sealed-rip-item strong{color:var(--text)}.sealed-rip-sources a{color:var(--gold);text-decoration:none}.sealed-rip-note{font-size:9px;color:var(--muted);line-height:1.45;margin-top:10px}.sealed-next{opacity:1}.sealed-next strong{color:var(--gold)}
       @media(max-width:620px){.sealed-actions,.sealed-actions.three,.sealed-form{grid-template-columns:1fr}.sealed-field.full{grid-column:auto}}
     `;
     document.head.appendChild(style);
@@ -134,6 +134,15 @@
           <div class="sealed-status" id="sealedPriceStatus">Confirm the product first, then save the shelf price.</div>
           <div class="sealed-market-result" id="sealedMarketResult" hidden></div>
         </div>
+
+        <div class="sealed-card sealed-next" id="sealedRipCard">
+          <div class="section-eyebrow">STEP 4 · IS IT WORTH RIPPING?</div>
+          <div class="sealed-card-title">A fair price can still be a bad box.</div>
+          <div class="sealed-card-sub">Scout researches the chase cards, trustworthy pull odds for this exact format, and recurring collector reports. It then combines rip quality with the price you just checked. Fresh analysis uses at most 2 research searches and 0 marketplace searches; cached analysis uses 0.</div>
+          <div class="sealed-actions one"><button type="button" class="primary" id="sealedRipResearchBtn">🎯 CHECK RIP QUALITY · 2 RESEARCH SEARCHES MAX</button></div>
+          <div class="sealed-status" id="sealedRipStatus">Run the market-price check first, then Scout can judge whether opening this product is actually worth it.</div>
+          <div class="sealed-rip-result" id="sealedRipResult" hidden></div>
+        </div>
       </div>
     </section>`;
   }
@@ -159,6 +168,7 @@
     if(byId("sealedStore"))byId("sealedStore").value=draft.store||"";
     renderConfirmed(draft);
     renderMarketResearch(draft.marketResearch);
+    renderRipQuality(draft.ripQuality);
   }
   function renderConfirmed(draft=readDraft()){
     const box=byId("sealedConfirmed"),status=byId("sealedIdentityStatus"),priceStatus=byId("sealedPriceStatus");
@@ -428,7 +438,7 @@
     if(!identity.category){byId("sealedIdentityStatus").className="sealed-status warn";byId("sealedIdentityStatus").textContent="Choose a category first.";byId("sealedCategory")?.focus();return;}
     if(!identity.set){byId("sealedIdentityStatus").className="sealed-status warn";byId("sealedIdentityStatus").textContent="Enter the brand or set name you can read on the product.";byId("sealedSet")?.focus();return;}
     if(!identity.boxType){byId("sealedIdentityStatus").className="sealed-status warn";byId("sealedIdentityStatus").textContent="Choose the product type so Scout does not compare the wrong sealed format.";byId("sealedBoxType")?.focus();return;}
-    const draft=saveDraft({identity,confirmed:true,shelfPrice:readDraft().shelfPrice??"",store:readDraft().store||"",marketResearch:null});
+    const draft=saveDraft({identity,confirmed:true,shelfPrice:readDraft().shelfPrice??"",store:readDraft().store||"",marketResearch:null,ripQuality:null});
     renderConfirmed(draft);
     byId("sealedConfirmed")?.scrollIntoView({behavior:"smooth",block:"center"});
   }
@@ -439,7 +449,7 @@
     const raw=byId("sealedShelfPrice")?.value.trim()||"";
     const price=Number(raw.replace(/[$,]/g,""));
     if(!Number.isFinite(price)||price<=0){byId("sealedPriceStatus").className="sealed-status warn";byId("sealedPriceStatus").textContent="Enter the shelf price you see in the store.";byId("sealedShelfPrice")?.focus();return;}
-    const next=saveDraft({shelfPrice:Number(price.toFixed(2)),store:byId("sealedStore")?.value.trim()||"",marketResearch:null});
+    const next=saveDraft({shelfPrice:Number(price.toFixed(2)),store:byId("sealedStore")?.value.trim()||"",marketResearch:null,ripQuality:null});
     renderConfirmed(next);renderMarketResearch(null);
   }
 
@@ -461,6 +471,43 @@
     box.innerHTML=`<div class="section-eyebrow">SCOUT'S PRICE CHECK</div><div class="sealed-market-verdict">${esc(research.verdict)}</div><div class="sealed-market-meta">${esc(research.reason||"")}<br>Shelf: <strong>${money(research.shelfPrice)||"—"}</strong> · Competitive-listing median: <strong>${median}</strong> · Competitive range: ${low}–${high} · ${competitiveCount} competitive match${competitiveCount===1?"":"es"}${totalCleanCount>competitiveCount?` from ${totalCleanCount} clean listings`:""}.<br>${used} marketplace search${used===1?"":"es"} used${cached}. Current eBay asking prices, before shipping; not sold comps. Scout weights the lowest 10 clean single-unit matches so stale high asks do not inflate the verdict.</div>${rows?`<div class="sealed-market-list">${rows}</div>`:""}`;
   }
 
+  function renderRipQuality(result){
+    const box=byId("sealedRipResult");if(!box)return;
+    if(!result||!result.analysis){box.hidden=true;box.innerHTML="";return;}
+    const a=result.analysis||{},sources=Array.isArray(result.sources)?result.sources:[];
+    const score=v=>Number.isFinite(Number(v))?String(Math.round(Number(v))):"N/A";
+    const chase=(Array.isArray(a.chaseCards)?a.chaseCards:[]).map(row=>`<div class="sealed-rip-item"><strong>${esc(row.name||"")}</strong>${row.why?` — ${esc(row.why)}`:""}</div>`).join("");
+    const odds=(Array.isArray(a.pullOdds)?a.pullOdds:[]).map(row=>`<div class="sealed-rip-item"><strong>${esc(row.item||"")}</strong> · ${esc(row.odds||"")}${row.sourceType?` · ${esc(row.sourceType)}`:""}${row.note?`<br>${esc(row.note)}`:""}</div>`).join("");
+    const positives=(Array.isArray(a.positives)?a.positives:[]).map(x=>`<div class="sealed-rip-item">✓ ${esc(x)}</div>`).join("");
+    const negatives=(Array.isArray(a.negatives)?a.negatives:[]).map(x=>`<div class="sealed-rip-item">⚠ ${esc(x)}</div>`).join("");
+    const sourceRows=sources.slice(0,8).map(row=>{const link=/^https?:\/\//i.test(String(row.link||""))?String(row.link):"";return link?`<div class="sealed-rip-item"><a href="${esc(link)}" target="_blank" rel="noopener">${esc(row.title||"Research source")}</a> · ${esc(row.sourceType||"source")}</div>`:"";}).join("");
+    const searches=Number(result.researchSearchesUsed||0),cached=result.cacheHit?" · cached result":"";
+    const pullBlock=a.pullEvidenceAvailable&&odds?odds:`<div class="sealed-rip-copy">Scout did not find reliable exact-format pull odds, so pull odds were not scored. No made-up odds.</div>`;
+    const sentiment=a.sentimentEvidenceAvailable?(a.collectorTake?esc(a.collectorTake):"Collector evidence found."):`Scout did not find enough recurring collector reports to score sentiment confidently.`;
+    box.hidden=false;
+    box.innerHTML=`<div class="section-eyebrow">SCOUT'S FINAL VERDICT</div><div class="sealed-final-verdict">${esc(a.finalVerdict||"CHECK MANUALLY")}</div><div class="sealed-rip-copy">Overall score: <strong>${score(a.overallScore)}/100</strong> · Rip Quality: <strong>${esc(a.ripGrade||"—")}</strong>${a.qualitySummary?`<br>${esc(a.qualitySummary)}`:""}</div><div class="sealed-score-grid"><div class="sealed-score"><div class="sealed-score-label">PRICE</div><div class="sealed-score-value">${score(a.priceScore)}</div></div><div class="sealed-score"><div class="sealed-score-label">CHASES</div><div class="sealed-score-value">${score(a.chaseScore)}</div></div><div class="sealed-score"><div class="sealed-score-label">PULL ODDS</div><div class="sealed-score-value">${a.pullEvidenceAvailable?score(a.pullScore):"N/A"}</div></div><div class="sealed-score"><div class="sealed-score-label">COLLECTORS</div><div class="sealed-score-value">${a.sentimentEvidenceAvailable?score(a.sentimentScore):"N/A"}</div></div></div><div class="sealed-rip-section"><div class="sealed-rip-section-title">🎯 TOP CHASES</div><div class="sealed-rip-list">${chase||'<div class="sealed-rip-copy">No well-supported chase list found yet.</div>'}</div></div><div class="sealed-rip-section"><div class="sealed-rip-section-title">🎲 PULL ODDS</div><div class="sealed-rip-list">${pullBlock}</div></div><div class="sealed-rip-section"><div class="sealed-rip-section-title">💬 WHAT COLLECTORS ARE SAYING</div><div class="sealed-rip-copy">${sentiment}</div>${positives?`<div class="sealed-rip-list">${positives}</div>`:""}${negatives?`<div class="sealed-rip-list">${negatives}</div>`:""}</div>${sourceRows?`<div class="sealed-rip-section sealed-rip-sources"><div class="sealed-rip-section-title">🔗 RESEARCH SOURCES</div><div class="sealed-rip-list">${sourceRows}</div></div>`:""}<div class="sealed-rip-note">${searches} research search${searches===1?"":"es"} used${cached} · 0 marketplace searches. Official/checklist odds are kept separate from community observations. Opening is still chance; a strong chase list does not guarantee value in one box.</div>`;
+  }
+
+  async function runRipQuality(){
+    const draft=readDraft(),status=byId("sealedRipStatus"),btn=byId("sealedRipResearchBtn");
+    if(!draft.confirmed||!draft.identity){status.className="sealed-status warn";status.textContent="Confirm the exact product first.";return;}
+    if(!draft.marketResearch||!Number(draft.marketResearch.median)){status.className="sealed-status warn";status.textContent="Run CHECK MARKET VALUE first so Scout can combine price and rip quality.";byId("sealedResearchPreviewBtn")?.scrollIntoView({behavior:"smooth",block:"center"});return;}
+    const cfg=typeof pricingConfig==="function"?pricingConfig():{endpoint:"",accessKey:""};
+    if(!cfg.endpoint||!cfg.accessKey){status.className="sealed-status warn";status.textContent="Scout's live connection is not configured on this device.";return;}
+    btn.disabled=true;btn.textContent="🎯 SCOUT IS RESEARCHING THE RIP…";status.className="sealed-status";status.textContent="Checking chase cards, exact-format pull odds, and recurring collector reports. Up to 2 research searches; 0 marketplace searches.";
+    try{
+      const market={shelfPrice:Number(draft.marketResearch.shelfPrice||draft.shelfPrice),median:Number(draft.marketResearch.median),verdict:draft.marketResearch.verdict||""};
+      const res=await fetch(`${String(cfg.endpoint).replace(/\/+$/,"")}/sealed/rip-quality`,{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":cfg.accessKey},body:JSON.stringify({identity:draft.identity,lookupTitle:draft.barcodeTitle||"",market})});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||!data.ok)throw new Error(data.message||"Scout could not complete the rip-quality research.");
+      const result={analysis:data.analysis||{},sources:Array.isArray(data.sources)?data.sources:[],productLabel:data.productLabel||"",checkedAt:data.checkedAt||new Date().toISOString(),cacheHit:!!data.cacheHit,researchSearchesUsed:Number(data.researchSearchesUsed||0),marketplaceSearchesUsed:Number(data.marketplaceSearchesUsed||0)};
+      saveDraft({ripQuality:result});renderRipQuality(result);
+      status.className="sealed-status ok";status.textContent=`✓ Rip-quality research complete. ${result.researchSearchesUsed} research search${result.researchSearchesUsed===1?"":"es"} used · 0 marketplace searches.`;
+      byId("sealedRipResult")?.scrollIntoView({behavior:"smooth",block:"start"});
+    }catch(err){status.className="sealed-status warn";status.textContent=err?.message||"Scout could not complete the rip-quality research right now.";}
+    finally{btn.disabled=false;btn.textContent="🎯 CHECK RIP QUALITY · 2 RESEARCH SEARCHES MAX";}
+  }
+
   async function runValueResearch(){
     let draft=readDraft();
     const status=byId("sealedPriceStatus"),btn=byId("sealedResearchPreviewBtn");
@@ -479,7 +526,7 @@
         return;
       }
       shelfPrice=Number(fieldPrice.toFixed(2));
-      draft=saveDraft({shelfPrice,store:byId("sealedStore")?.value.trim()||draft.store||"",marketResearch:null});
+      draft=saveDraft({shelfPrice,store:byId("sealedStore")?.value.trim()||draft.store||"",marketResearch:null,ripQuality:null});
     }
     if(!Number.isFinite(shelfPrice)||shelfPrice<=0){status.className="sealed-status warn";status.textContent="Enter the shelf price before checking the market.";byId("sealedShelfPrice")?.focus();return;}
     const cfg=typeof pricingConfig==="function"?pricingConfig():{endpoint:"",accessKey:""};
@@ -490,7 +537,7 @@
       const data=await res.json().catch(()=>({}));
       if(!res.ok||!data.ok)throw new Error(data.message||"Scout could not complete the sealed-product market check.");
       const research={verdict:data.verdict||"CHECK MANUALLY",reason:data.reason||"",shelfPrice:Number(data.shelfPrice||shelfPrice),median:data.median,low:data.low,high:data.high,sampleCount:Number(data.sampleCount||0),totalCleanCount:Number(data.totalCleanCount||data.sampleCount||0),listings:Array.isArray(data.listings)?data.listings:[],query:data.query||"",cacheHit:!!data.cacheHit,marketplaceSearchesUsed:Number(data.marketplaceSearchesUsed||0),checkedAt:data.checkedAt||new Date().toISOString()};
-      saveDraft({marketResearch:research});renderMarketResearch(research);
+      saveDraft({marketResearch:research,ripQuality:null});renderMarketResearch(research);renderRipQuality(null);
       status.className="sealed-status ok";status.textContent=`✓ Market check complete. ${research.marketplaceSearchesUsed} marketplace search${research.marketplaceSearchesUsed===1?"":"es"} used.`;
       byId("sealedMarketResult")?.scrollIntoView({behavior:"smooth",block:"center"});
     }catch(err){status.className="sealed-status warn";status.textContent=err?.message||"Scout could not complete the market check right now.";}
@@ -507,7 +554,7 @@
     const ps=byId("sealedPhotoStatus");ps.className="sealed-status";ps.textContent="No marketplace searches used. Scout is waiting for a photo or manual product details.";
     const analyze=byId("sealedAnalyzeBtn");if(analyze){analyze.disabled=true;analyze.textContent="🔍 IDENTIFY PRODUCT FROM PHOTO · 0 MARKETPLACE SEARCHES";}
     const vr=byId("sealedVisionResult");if(vr)vr.hidden=true;
-    renderConfirmed({});renderMarketResearch(null);
+    renderConfirmed({});renderMarketResearch(null);renderRipQuality(null);
     byId("sealedPhotoStage")?.scrollIntoView({behavior:"smooth",block:"center"});
   }
 
@@ -543,6 +590,7 @@
     byId("sealedResetBtn").addEventListener("click",startOver);
     byId("sealedSavePriceBtn").addEventListener("click",saveShelfPrice);
     byId("sealedResearchPreviewBtn").addEventListener("click",runValueResearch);
+    byId("sealedRipResearchBtn").addEventListener("click",runRipQuality);
     fillDraft(readDraft());
   }
 

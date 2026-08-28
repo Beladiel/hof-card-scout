@@ -4,12 +4,13 @@ const worker=fs.readFileSync('src/index.js','utf8');
 const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.38\.3"/);
+assert.match(worker,/const VERSION = "3\.38\.4"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
 assert.match(worker,/\/sealed\/classify-type/,'sealed product type classifier endpoint must exist');
 assert.match(worker,/\/sealed\/value-check/,'sealed market value endpoint must exist');
+assert.match(worker,/\/sealed\/rip-quality/,'sealed rip-quality endpoint must exist');
 assert.match(app,/CHECK MARKET VALUE · 1 SEARCH MAX/,'sealed scanner must expose the one-search market check');
 assert.match(app,/sealed\/value-check/,'front end must call the sealed market endpoint');
 assert.match(app,/rawField=byId\(\"sealedShelfPrice\"\)/,'market check must read the currently entered shelf price');
@@ -23,6 +24,12 @@ assert.match(worker,/sealedMarketCompetitiveSummary/,'sealed market check must u
 assert.match(worker,/Math\.min\(10, all\.length\)/,'competitive-price band must use at most ten lowest clean matches');
 assert.match(app,/Competitive-listing median/,'sealed market UI must label the competitive median clearly');
 assert.match(app,/totalCleanCount/,'sealed market UI must show competitive matches versus total clean listings');
+assert.match(app,/CHECK RIP QUALITY · 2 RESEARCH SEARCHES MAX/,'sealed scanner must expose rip-quality research');
+assert.match(app,/sealed\/rip-quality/,'front end must call rip-quality endpoint');
+assert.match(app,/SCOUT'S FINAL VERDICT/,'rip-quality result must show a final verdict');
+assert.match(app,/TOP CHASES/,'rip-quality result must explain chase cards');
+assert.match(app,/PULL ODDS/,'rip-quality result must show pull odds or explain their absence');
+assert.match(app,/WHAT COLLECTORS ARE SAYING/,'rip-quality result must summarize collector feedback');
 assert.match(app,/TAKE FRONT PHOTO FOR PRODUCT TYPE/,'barcode-confirmed products should request a front photo when type is missing');
 assert.match(app,/sealed\/classify-type/,'front end must call the narrow product type classifier');
 assert.match(app,/classifyProductTypeFromPhoto/,'front end should classify only package type after barcode identity');
@@ -47,6 +54,20 @@ assert.match(app,/Barcode photo captured/,'barcode photo capture must give visib
 assert.match(app,/sealedBarcodePreview/,'barcode photo preview must be rendered before reading');
 assert.match(app,/Cloudflare Workers AI/i);
 assert.match(app,/fetch\(`\$\{String\(cfg\.endpoint\).*\/sealed\/identify/s,'front end should send photo only to Scout sealed-identify endpoint');
+const ripRouteStart=worker.indexOf('url.pathname === "/sealed/rip-quality"');
+const ripRouteEnd=worker.indexOf('url.pathname === "/sealed/classify-type"',ripRouteStart);
+const ripRoute=worker.slice(ripRouteStart,ripRouteEnd);
+assert.ok(ripRouteStart>=0&&ripRouteEnd>ripRouteStart,'rip-quality route should be isolated before type classifier');
+assert.match(ripRoute,/SERPAPI_KEY/,'rip-quality route should require research search access');
+assert.ok(worker.includes('url.searchParams.set("engine", "google")'),'rip-quality research must use Google searches');
+assert.match(ripRoute,/researchSearchesUsed:\s*2|researchSearchesUsed\s*=\s*2/,'fresh rip research must use at most two planned research searches');
+assert.match(ripRoute,/marketplaceSearchesUsed:\s*0/,'rip-quality research must use zero marketplace searches');
+assert.doesNotMatch(ripRoute,/engine", "ebay|APIFY_TOKEN|CARD_API_KEY/i,'rip-quality route must not spend marketplace-provider calls');
+assert.ok(worker.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),'rip-quality synthesis must use the Cloudflare text model');
+assert.ok(worker.includes('NEVER invent, estimate, calculate, or extrapolate an exact pull odd'),'rip-quality prompt must prohibit invented pull odds');
+assert.match(worker,/sealed:rip:v1:/,'rip-quality research must be cached');
+assert.match(worker,/sealedRipWeightedScore/,'final verdict must combine price, chases, pull evidence, and sentiment');
+
 const typeRouteStart=worker.indexOf('url.pathname === "/sealed/classify-type"');
 const typeRouteEnd=worker.indexOf('url.pathname === "/sealed/identify"',typeRouteStart);
 const typeRoute=worker.slice(typeRouteStart,typeRouteEnd);
@@ -55,7 +76,7 @@ assert.doesNotMatch(typeRoute,/SERPAPI_KEY|runEbaySearch|serpapi\.com|APIFY_TOKE
 assert.match(typeRoute,/Do NOT re-identify the product/,'type classifier prompt must preserve barcode-confirmed identity');
 assert.match(typeRoute,/marketplaceSearchesUsed:\s*0/,'type classifier must report zero marketplace searches');
 const marketRouteStart=worker.indexOf('url.pathname === "/sealed/value-check"');
-const marketRouteEnd=worker.indexOf('url.pathname === "/sealed/classify-type"',marketRouteStart);
+const marketRouteEnd=worker.indexOf('url.pathname === "/sealed/rip-quality"',marketRouteStart);
 const marketRoute=worker.slice(marketRouteStart,marketRouteEnd);
 assert.ok(marketRouteStart>=0&&marketRouteEnd>marketRouteStart,'market route should be isolated before type classifier');
 assert.match(marketRoute,/SERPAPI_KEY/,'market route should require SerpApi');
