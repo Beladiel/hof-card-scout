@@ -41,7 +41,7 @@
       .sealed-market-result{margin-top:12px;border:1px solid rgba(230,189,99,.38);border-radius:16px;padding:12px;background:rgba(230,189,99,.07)}.sealed-market-result[hidden]{display:none}.sealed-market-verdict{font-size:24px;font-weight:950;line-height:1.1}.sealed-market-meta{font-size:11px;color:var(--muted);line-height:1.5;margin-top:7px}.sealed-market-list{display:grid;gap:7px;margin-top:10px}.sealed-market-item{border-top:1px solid var(--line);padding-top:7px;font-size:11px;line-height:1.4}.sealed-market-item a{color:var(--gold);text-decoration:none}.sealed-market-price{font-weight:950;color:var(--text)}
       .sealed-rip-result{margin-top:12px;border:1px solid rgba(86,197,138,.38);border-radius:16px;padding:12px;background:linear-gradient(145deg,rgba(86,197,138,.09),rgba(230,189,99,.05))}.sealed-rip-result[hidden]{display:none}.sealed-final-verdict{font-size:28px;font-weight:950;line-height:1.05;margin-top:3px}.sealed-score-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}.sealed-score{border:1px solid var(--line);border-radius:12px;padding:8px;background:rgba(0,0,0,.08)}.sealed-score-label{font-size:8px;color:var(--muted);font-weight:950;letter-spacing:.08em}.sealed-score-value{font-size:17px;font-weight:950;margin-top:3px}.sealed-rip-section{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}.sealed-rip-section-title{font-size:10px;font-weight:950;letter-spacing:.1em;color:var(--gold)}.sealed-rip-copy{font-size:11px;line-height:1.55;color:var(--muted);margin-top:5px}.sealed-rip-list{display:grid;gap:6px;margin-top:7px}.sealed-rip-item{font-size:11px;line-height:1.45}.sealed-rip-item strong{color:var(--text)}.sealed-rip-sources a{color:var(--gold);text-decoration:none}
       .sealed-rip-note{font-size:9px;color:var(--muted);line-height:1.45;margin-top:10px}.sealed-next{opacity:1}.sealed-next strong{color:var(--gold)}
-      .sealed-showdown-card{border-color:rgba(230,189,99,.55);background:linear-gradient(145deg,rgba(230,189,99,.11),rgba(86,197,138,.05))}.sealed-showdown-count{display:inline-flex;border-radius:999px;padding:5px 8px;margin-top:8px;background:rgba(230,189,99,.12);border:1px solid rgba(230,189,99,.28);font-size:9px;font-weight:950;color:#f4d58a}.sealed-showdown-list{display:grid;gap:8px;margin-top:11px}.sealed-showdown-empty{border:1px dashed var(--line);border-radius:13px;padding:14px;text-align:center;color:var(--muted);font-size:11px;line-height:1.5}.sealed-showdown-item{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:center;border:1px solid var(--line);border-radius:13px;padding:10px;background:rgba(0,0,0,.10)}.sealed-showdown-name{font-size:12px;font-weight:950;line-height:1.35}.sealed-showdown-meta{font-size:9px;color:var(--muted);line-height:1.4;margin-top:3px}.sealed-showdown-remove{min-height:34px!important;padding:5px 9px!important;font-size:9px!important}.sealed-showdown-results{display:grid;gap:10px;margin-top:12px}.sealed-showdown-results[hidden]{display:none}.sealed-showdown-rank{border:1px solid var(--line);border-radius:16px;padding:12px;background:rgba(0,0,0,.10)}.sealed-showdown-rank.top{border-color:rgba(230,189,99,.58);background:linear-gradient(145deg,rgba(230,189,99,.16),rgba(86,197,138,.06))}.sealed-showdown-rank-head{display:flex;gap:9px;align-items:flex-start}.sealed-showdown-place{font-size:24px;font-weight:950;line-height:1}.sealed-showdown-rank-name{font-size:15px;font-weight:950;line-height:1.3}.sealed-showdown-score{font-size:24px;font-weight:950;color:var(--gold);margin-left:auto;white-space:nowrap}.sealed-showdown-metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:9px}.sealed-showdown-metric{border:1px solid var(--line);border-radius:10px;padding:7px;background:rgba(0,0,0,.08)}.sealed-showdown-metric-label{font-size:7px;color:var(--muted);font-weight:950;letter-spacing:.06em}.sealed-showdown-metric-value{font-size:15px;font-weight:950;margin-top:2px}.sealed-showdown-copy{font-size:10px;color:var(--muted);line-height:1.5;margin-top:8px}.sealed-showdown-best{display:inline-flex;margin-top:7px;border-radius:999px;padding:5px 8px;background:rgba(230,189,99,.15);border:1px solid rgba(230,189,99,.32);font-size:8px;font-weight:950;color:#f4d58a;letter-spacing:.05em}
+      .sealed-showdown-card{border-color:rgba(230,189,99,.55);background:linear-gradient(145deg,rgba(230,189,99,.11),rgba(86,197,138,.05))}.sealed-showdown-count{display:inline-flex;border-radius:999px;padding:5px 8px;margin-top:8px;background:rgba(230,189,99,.12);border:1px solid rgba(230,189,99,.28);font-size:9px;font-weight:950;color:#f4d58a}.sealed-showdown-list{display:grid;gap:8px;margin-top:11px}.sealed-showdown-empty{border:1px dashed var(--line);border-radius:13px;padding:14px;text-align:center;color:var(--muted);font-size:11px;line-height:1.5}.sealed-showdown-item{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:center;border:1px solid var(--line);border-radius:13px;padding:10px;background:rgba(0,0,0,.10)}.sealed-showdown-name{font-size:12px;font-weight:950;line-height:1.35}.sealed-showdown-meta{font-size:9px;color:var(--muted);line-height:1.4;margin-top:3px}.sealed-showdown-remove{min-height:34px!important;padding:5px 9px!important;font-size:9px!important}.sealed-showdown-results{display:grid;gap:10px;margin-top:12px}.sealed-showdown-results[hidden]{display:none}.sealed-showdown-rank{border:1px solid var(--line);border-radius:16px;padding:12px;background:rgba(0,0,0,.10)}.sealed-showdown-rank.top{border-color:rgba(230,189,99,.58);background:linear-gradient(145deg,rgba(230,189,99,.16),rgba(86,197,138,.06))}.sealed-showdown-rank.incomplete{border-style:dashed;opacity:.88}.sealed-showdown-rank-head{display:flex;gap:9px;align-items:flex-start}.sealed-showdown-place{font-size:24px;font-weight:950;line-height:1}.sealed-showdown-rank-name{font-size:15px;font-weight:950;line-height:1.3}.sealed-showdown-score{font-size:24px;font-weight:950;color:var(--gold);margin-left:auto;white-space:nowrap}.sealed-showdown-metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:9px}.sealed-showdown-metric{border:1px solid var(--line);border-radius:10px;padding:7px;background:rgba(0,0,0,.08)}.sealed-showdown-metric-label{font-size:7px;color:var(--muted);font-weight:950;letter-spacing:.06em}.sealed-showdown-metric-value{font-size:15px;font-weight:950;margin-top:2px}.sealed-showdown-copy{font-size:10px;color:var(--muted);line-height:1.5;margin-top:8px}.sealed-showdown-best{display:inline-flex;margin-top:7px;border-radius:999px;padding:5px 8px;background:rgba(230,189,99,.15);border:1px solid rgba(230,189,99,.32);font-size:8px;font-weight:950;color:#f4d58a;letter-spacing:.05em}
       @media(max-width:620px){.sealed-actions,.sealed-actions.three,.sealed-form{grid-template-columns:1fr}.sealed-field.full{grid-column:auto}.sealed-showdown-metrics{grid-template-columns:repeat(2,1fr)}}
     `;
     document.head.appendChild(style);
@@ -575,24 +575,43 @@
     const shelf=Number(shelfPrice),market=Number(median);if(!Number.isFinite(shelf)||shelf<=0||!Number.isFinite(market)||market<=0)return 25;
     const ratio=shelf/market;if(ratio<=.75)return 100;if(ratio<=.85)return 92;if(ratio<=.95)return 82;if(ratio<=1.05)return 72;if(ratio<=1.10)return 62;if(ratio<=1.20)return 45;return 25;
   }
-  function showdownMetric(v,fallback){const n=Number(v);return Number.isFinite(n)?Math.max(0,Math.min(100,Math.round(n))):fallback;}
-  function showdownScore(item,market,analysis){
-    const price=showdownMetric(analysis?.priceScore,showdownPriceScore(item.shelfPrice,market?.median));
-    const depth=analysis?.chaseDepthEvidenceAvailable?showdownMetric(analysis?.chaseDepthScore,30):30;
-    const format=analysis?.formatAccessEvidenceAvailable?showdownMetric(analysis?.formatAccessScore,35):35;
-    const set=analysis?.chaseEvidenceAvailable?showdownMetric(analysis?.chaseScore,25):25;
+  function showdownMetric(v){const n=Number(v);return Number.isFinite(n)?Math.max(0,Math.min(100,Math.round(n))):null;}
+  function showdownScore(item,market,analysis,error=""){
+    const marketMedian=Number(market?.median);
+    const price=Number.isFinite(marketMedian)&&marketMedian>0
+      ? (showdownMetric(analysis?.priceScore)??showdownPriceScore(item.shelfPrice,marketMedian))
+      : null;
+    const depth=analysis?.chaseDepthEvidenceAvailable?showdownMetric(analysis?.chaseDepthScore):null;
+    const format=analysis?.formatAccessEvidenceAvailable?showdownMetric(analysis?.formatAccessScore):null;
+    const set=analysis?.chaseEvidenceAvailable?showdownMetric(analysis?.chaseScore):null;
     const supportValues=[];
-    if(analysis?.pullEvidenceAvailable)supportValues.push(showdownMetric(analysis?.pullScore,40));
-    if(analysis?.sentimentEvidenceAvailable)supportValues.push(showdownMetric(analysis?.sentimentScore,40));
-    const support=supportValues.length?Math.round(supportValues.reduce((a,b)=>a+b,0)/supportValues.length):40;
-    let total=Math.round(depth*.35+format*.25+price*.20+set*.15+support*.05);
-    if(!analysis?.chaseDepthEvidenceAvailable)total-=10;
-    if(!analysis?.formatAccessEvidenceAvailable)total-=7;
-    if(!analysis?.chaseEvidenceAvailable)total-=5;
-    total=Math.max(0,Math.min(100,total));
-    const known=[true,!!analysis?.chaseDepthEvidenceAvailable,!!analysis?.formatAccessEvidenceAvailable,!!analysis?.chaseEvidenceAvailable].filter(Boolean).length;
-    const confidence=known>=4?"HIGH":known>=2?"MEDIUM":"LOW";
-    return {total,price,depth,format,set,support,confidence};
+    if(analysis?.pullEvidenceAvailable){const value=showdownMetric(analysis?.pullScore);if(value!==null)supportValues.push(value);}
+    if(analysis?.sentimentEvidenceAvailable){const value=showdownMetric(analysis?.sentimentScore);if(value!==null)supportValues.push(value);}
+    const support=supportValues.length?Math.round(supportValues.reduce((a,b)=>a+b,0)/supportValues.length):null;
+    const missing=[];
+    if(error)missing.push("Product research");
+    if(price===null)missing.push("Market price");
+    if(!analysis?.chaseDepthEvidenceAvailable||depth===null)missing.push("Chase Depth");
+    if(!analysis?.formatAccessEvidenceAvailable||format===null)missing.push("Exact-format access");
+    if(!analysis?.chaseEvidenceAvailable||set===null)missing.push("Set/chase evidence");
+    const rankable=missing.length===0;
+    let total=null;
+    if(rankable){
+      let weighted=depth*.35+format*.25+price*.20+set*.15;
+      let weight=.95;
+      if(support!==null){weighted+=support*.05;weight+=.05;}
+      total=Math.max(0,Math.min(100,Math.round(weighted/weight)));
+    }
+    const confidence=rankable?(support!==null?"HIGH":"MEDIUM"):"INCOMPLETE";
+    return {rankable,total,price,depth,format,set,support,confidence,missing};
+  }
+  function showdownIncompleteReason(row){
+    const missing=Array.isArray(row?.metrics?.missing)?row.metrics.missing:[];
+    const unique=[...new Set(missing.filter(Boolean))];
+    if(row?.error&&!unique.includes("Product research"))unique.unshift("Product research");
+    return unique.length
+      ? `Scout could not verify ${unique.join(" · ")}. This product is excluded from the ranking.`
+      : "Scout does not have enough complete evidence to rank this product safely.";
   }
   function showdownReason(row){
     const m=row.metrics||{},a=row.analysis||{},market=row.market||{},parts=[];
@@ -608,13 +627,21 @@
     const rows=Array.isArray(results)?results:[];
     if(!rows.length){box.hidden=true;box.innerHTML="";return;}
     box.hidden=false;
-    box.innerHTML=rows.map((row,index)=>{
-      const place=index+1,label=identityLabel(row.item?.identity||{})||row.item?.lookupTitle||"Sealed product",m=row.metrics||{},a=row.analysis||{};
-      const trophy=place===1?"🥇":place===2?"🥈":place===3?"🥉":`#${place}`;
-      const formatCopy=a?.formatAccessEvidenceAvailable?(a.formatAccessSummary||"Exact-format access verified."):"Exact-format access not verified; Scout applied a conservative ranking penalty.";
+    const rankableCount=rows.filter(row=>row?.metrics?.rankable===true).length;
+    let rankablePlace=0;
+    box.innerHTML=rows.map(row=>{
+      const rankable=row?.metrics?.rankable===true;
+      const place=rankable?++rankablePlace:null;
+      const label=identityLabel(row.item?.identity||{})||row.item?.lookupTitle||"Sealed product",m=row.metrics||{},a=row.analysis||{};
+      const trophy=rankable?(place===1?"🥇":place===2?"🥈":place===3?"🥉":`#${place}`):"⚠";
+      const isWinner=rankable&&place===1&&rankableCount>=2;
+      const formatCopy=a?.formatAccessEvidenceAvailable?(a.formatAccessSummary||"Exact-format access verified."):"Exact-format access not verified.";
       const depthCopy=a?.chaseDepthEvidenceAvailable?(a.chaseDepthSummary||"Set-level Chase Depth verified from aggregated singles pricing."):"Scout did not verify enough set-level singles prices to score Chase Depth.";
       const issue=row.error?`<div class="sealed-showdown-copy">⚠ ${esc(row.error)}</div>`:"";
-      return `<div class="sealed-showdown-rank ${place===1?"top":""}"><div class="sealed-showdown-rank-head"><div class="sealed-showdown-place">${trophy}</div><div><div class="sealed-showdown-rank-name">${esc(label)}</div><div class="sealed-showdown-meta">Shelf ${money(row.item?.shelfPrice)||"—"} · ${esc(String(row.item?.identity?.category||""))} · ${esc(m.confidence||"LOW")} ranking confidence</div>${place===1?'<span class="sealed-showdown-best">BEST SHELF BUY</span>':""}</div><div class="sealed-showdown-score">${Math.round(Number(m.total)||0)}</div></div><div class="sealed-showdown-metrics"><div class="sealed-showdown-metric"><div class="sealed-showdown-metric-label">CHASE DEPTH</div><div class="sealed-showdown-metric-value">${a?.chaseDepthEvidenceAvailable?m.depth:"N/A"}</div></div><div class="sealed-showdown-metric"><div class="sealed-showdown-metric-label">FORMAT ACCESS</div><div class="sealed-showdown-metric-value">${a?.formatAccessEvidenceAvailable?m.format:"N/A"}</div></div><div class="sealed-showdown-metric"><div class="sealed-showdown-metric-label">PRICE</div><div class="sealed-showdown-metric-value">${m.price}</div></div><div class="sealed-showdown-metric"><div class="sealed-showdown-metric-label">SET</div><div class="sealed-showdown-metric-value">${m.set}</div></div><div class="sealed-showdown-metric"><div class="sealed-showdown-metric-label">SUPPORT</div><div class="sealed-showdown-metric-value">${(a?.pullEvidenceAvailable||a?.sentimentEvidenceAvailable)?m.support:"N/A"}</div></div></div><div class="sealed-showdown-copy"><strong>Why it ranks here:</strong> ${esc(showdownReason(row))}</div><div class="sealed-showdown-copy"><strong>Chase Depth:</strong> ${esc(depthCopy)}</div><div class="sealed-showdown-copy"><strong>Format:</strong> ${esc(formatCopy)}</div>${issue}</div>`;
+      const meta=rankable?`${esc(m.confidence||"MEDIUM")} ranking confidence`:"INCOMPLETE · NOT RANKED";
+      const badge=isWinner?'<span class="sealed-showdown-best">BEST SHELF BUY</span>':(rankable&&rankableCount<2?'<span class="sealed-showdown-best">RANKABLE · NEED ANOTHER COMPLETE PRODUCT</span>':"");
+      const reason=rankable?`<strong>Why it ranks here:</strong> ${esc(showdownReason(row))}`:`<strong>Why it is not ranked:</strong> ${esc(showdownIncompleteReason(row))}`;
+      return `<div class="sealed-showdown-rank ${isWinner?"top":""} ${rankable?"":"incomplete"}"><div class="sealed-showdown-rank-head"><div class="sealed-showdown-place">${trophy}</div><div><div class="sealed-showdown-rank-name">${esc(label)}</div><div class="sealed-showdown-meta">Shelf ${money(row.item?.shelfPrice)||"—"} · ${esc(String(row.item?.identity?.category||""))} · ${meta}</div>${badge}</div><div class="sealed-showdown-score">${rankable?Math.round(Number(m.total)||0):"—"}</div></div><div class="sealed-showdown-metrics"><div class="sealed-showdown-metric"><div class="sealed-showdown-metric-label">CHASE DEPTH</div><div class="sealed-showdown-metric-value">${a?.chaseDepthEvidenceAvailable&&m.depth!==null?m.depth:"N/A"}</div></div><div class="sealed-showdown-metric"><div class="sealed-showdown-metric-label">FORMAT ACCESS</div><div class="sealed-showdown-metric-value">${a?.formatAccessEvidenceAvailable&&m.format!==null?m.format:"N/A"}</div></div><div class="sealed-showdown-metric"><div class="sealed-showdown-metric-label">PRICE</div><div class="sealed-showdown-metric-value">${m.price!==null&&m.price!==undefined?m.price:"N/A"}</div></div><div class="sealed-showdown-metric"><div class="sealed-showdown-metric-label">SET</div><div class="sealed-showdown-metric-value">${a?.chaseEvidenceAvailable&&m.set!==null?m.set:"N/A"}</div></div><div class="sealed-showdown-metric"><div class="sealed-showdown-metric-label">SUPPORT</div><div class="sealed-showdown-metric-value">${m.support!==null&&m.support!==undefined?m.support:"N/A"}</div></div></div><div class="sealed-showdown-copy">${reason}</div><div class="sealed-showdown-copy"><strong>Chase Depth:</strong> ${esc(depthCopy)}</div><div class="sealed-showdown-copy"><strong>Format:</strong> ${esc(formatCopy)}</div>${issue}</div>`;
     }).join("");
   }
   function renderShowdown(state=readShowdown()){
@@ -662,12 +689,20 @@
           }catch(err){error=err?.message||"Product research failed.";}
         }else error="Scout could not establish a competitive market median for this product.";
       }catch(err){error=err?.message||"Market-price research failed.";}
-      const metrics=showdownScore(item,market,analysis);researched.push({item,market,analysis,metrics,error});
+      const metrics=showdownScore(item,market,analysis,error);researched.push({item,market,analysis,metrics,error,order:i});
     }
-    researched.sort((a,b)=>(b.metrics?.total||0)-(a.metrics?.total||0)||(b.metrics?.price||0)-(a.metrics?.price||0));
-    const compact=researched.map(row=>({item:row.item,market:row.market,analysis:{priceScore:row.analysis?.priceScore,chaseDepthScore:row.analysis?.chaseDepthScore,chaseDepthEvidenceAvailable:!!row.analysis?.chaseDepthEvidenceAvailable,chaseDepthLabel:row.analysis?.chaseDepthLabel||"",chaseDepthSummary:row.analysis?.chaseDepthSummary||"",chaseDepthCount20:Number(row.analysis?.chaseDepthCount20||0),chaseDepthCount50:Number(row.analysis?.chaseDepthCount50||0),chaseDepthCount100:Number(row.analysis?.chaseDepthCount100||0),chaseScore:row.analysis?.chaseScore,chaseEvidenceAvailable:!!row.analysis?.chaseEvidenceAvailable,formatAccessScore:row.analysis?.formatAccessScore,formatAccessEvidenceAvailable:!!row.analysis?.formatAccessEvidenceAvailable,formatAccessSummary:row.analysis?.formatAccessSummary||"",pullScore:row.analysis?.pullScore,pullEvidenceAvailable:!!row.analysis?.pullEvidenceAvailable,sentimentScore:row.analysis?.sentimentScore,sentimentEvidenceAvailable:!!row.analysis?.sentimentEvidenceAvailable,qualitySummary:row.analysis?.qualitySummary||"",researchProfile:row.analysis?.researchProfile||""},metrics:row.metrics,error:row.error}));
+    researched.sort((a,b)=>{
+      const rankDiff=Number(b.metrics?.rankable===true)-Number(a.metrics?.rankable===true);if(rankDiff)return rankDiff;
+      if(a.metrics?.rankable&&b.metrics?.rankable){const totalDiff=(Number(b.metrics?.total)||0)-(Number(a.metrics?.total)||0);if(totalDiff)return totalDiff;}
+      return Number(a.order||0)-Number(b.order||0);
+    });
+    const compact=researched.map(row=>({status:row.metrics?.rankable?"ranked":"incomplete",item:row.item,market:row.market,analysis:{priceScore:row.analysis?.priceScore,chaseDepthScore:row.analysis?.chaseDepthScore,chaseDepthEvidenceAvailable:!!row.analysis?.chaseDepthEvidenceAvailable,chaseDepthLabel:row.analysis?.chaseDepthLabel||"",chaseDepthSummary:row.analysis?.chaseDepthSummary||"",chaseDepthCount20:Number(row.analysis?.chaseDepthCount20||0),chaseDepthCount50:Number(row.analysis?.chaseDepthCount50||0),chaseDepthCount100:Number(row.analysis?.chaseDepthCount100||0),chaseScore:row.analysis?.chaseScore,chaseEvidenceAvailable:!!row.analysis?.chaseEvidenceAvailable,formatAccessScore:row.analysis?.formatAccessScore,formatAccessEvidenceAvailable:!!row.analysis?.formatAccessEvidenceAvailable,formatAccessSummary:row.analysis?.formatAccessSummary||"",pullScore:row.analysis?.pullScore,pullEvidenceAvailable:!!row.analysis?.pullEvidenceAvailable,sentimentScore:row.analysis?.sentimentScore,sentimentEvidenceAvailable:!!row.analysis?.sentimentEvidenceAvailable,qualitySummary:row.analysis?.qualitySummary||"",researchProfile:row.analysis?.researchProfile||""},metrics:row.metrics,error:row.error}));
     saveShowdown({items,results:compact});renderShowdownResults(compact);
-    status.className="sealed-status ok";status.textContent=`✓ Shelf ranked. ${marketSearches} marketplace search${marketSearches===1?"":"es"} + ${researchSearches} product-research search${researchSearches===1?"":"es"} used; cached products may use 0. Chase Depth uses aggregated set pricing; no card-by-card eBay searches are used. Missing odds/community evidence did not automatically block the ranking.`;
+    const rankableCount=compact.filter(row=>row.metrics?.rankable===true).length;
+    status.className=rankableCount>=2?"sealed-status ok":"sealed-status warn";
+    status.textContent=rankableCount>=2
+      ? `✓ Shelf ranked. ${rankableCount} of ${items.length} products had complete required evidence. ${marketSearches} marketplace search${marketSearches===1?"":"es"} + ${researchSearches} product-research search${researchSearches===1?"":"es"} used; cached products may use 0. No card-by-card eBay searches are used.`
+      : `Research finished, but only ${rankableCount} of ${items.length} products had complete required evidence. Scout did not name a Best Shelf Buy. ${marketSearches} marketplace search${marketSearches===1?"":"es"} + ${researchSearches} product-research search${researchSearches===1?"":"es"} used; cached products may use 0.`;
     btn.disabled=false;btn.textContent="🏆 RANK MY SHELF";byId("sealedShowdownResults")?.scrollIntoView({behavior:"smooth",block:"start"});
   }
   function clearShelfShowdown(){localStorage.removeItem(SHOWDOWN_KEY);renderShowdown({items:[],results:[]});const status=byId("sealedShowdownStatus");if(status){status.className="sealed-status";status.textContent="Showdown cleared. Add at least two products to start another comparison.";}}

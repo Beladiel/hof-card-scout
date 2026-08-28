@@ -81,7 +81,7 @@ assert.match(worker,/sealedRipChaseContextSupported/,'verified checklist structu
 assert.match(app,/STEP 4 · SHOULD I BUY THIS\?/,'sealed scanner must frame the final step as the purchase decision');
 assert.match(app,/Confidence: <strong>/,'sealed scanner must show recommendation confidence');
 assert.match(app,/Exact-format pull odds were not reliably verified/,'missing exact odds must be shown as optional instead of blocking a recommendation');
-assert.match(index,/sealed-product-scout\.js\?v=6\.5\.0/,'sealed scanner cache-bust must advance for Chase Depth UI');
+assert.match(index,/sealed-product-scout\.js\?v=6\.5\.1/,'sealed scanner cache-bust must advance for incomplete-ranking safety');
 assert.match(worker,/sealedRipExpandEvidenceRows/,'rip research must expand high-quality source pages beyond search snippets');
 assert.match(worker,/sealedRipReaderPageText/,'trusted authority pages must have a rendered-reader fallback when direct HTML is thin or blocked');
 assert.match(worker,/sealedRipSerpEvidenceText/,'rip research must retain structured Google evidence when publisher page reading is blocked');
@@ -132,7 +132,14 @@ assert.ok(worker.includes('const formatAccessEvidenceAvailable = formatAccessCon
 assert.ok(worker.includes('researchMode === "showdown"'),'Showdown must swap community research for aggregate price-guide research');
 assert.ok(app.includes('researchMode:"showdown"'),'front end must request Showdown research mode');
 assert.ok(app.includes('CHASE DEPTH'),'Showdown must display Chase Depth');
-assert.ok(app.includes('depth*.35+format*.25+price*.20+set*.15+support*.05'),'Showdown weights must prioritize Chase Depth without over-weighting support');
+assert.ok(app.includes('let weighted=depth*.35+format*.25+price*.20+set*.15'),'Showdown weights must prioritize Chase Depth without inventing missing support');
+assert.ok(app.includes('const rankable=missing.length===0'),'Showdown must explicitly mark incomplete products unrankable');
+assert.ok(app.includes('INCOMPLETE · NOT RANKED'),'Showdown must visibly label incomplete products');
+assert.ok(app.includes('rankable&&place===1&&rankableCount>=2'),'Best Shelf Buy must require at least two rankable products');
+assert.ok(app.includes('status:row.metrics?.rankable?"ranked":"incomplete"'),'stored Showdown results must preserve ranked vs incomplete status');
+assert.ok(app.includes('showdownScore(item,market,analysis,error)'),'research failures must flow into rankability instead of receiving fallback scores');
+assert.doesNotMatch(app,/const depth=analysis\?\.chaseDepthEvidenceAvailable\?showdownMetric\(analysis\?\.chaseDepthScore,30\):30/,'missing Chase Depth must not receive a synthetic score');
+assert.doesNotMatch(app,/const format=analysis\?\.formatAccessEvidenceAvailable\?showdownMetric\(analysis\?\.formatAccessScore,35\):35/,'missing Format Access must not receive a synthetic score');
 assert.ok(worker.includes('Collector Booster')&&worker.includes('Play Booster')&&worker.includes('Jumpstart Booster'),'specialized Magic boosters must remain first-class product types');
 assert.ok(worker.includes('formatAccessEvidenceAvailable'),'rip analysis must expose exact-format access evidence');
 assert.ok(worker.includes('formatAccessScore'),'rip analysis must expose an exact-format access score');
