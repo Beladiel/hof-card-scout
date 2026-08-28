@@ -1,4 +1,4 @@
-const VERSION = "3.38.11";
+const VERSION = "3.38.12";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -543,7 +543,7 @@ function sealedRipPageExcerpt(html) {
   text = sealedRipDecodeHtml(text).replace(/\s+/g, " ").trim();
   if (!text) return "";
   const lower = text.toLowerCase();
-  const needles = ["1:", "odds", "blaster", "value box", "rookie", "signature", "autograph", "case hit", "parallel", "exclusive", "short print", "ssp"];
+  const needles = ["1:", "odds", "blaster", "value box", "what to expect in a value box", "rookie", "signature", "hyper signatures", "autograph", "case hit", "block by block", "boom shaka laka", "green hoops", "light burst", "parallel", "exclusive", "short print", "ssp"];
   const chunks = [];
   const used = new Set();
   for (const needle of needles) {
@@ -566,26 +566,67 @@ function sealedRipPageExcerpt(html) {
   return (chunks.length ? chunks.join("\n---\n") : text.slice(0, 5000)).slice(0, 9000);
 }
 
+function sealedRipPageHasUsefulSignals(text) {
+  const value = String(text || "");
+  return /1\s*:\s*\d{1,7}|(?:value box|blaster|retail[- ]only|case hit|block by block|boom shaka laka|hyper signatures?|green hoops|light burst|rookie signatures?)/i.test(value);
+}
+
+function sealedRipCanUseReader(row) {
+  const link = String(row?.link || "").toLowerCase();
+  return /https?:\/\/(?:www\.)?(?:beckett\.com|topps\.com|checklistinsider\.com|cardboardconnection\.com|pokemon\.com|pokebeach\.com|magic\.wizards\.com|wizards\.com)\//.test(link);
+}
+
+async function sealedRipReaderPageText(row) {
+  if (!sealedRipCanUseReader(row)) return "";
+  const target = String(row.link || "").trim();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 14000);
+  try {
+    // Jina Reader renders difficult public pages and returns LLM-friendly text.
+    // It is a fallback only; direct source fetching remains the first choice.
+    const response = await fetch(`https://r.jina.ai/${target}`, {
+      signal: controller.signal,
+      redirect: "follow",
+      headers: { "Accept": "text/plain,text/markdown;q=0.9,*/*;q=0.1", "User-Agent": "HOF-Card-Scout/1.0" },
+    });
+    if (!response.ok) return "";
+    const text = (await response.text()).slice(0, 1200000);
+    return sealedRipPageExcerpt(text);
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function sealedRipFetchPageText(row) {
   if (!row || row.sourceType === "community" || !/^https?:\/\//i.test(String(row.link || ""))) return "";
+  let directExcerpt = "";
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 6500);
+  const timeout = setTimeout(() => controller.abort(), 7500);
   try {
     const response = await fetch(row.link, {
       signal: controller.signal,
       redirect: "follow",
       headers: { "User-Agent": "Mozilla/5.0 HOF-Card-Scout/1.0", "Accept": "text/html,application/xhtml+xml" },
     });
-    if (!response.ok) return "";
-    const contentType = String(response.headers.get("content-type") || "").toLowerCase();
-    if (contentType && !contentType.includes("text/html") && !contentType.includes("application/xhtml")) return "";
-    const html = (await response.text()).slice(0, 900000);
-    return sealedRipPageExcerpt(html);
+    if (response.ok) {
+      const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+      if (!contentType || contentType.includes("text/html") || contentType.includes("application/xhtml")) {
+        const html = (await response.text()).slice(0, 900000);
+        directExcerpt = sealedRipPageExcerpt(html);
+        if (sealedRipPageHasUsefulSignals(directExcerpt)) return directExcerpt;
+      }
+    }
   } catch {
-    return "";
+    // Fall through to the trusted reader fallback below.
   } finally {
     clearTimeout(timeout);
   }
+
+  const readerExcerpt = await sealedRipReaderPageText(row);
+  if (sealedRipPageHasUsefulSignals(readerExcerpt)) return readerExcerpt;
+  return readerExcerpt || directExcerpt;
 }
 
 function sealedRipEvidencePriority(row) {
@@ -1031,7 +1072,7 @@ export default {
         return json({ ok: false, error: "missing_market", message: "Run the market-price check first so Scout can combine price and rip quality.", researchSearchesUsed: 0, marketplaceSearchesUsed: 0 }, 400, cors);
       }
 
-      const cacheKey = `sealed:rip:v8:${encodeURIComponent(productLabel.toLowerCase()).slice(0, 300)}`;
+      const cacheKey = `sealed:rip:v9:${encodeURIComponent(productLabel.toLowerCase()).slice(0, 300)}`;
       if (env.SCOUT_DATA) {
         try {
           const cached = await env.SCOUT_DATA.get(cacheKey, { type: "json" });
