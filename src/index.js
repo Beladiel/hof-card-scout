@@ -1,4 +1,4 @@
-const VERSION = "3.38.1";
+const VERSION = "3.38.2";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -225,7 +225,45 @@ function sealedMarketVerdict(shelfPrice, median, sampleCount) {
   return { verdict: "PASS", reason: `Shelf price is about ${differencePct}% above the median current listing price.` };
 }
 
-function sealedMarketResultRows(data, identity) {
+function sealedMarketIdentityTokens(value) {
+  const stop = new Set([
+    "nba", "nfl", "mlb", "basketball", "football", "baseball", "trading", "card", "cards",
+    "value", "blaster", "box", "boxes", "hobby", "retail", "mega", "hanger", "booster",
+    "elite", "trainer", "collection", "tin", "pack", "packs", "factory", "sealed", "brand",
+    "new", "qty", "available"
+  ]);
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter(token => !/^20\d{2}$/.test(token) && !/^\d{1,3}$/.test(token) && !stop.has(token));
+}
+
+function sealedMarketIdentityMatches(title, identity, lookupTitle) {
+  const text = String(title || "");
+  const known = [lookupTitle, identity?.set, identity?.variant].filter(Boolean).join(" ");
+  const wanted = Array.from(new Set(sealedMarketIdentityTokens(known)));
+  if (wanted.length) {
+    const actual = new Set(sealedMarketIdentityTokens(text));
+    const required = Math.min(2, wanted.length);
+    const overlap = wanted.filter(token => actual.has(token)).length;
+    if (overlap < required) return false;
+  }
+
+  const knownLower = known.toLowerCase();
+  if (/\bfanatics\b/i.test(text) && !/\bfanatics\b/.test(knownLower)) return false;
+  if (/\bchrome\b/i.test(text) && !/\bchrome\b/.test(knownLower)) return false;
+  if (/\bsignature\s+class\b/i.test(text) && !/\bsignature\s+class\b/.test(knownLower)) return false;
+  return true;
+}
+
+function sealedMarketIsMultiUnit(title) {
+  const text = String(title || "");
+  return /(?:^|\s)(?:[2-9]\d*)x\b|\blot\s+of\s+(?:[2-9]\d*|two|three|four|five|six|seven|eight|nine|ten)\b|\bcase\s+of\b|\b(?:[2-9]\d*)\s*(?:boxes|blasters|tins|etbs|bundles)\b/i.test(text);
+}
+
+function sealedMarketResultRows(data, identity, lookupTitle = "") {
   const rows = Array.isArray(data?.organic_results) ? data.organic_results : (Array.isArray(data?.results) ? data.results : []);
   const type = String(identity?.boxType || identity?.productType || "").trim();
   const seen = new Set();
@@ -233,7 +271,9 @@ function sealedMarketResultRows(data, identity) {
   for (const row of rows) {
     const title = String(row?.title || row?.name || "").trim();
     if (!title || /\b(?:case\s+break|break\s+spot|rip\s*(?:&|and)\s*ship|live\s+rip|rip\s+ship|personal\s+break|team\s+break|random\s+team|empty\s+box|box\s+only|opened|wrapper|digital|you\s+pick|single\s+card)\b/i.test(title)) continue;
+    if (sealedMarketIsMultiUnit(title)) continue;
     if (!sealedMarketTypeMatches(title, type)) continue;
+    if (!sealedMarketIdentityMatches(title, identity, lookupTitle)) continue;
     const formatText = JSON.stringify([row?.buying_format, row?.buying_options, row?.bids, row?.bid_count, row?.time_left] || []).toLowerCase();
     if (/auction|\bbid\b/.test(formatText)) continue;
     const price = sealedMarketPrice(row?.price ?? row?.current_price ?? row?.displayed_price);
@@ -477,7 +517,7 @@ export default {
         return json({ ok: false, error: "missing_fields", message: "Confirm the product type and save the shelf price before checking market value.", searchUsed: 0, marketplaceSearchesUsed: 0 }, 400, cors);
       }
 
-      const cacheKey = `sealed:value:v1:${encodeURIComponent(query.toLowerCase()).slice(0, 300)}`;
+      const cacheKey = `sealed:value:v2:${encodeURIComponent(query.toLowerCase()).slice(0, 300)}`;
       if (env.SCOUT_DATA) {
         try {
           const cached = await env.SCOUT_DATA.get(cacheKey, { type: "json" });
@@ -510,7 +550,7 @@ export default {
         return json({ ok: false, error: "market_search_failed", message: "Scout could not complete the sealed-product market search right now.", searchUsed: 1, marketplaceSearchesUsed: 1 }, 502, cors);
       }
 
-      const listings = sealedMarketResultRows(data, identity);
+      const listings = sealedMarketResultRows(data, identity, lookupTitle);
       const prices = listings.map(x => x.price);
       const median = sealedMarketMedian(prices);
       const low = prices.length ? Math.min(...prices) : null;
