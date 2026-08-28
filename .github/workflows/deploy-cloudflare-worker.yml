@@ -26,3 +26,5 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: '4'
           command: deploy
+
+# Worker source changes now deploy automatically from main.
