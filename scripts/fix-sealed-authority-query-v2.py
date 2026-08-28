@@ -53,6 +53,8 @@ test_path = Path('tests/sealed-product-vision.test.cjs')
 test = test_path.read_text(encoding='utf-8')
 test = test.replace('3\\.38\\.10', '3\\.38\\.11', 1)
 test = test.replace('sealed:rip:v7:', 'sealed:rip:v8:', 1)
+stale = "assert.match(worker,/const checklistQuery = `\\\"\\$\\{exactSet\\}\\\" \\$\\{formatTerms\\} \\$\\{authoritySite\\}`\\.trim\\(\\)/,'authoritative search must use the single primary authority site');\n"
+test = test.replace(stale, '')
 anchor = "assert.match(worker,/site:beckett\\.com/,'sports rip research must force the authoritative search onto Beckett');\n"
 extra = anchor + "assert.match(worker,/const authorityYear = String\\(identity\\?\\.year/,'authority discovery must normalize season punctuation');\nassert.match(worker,/const checklistQuery = `\\$\\{authorityYear\\} \\$\\{researchSet\\} \\$\\{authorityCategory\\} \\$\\{authoritySite\\}`/,'authority discovery must search the set broadly without requiring retail-format terms');\nassert.match(worker,/sealedRipGoogleSearch\\(checklistQuery, env\\.SERPAPI_KEY, 18000\\)/,'authority discovery must have enough timeout budget to finish');\n"
 if 'authority discovery must normalize season punctuation' not in test:
