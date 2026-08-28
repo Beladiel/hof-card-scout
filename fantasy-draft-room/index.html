@@ -9,12 +9,13 @@
   <title>Scout Fantasy Draft Room</title>
   <link rel="stylesheet" href="styles.css?v=2">
   <link rel="stylesheet" href="v2.css?v=2">
+  <link rel="stylesheet" href="v3.css?v=3">
 </head>
 <body>
   <main class="shell">
     <header class="hero">
       <div>
-        <div class="eyebrow">🏈 SCOUT FANTASY DRAFT ROOM · V2</div>
+        <div class="eyebrow">🏈 SCOUT FANTASY DRAFT ROOM · V3</div>
         <h1>Your draft board. Scout's call.</h1>
         <p>Yahoo Prize Prestige 1384925 · 10 teams · Half-PPR · 60-second picks</p>
       </div>
@@ -89,6 +90,18 @@
       <div id="rosterGrid" class="roster-grid"></div>
     </section>
 
+    <section id="leagueIntelCard" class="card league-intel-card">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">👀 OPPONENT INTELLIGENCE</div>
+          <h2>Who picks before you — and what they still need</h2>
+        </div>
+        <span class="pill">Auto-tracked from draft order</span>
+      </div>
+      <div id="leagueIntelSummary" class="intel-summary"></div>
+      <div id="leagueGrid" class="league-grid"></div>
+    </section>
+
     <section id="mockReview" class="card mock-review" hidden></section>
 
     <section class="card board-card">
@@ -134,5 +147,6 @@
   <script src="data.js?v=1"></script>
   <script src="deep-data.js?v=2"></script>
   <script src="app.js?v=2"></script>
+  <script src="opponent-intel.js?v=3"></script>
 </body>
 </html>
