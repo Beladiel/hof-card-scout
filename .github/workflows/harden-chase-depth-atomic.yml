@@ -1,0 +1,65 @@
+name: Harden Chase Depth Atomic Validation
+
+on:
+  push:
+    paths:
+      - 'scripts/harden-chase-depth-atomic.py'
+      - '.github/workflows/harden-chase-depth-atomic.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply atomic Chase Depth validation
+        run: python3 scripts/harden-chase-depth-atomic.py
+
+      - name: Validate atomic Chase Depth
+        run: |
+          set -euo pipefail
+          node --check src/index.js
+          node --check sealed-product-scout.js
+          node tests/sealed-product-vision.test.cjs
+          grep -q 'const VERSION = "3.44.0"' src/index.js
+          grep -q 'sealed:intel:v15:' src/index.js
+          grep -q 'function sealedRipPriceGuideAtomicBlocks' src/index.js
+          grep -q 'function sealedRipChaseValueProof' src/index.js
+          grep -q 'priceBasis' src/index.js
+          git diff --check
+
+      - name: Commit atomic Chase Depth fix
+        run: |
+          set -euo pipefail
+          git config user.name 'HOF Card Scout Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/index.js tests/sealed-product-vision.test.cjs
+          git commit -m 'Require atomic Chase Depth price evidence'
+          git push
+
+      - name: Deploy Worker
+        env:
+          CF_API_TOKEN_RAW: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID_RAW: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ "$CF_API_TOKEN_RAW" =~ (cfut_[A-Za-z0-9_-]+) ]]; then
+            export CLOUDFLARE_API_TOKEN="${BASH_REMATCH[1]}"
+          else
+            TOKEN_CLEAN="$(printf '%s' "$CF_API_TOKEN_RAW" | tr -d '\r\n\t ')"
+            TOKEN_CLEAN="${TOKEN_CLEAN#Bearer}"
+            TOKEN_CLEAN="${TOKEN_CLEAN#bearer}"
+            TOKEN_CLEAN="${TOKEN_CLEAN//\"/}"
+            TOKEN_CLEAN="${TOKEN_CLEAN//\'/}"
+            export CLOUDFLARE_API_TOKEN="$TOKEN_CLEAN"
+          fi
+          export CLOUDFLARE_ACCOUNT_ID="$(printf '%s' "$CF_ACCOUNT_ID_RAW" | tr -d '\r\n\t ')"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          npx --yes wrangler@4 deploy
