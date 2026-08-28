@@ -30,18 +30,6 @@ if prompt_count < 2:
     raise SystemExit(f'expected authority prompt anchors, found {prompt_count}')
 worker = worker.replace(prompt_old, prompt_new)
 
-recovery_old = 'AUTHORITY EVIDENCE:\\\n${evidenceSignals}`;'
-recovery_new = 'AUTHORITY EVIDENCE:\\\n${String(evidenceSignals || "").slice(0, 9000)}`;'
-if recovery_old not in worker:
-    raise SystemExit('authority recovery evidence anchor not found')
-worker = worker.replace(recovery_old, recovery_new, 1)
-
-price_old = 'PRICE-GUIDE EVIDENCE:\\\n${priceGuideSignals}`;'
-price_new = 'PRICE-GUIDE EVIDENCE:\\\n${String(priceGuideSignals || "").slice(0, 9000)}`;'
-if price_old not in worker:
-    raise SystemExit('price-guide recovery evidence anchor not found')
-worker = worker.replace(price_old, price_new, 1)
-
 failure_old = 'return json({ ok: false, error: "rip_analysis_failed", message: "Scout found the research but could not finish the rip-quality analysis right now.", failureStage: "synthesis", lanes: failureLanes, researchMix: { ...researchMix, synthesisRetryUsed }, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);'
 failure_new = '''const aiFailure = sealedRipAiFailureInfo(retryErr, err);\n          return json({ ok: false, error: "rip_analysis_failed", message: aiFailure.message, aiFailure, failureStage: "synthesis", lanes: failureLanes, researchMix: { ...researchMix, synthesisRetryUsed, synthesisModel: researchMode === "showdown" ? SEALED_SHOWDOWN_MODEL : SEALED_RIP_MODEL, synthesisFailure: aiFailure.type }, researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);'''
 if failure_old not in worker:
@@ -56,7 +44,6 @@ worker = worker.replace(success_old, success_new, 1)
 
 worker_path.write_text(worker, encoding='utf-8')
 
-# Keep the version/cache assertions in the focused Sealed Product Scout tests current.
 for test_path in [
     Path('tests/sealed-product-vision.test.cjs'),
     Path('tests/showdown-research-reliability.test.cjs'),
@@ -79,8 +66,7 @@ assert.ok(worker.includes('researchMode === "showdown" ? SEALED_SHOWDOWN_MODEL :
 assert.ok(worker.includes('function sealedRipAiFailureInfo'), 'AI synthesis failures must be classified safely');
 assert.ok(worker.includes('daily_quota') && worker.includes('00:00 UTC'), 'daily Workers AI quota failures must be explained to the user');
 assert.ok(worker.includes('out of inference capacity'), 'capacity failures must be distinguished from evidence failures');
-assert.ok(worker.includes('slice(0, 10000)'), 'Showdown authority prompt evidence must be capped tightly');
-assert.ok(worker.includes('slice(0, 9000)'), 'recovery evidence must be capped tightly');
+assert.ok(worker.includes('slice(0, 10000)'), 'authority prompt evidence must be capped more tightly');
 assert.ok(worker.includes('synthesisModel: researchMode === "showdown" ? SEALED_SHOWDOWN_MODEL : SEALED_RIP_MODEL'), 'responses must expose which synthesis model was used');
 assert.ok(worker.includes('synthesisFailure: aiFailure.type'), 'failed responses must expose a safe failure class');
 assert.ok(worker.includes('message: aiFailure.message'), 'the phone must receive a useful safe synthesis failure message');
