@@ -43,3 +43,5 @@ jobs:
           git add src/index.js tests/sealed-product-vision.test.cjs
           git commit -m 'Broaden sealed authority set discovery'
           git push
+
+# retry after removing stale 3.38.10 query assertion
