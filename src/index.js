@@ -1,4 +1,4 @@
-const VERSION = "3.38.9";
+const VERSION = "3.38.10";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -409,7 +409,7 @@ function sealedRipSourceType(row) {
 
 function sealedRipIsShoppingSource(row) {
   const text = `${row?.link || ""} ${row?.source || ""} ${row?.title || ""}`.toLowerCase();
-  return /ebay\.|amazon\.|walmart\.|target\.|bestbuy\.|mercari\.|whatnot\.|fanatics\.com\/.*(?:product|shop)|etsy\.|blowoutcards\.com|dacardworld\.com|steelcitycollectibles\.com/.test(text);
+  return /ebay\.|amazon\.|walmart\.|target\.|bestbuy\.|mercari\.|whatnot\.|fanatics\.com\/.*(?:product|shop)|etsy\.|blowoutcards\.com|dacardworld\.com|steelcitycollectibles\.com|dickssportinggoods\.com|shop\.app|vortextcg\.com/.test(text);
 }
 
 function sealedRipEvidenceRows(data, queryKind) {
@@ -470,17 +470,14 @@ function sealedRipCommunitySite(category) {
   return "site:reddit.com";
 }
 
-function sealedRipTrustedResearchSites(category) {
+function sealedRipPrimaryAuthoritySite(category) {
   const value = String(category || "").toLowerCase();
-  if (["basketball", "baseball", "football"].includes(value)) {
-    return "(site:topps.com OR site:beckett.com OR site:checklistinsider.com OR site:cardboardconnection.com)";
-  }
-  if (value.includes("pok")) {
-    return "(site:pokemon.com OR site:pokebeach.com OR site:tcgplayer.com OR site:pokellector.com)";
-  }
-  if (value.includes("magic")) {
-    return "(site:magic.wizards.com OR site:wizards.com OR site:scryfall.com OR site:mtg.fandom.com)";
-  }
+  // A single site: filter is substantially more reliable in Google than a long
+  // parenthesized OR-chain of domains. Beckett is the primary sports checklist
+  // and odds source; the second planned search stays reserved for community sentiment.
+  if (["basketball", "baseball", "football"].includes(value)) return "site:beckett.com";
+  if (value.includes("pok")) return "site:pokemon.com";
+  if (value.includes("magic")) return "site:magic.wizards.com";
   return "";
 }
 
@@ -1034,7 +1031,7 @@ export default {
         return json({ ok: false, error: "missing_market", message: "Run the market-price check first so Scout can combine price and rip quality.", researchSearchesUsed: 0, marketplaceSearchesUsed: 0 }, 400, cors);
       }
 
-      const cacheKey = `sealed:rip:v6:${encodeURIComponent(productLabel.toLowerCase()).slice(0, 300)}`;
+      const cacheKey = `sealed:rip:v7:${encodeURIComponent(productLabel.toLowerCase()).slice(0, 300)}`;
       if (env.SCOUT_DATA) {
         try {
           const cached = await env.SCOUT_DATA.get(cacheKey, { type: "json" });
@@ -1054,7 +1051,8 @@ export default {
       // We instead ask for any of the core authoritative research signals, then rank and
       // validate the returned sources locally. This still spends exactly one research
       // search for product/checklist evidence and one for collector sentiment.
-      const checklistQuery = `"${exactSet}" ${formatTerms} (odds OR checklist OR "collector guide") -reddit -facebook -ebay -amazon`;
+      const authoritySite = sealedRipPrimaryAuthoritySite(identity?.category);
+      const checklistQuery = `"${exactSet}" ${formatTerms} ${authoritySite}`.trim();
       const communityQuery = `"${exactSet}" ${formatTerms} pulls review ${sealedRipCommunitySite(identity?.category)}`;
       let checklistData = {}, communityData = {};
       let researchSearchesUsed = 0;
