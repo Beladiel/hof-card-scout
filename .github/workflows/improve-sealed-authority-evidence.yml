@@ -45,3 +45,5 @@ jobs:
           git add src/index.js tests/sealed-product-vision.test.cjs
           git commit -m 'Use structured authority evidence for rip research'
           git push
+
+# retry after aligning the authority timeout regression assertion
