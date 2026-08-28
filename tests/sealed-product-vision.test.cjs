@@ -5,7 +5,7 @@ const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const index=fs.readFileSync('index.html','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.39\.0"/);
+assert.match(worker,/const VERSION = "3\.40\.0"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
@@ -66,18 +66,21 @@ assert.match(ripRoute,/marketplaceSearchesUsed:\s*0/,'rip-quality research must 
 assert.doesNotMatch(ripRoute,/engine", "ebay|APIFY_TOKEN|CARD_API_KEY/i,'rip-quality route must not spend marketplace-provider calls');
 assert.ok(worker.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),'rip-quality synthesis must use the Cloudflare text model');
 assert.ok(worker.includes('NEVER invent, estimate, calculate, or extrapolate an exact pull odd'),'rip-quality prompt must prohibit invented pull odds');
-assert.match(worker,/sealed:intel:v1:/,'sealed product intelligence must use a reusable product cache');
+assert.match(worker,/sealed:intel:v2:/,'sealed product intelligence must use a reusable product cache');
 assert.match(worker,/sealedRipWeightedScore/,'final verdict must combine price, chases, pull evidence, and sentiment');
 assert.match(worker,/sealedRipProductEvidenceCount/,'buy recommendation must count the three product-quality evidence pillars');
 assert.match(worker,/sealedRipProductEvidenceCount\(parts\) < 2/,'buy recommendation must require two of three product-quality pillars');
-assert.match(worker,/\[Number\(parts\.pullScore\), 10/,'pull odds must be optional rather than dominate the buy recommendation');
+assert.match(worker,/sealedRipWeightProfile/,'sealed research must route scoring weights by category');
+assert.ok(worker.includes('price: 30, chase: 35, pull: 20, sentiment: 15'),'Pokémon must emphasize chase quality plus observed pull experience');
+assert.ok(worker.includes('price: 30, chase: 45, pull: 10, sentiment: 15'),'Magic must emphasize set/playable value more heavily');
+assert.ok(worker.includes('price: 35, chase: 35, pull: 10, sentiment: 20'),'sports must retain the sports-card weighting profile');
 assert.match(worker,/sealedRipIntelligenceCacheKey/,'product intelligence must be cached independently of shelf price');
 assert.match(worker,/14 \* 24 \* 60 \* 60/,'product intelligence should be reusable for fourteen days');
 assert.match(worker,/sealedRipChaseContextSupported/,'verified checklist structure must support chase-quality scoring without invented chase names');
 assert.match(app,/STEP 4 · SHOULD I BUY THIS\?/,'sealed scanner must frame the final step as the purchase decision');
 assert.match(app,/Confidence: <strong>/,'sealed scanner must show recommendation confidence');
 assert.match(app,/Exact-format pull odds were not reliably verified/,'missing exact odds must be shown as optional instead of blocking a recommendation');
-assert.match(index,/sealed-product-scout\.js\?v=6\.2\.0/,'sealed scanner cache-bust must advance for the new buy-call UI');
+assert.match(index,/sealed-product-scout\.js\?v=6\.3\.0/,'sealed scanner cache-bust must advance for the new buy-call UI');
 assert.match(worker,/sealedRipExpandEvidenceRows/,'rip research must expand high-quality source pages beyond search snippets');
 assert.match(worker,/sealedRipReaderPageText/,'trusted authority pages must have a rendered-reader fallback when direct HTML is thin or blocked');
 assert.match(worker,/sealedRipSerpEvidenceText/,'rip research must retain structured Google evidence when publisher page reading is blocked');
@@ -92,7 +95,16 @@ assert.match(worker,/sealedRipEvidencePriority/,'rip research must prioritize of
 assert.match(worker,/sealedRipPrimaryAuthoritySite/,'rip research must use one reliable primary authority domain per category');
 assert.match(worker,/site:beckett\.com/,'sports rip research must force the authoritative search onto Beckett');
 assert.match(worker,/const authorityYear = String\(identity\?\.year/,'authority discovery must normalize season punctuation');
-assert.match(worker,/const checklistQuery = `\$\{authorityYear\} \$\{researchSet\} \$\{authorityCategory\} \$\{authoritySite\} \$\{formatTerms\} odds chases`/,'authority discovery must nudge Google toward exact-format odds and chase snippets');
+assert.match(worker,/sealedRipResearchTerms/,'research query vocabulary must route by category');
+assert.ok(worker.includes('special illustration rare'),'Pokémon research must know SIR terminology');
+assert.ok(worker.includes('illustration rare'),'Pokémon research must know IR terminology');
+assert.ok(worker.includes('hyper rare'),'Pokémon research must know Hyper Rare terminology');
+assert.ok(worker.includes('community pull-rate or hit-rate samples'),'Pokémon guidance must allow clearly labeled community pull-rate evidence');
+assert.ok(worker.includes('borderless/showcase treatments'),'Magic guidance must know borderless/showcase treatments');
+assert.ok(worker.includes('Special Guests/bonus sheets'),'Magic guidance must know Special Guests and bonus sheets');
+assert.ok(worker.includes('PLAYABLE/VALUE QUALITY'),'Magic chase scoring must include playable/set value');
+assert.match(worker,/researchTerms\.authority/,'authority query must use category-specific research terms');
+assert.match(worker,/researchTerms\.community/,'community query must use category-specific research terms');
 assert.match(worker,/url\.searchParams\.set\(\"num\", \"20\"\)/,'rip research should inspect a broader Google result page without adding a third search');
 assert.match(worker,/out\.length >= 12/,'rip research should retain enough candidates to reach lower-ranked odds sources');
 assert.match(worker,/const chaseEvidenceAvailable = chaseCards\.length > 0 \|\| chaseContextAvailable/,'chase quality may use verified checklist structure even when named chases are unavailable');
@@ -109,6 +121,12 @@ assert.match(worker,/NEED MORE DATA/,'rip verdict must refuse BUY recommendation
 assert.match(worker,/site:reddit\.com\/r\/basketballcards/,'basketball sentiment search must target the basketball-card community');
 assert.match(app,/Product evidence: <strong>/,'rip UI must show product-evidence completeness');
 assert.match(app,/v===null\|\|v===undefined/,'rip UI must render missing component scores as N/A, not zero');
+
+assert.match(worker,/sealedRipCategoryGuidance/,'sealed analysis prompt must inject a category-specific playbook');
+assert.match(worker,/sealedRipScoreLabels/,'sealed response must expose category-specific score labels');
+assert.match(worker,/sealedRipChaseContextSupported\(evidenceRows, category = ""\)/,'chase evidence detection must understand category vocabulary');
+assert.match(app,/researchProfile/,'sealed UI must show which research profile made the recommendation');
+assert.match(app,/scoreLabels\?\.chase/,'sealed UI must render category-specific score labels');
 
 const typeRouteStart=worker.indexOf('url.pathname === "/sealed/classify-type"');
 const typeRouteEnd=worker.indexOf('url.pathname === "/sealed/identify"',typeRouteStart);
