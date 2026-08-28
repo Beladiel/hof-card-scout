@@ -4,7 +4,7 @@ const worker=fs.readFileSync('src/index.js','utf8');
 const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.38\.4"/);
+assert.match(worker,/const VERSION = "3\.38\.5"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
@@ -65,8 +65,14 @@ assert.match(ripRoute,/marketplaceSearchesUsed:\s*0/,'rip-quality research must 
 assert.doesNotMatch(ripRoute,/engine", "ebay|APIFY_TOKEN|CARD_API_KEY/i,'rip-quality route must not spend marketplace-provider calls');
 assert.ok(worker.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),'rip-quality synthesis must use the Cloudflare text model');
 assert.ok(worker.includes('NEVER invent, estimate, calculate, or extrapolate an exact pull odd'),'rip-quality prompt must prohibit invented pull odds');
-assert.match(worker,/sealed:rip:v1:/,'rip-quality research must be cached');
+assert.match(worker,/sealed:rip:v2:/,'rip-quality research must be cached');
 assert.match(worker,/sealedRipWeightedScore/,'final verdict must combine price, chases, pull evidence, and sentiment');
+assert.match(worker,/sealedRipExpandEvidenceRows/,'rip research must expand high-quality source pages beyond search snippets');
+assert.match(worker,/chaseEvidenceAvailable/,'rip research must explicitly track whether named chase evidence exists');
+assert.match(worker,/NEED MORE DATA/,'rip verdict must refuse BUY recommendations when key product-quality evidence is missing');
+assert.match(worker,/site:reddit\.com\/r\/basketballcards/,'basketball sentiment search must target the basketball-card community');
+assert.match(app,/Evidence: <strong>/,'rip UI must show research completeness');
+assert.match(app,/v===null\|\|v===undefined/,'rip UI must render missing component scores as N/A, not zero');
 
 const typeRouteStart=worker.indexOf('url.pathname === "/sealed/classify-type"');
 const typeRouteEnd=worker.indexOf('url.pathname === "/sealed/identify"',typeRouteStart);

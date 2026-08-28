@@ -1,4 +1,4 @@
-const VERSION = "3.38.4";
+const VERSION = "3.38.5";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -346,6 +346,7 @@ function sealedRipPriceScore(shelfPrice, median) {
 }
 
 function sealedRipGrade(score) {
+  if (score === null || score === undefined || score === "") return "—";
   const n = Number(score);
   if (!Number.isFinite(n)) return "—";
   if (n >= 90) return "A";
@@ -360,9 +361,11 @@ function sealedRipGrade(score) {
   return "F";
 }
 
-function sealedRipFinalVerdict(score) {
+function sealedRipFinalVerdict(score, parts = {}) {
+  if (!parts.chaseEvidenceAvailable) return "NEED MORE DATA";
+  if (!parts.pullEvidenceAvailable && !parts.sentimentEvidenceAvailable) return "NEED MORE DATA";
   const n = Number(score);
-  if (!Number.isFinite(n)) return "CHECK MANUALLY";
+  if (!Number.isFinite(n)) return "NEED MORE DATA";
   if (n >= 82) return "BUY IT";
   if (n >= 70) return "BUY ONE";
   if (n >= 58) return "MAYBE";
@@ -370,9 +373,10 @@ function sealedRipFinalVerdict(score) {
 }
 
 function sealedRipWeightedScore(parts) {
+  if (!parts.chaseEvidenceAvailable) return null;
   const available = [
-    [Number(parts.priceScore), 35, Number.isFinite(Number(parts.priceScore))],
-    [Number(parts.chaseScore), 30, Number.isFinite(Number(parts.chaseScore))],
+    [Number(parts.priceScore), 35, parts.priceScore !== null && parts.priceScore !== undefined && Number.isFinite(Number(parts.priceScore))],
+    [Number(parts.chaseScore), 30, Boolean(parts.chaseEvidenceAvailable) && Number.isFinite(Number(parts.chaseScore))],
     [Number(parts.pullScore), 20, Boolean(parts.pullEvidenceAvailable) && Number.isFinite(Number(parts.pullScore))],
     [Number(parts.sentimentScore), 15, Boolean(parts.sentimentEvidenceAvailable) && Number.isFinite(Number(parts.sentimentScore))],
   ].filter(row => row[2]);
@@ -382,8 +386,9 @@ function sealedRipWeightedScore(parts) {
 }
 
 function sealedRipQualityScore(parts) {
+  if (!parts.chaseEvidenceAvailable) return null;
   const available = [
-    [Number(parts.chaseScore), 30, Number.isFinite(Number(parts.chaseScore))],
+    [Number(parts.chaseScore), 30, Boolean(parts.chaseEvidenceAvailable) && Number.isFinite(Number(parts.chaseScore))],
     [Number(parts.pullScore), 20, Boolean(parts.pullEvidenceAvailable) && Number.isFinite(Number(parts.pullScore))],
     [Number(parts.sentimentScore), 15, Boolean(parts.sentimentEvidenceAvailable) && Number.isFinite(Number(parts.sentimentScore))],
   ].filter(row => row[2]);
@@ -452,6 +457,122 @@ async function sealedRipGoogleSearch(query, apiKey) {
   }
 }
 
+function sealedRipCommunitySite(category) {
+  const value = String(category || "").toLowerCase();
+  if (value === "basketball") return "site:reddit.com/r/basketballcards";
+  if (value === "baseball") return "site:reddit.com/r/baseballcards";
+  if (value === "football") return "site:reddit.com/r/footballcards";
+  if (value.includes("pok")) return "site:reddit.com/r/PokemonTCG";
+  if (value.includes("magic")) return "site:reddit.com/r/magicTCG";
+  return "site:reddit.com";
+}
+
+function sealedRipFormatTerms(identity) {
+  const type = String(identity?.productType || identity?.boxType || "").trim().toLowerCase();
+  if (type.includes("blaster")) return '("blaster" OR "value box")';
+  if (type.includes("mega")) return '"mega box"';
+  if (type.includes("hanger")) return 'hanger';
+  if (type.includes("hobby")) return '"hobby box"';
+  if (type.includes("elite trainer")) return '("elite trainer box" OR ETB)';
+  if (type.includes("booster")) return `"${type}"`;
+  return type ? `"${type}"` : "retail";
+}
+
+function sealedRipSetKeywords(identity) {
+  const stop = new Set(["topps", "panini", "upper", "deck", "pokemon", "pokémon", "magic", "gathering", "nba", "nfl", "mlb", "basketball", "baseball", "football", "cards", "card", "trading", "the", "and"]);
+  return String(identity?.set || "").toLowerCase().match(/[a-z0-9]+/g)?.filter(token => token.length >= 3 && !stop.has(token)) || [];
+}
+
+function sealedRipFilterRelevantEvidence(rows, identity) {
+  const tokens = sealedRipSetKeywords(identity);
+  if (!tokens.length) return Array.isArray(rows) ? rows : [];
+  return (Array.isArray(rows) ? rows : []).filter(row => {
+    const text = `${row?.title || ""} ${row?.snippet || ""} ${row?.link || ""}`.toLowerCase();
+    return tokens.every(token => text.includes(token));
+  });
+}
+
+function sealedRipDecodeHtml(value) {
+  return String(value || "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
+
+function sealedRipPageExcerpt(html) {
+  let text = String(html || "")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+  text = sealedRipDecodeHtml(text).replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  const lower = text.toLowerCase();
+  const needles = ["1:", "odds", "blaster", "value box", "rookie", "signature", "autograph", "case hit", "parallel", "exclusive", "short print", "ssp"];
+  const chunks = [];
+  const used = new Set();
+  for (const needle of needles) {
+    let from = 0;
+    let hits = 0;
+    while (hits < 4) {
+      const at = lower.indexOf(needle, from);
+      if (at < 0) break;
+      const start = Math.max(0, at - 700);
+      const end = Math.min(text.length, at + 1500);
+      const key = `${Math.floor(start / 500)}:${Math.floor(end / 500)}`;
+      if (!used.has(key)) {
+        used.add(key);
+        chunks.push(text.slice(start, end));
+      }
+      from = at + needle.length;
+      hits++;
+    }
+  }
+  return (chunks.length ? chunks.join("\n---\n") : text.slice(0, 5000)).slice(0, 9000);
+}
+
+async function sealedRipFetchPageText(row) {
+  if (!row || row.sourceType === "community" || !/^https?:\/\//i.test(String(row.link || ""))) return "";
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6500);
+  try {
+    const response = await fetch(row.link, {
+      signal: controller.signal,
+      redirect: "follow",
+      headers: { "User-Agent": "Mozilla/5.0 HOF-Card-Scout/1.0", "Accept": "text/html,application/xhtml+xml" },
+    });
+    if (!response.ok) return "";
+    const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+    if (contentType && !contentType.includes("text/html") && !contentType.includes("application/xhtml")) return "";
+    const html = (await response.text()).slice(0, 900000);
+    return sealedRipPageExcerpt(html);
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function sealedRipExpandEvidenceRows(rows) {
+  const list = Array.isArray(rows) ? rows.slice(0, 14) : [];
+  const fetchable = list.map((row, index) => ({ row, index })).filter(x => x.row.sourceType !== "community").slice(0, 4);
+  const expanded = await Promise.all(fetchable.map(async ({ row, index }) => ({ index, pageText: await sealedRipFetchPageText(row) })));
+  const byIndex = new Map(expanded.map(x => [x.index, x.pageText]));
+  return list.map((row, index) => ({ ...row, pageText: byIndex.get(index) || "" }));
+}
+
+function sealedRipChaseSupported(name, evidenceText) {
+  const stop = new Set(["rookie", "rookies", "card", "cards", "parallel", "parallels", "insert", "inserts", "autograph", "autographs", "auto", "case", "hit", "short", "print", "ssp"]);
+  const tokens = String(name || "").toLowerCase().match(/[a-z0-9]+/g)?.filter(token => token.length >= 4 && !stop.has(token)) || [];
+  if (!tokens.length) return false;
+  const haystack = String(evidenceText || "").toLowerCase();
+  const matched = tokens.filter(token => haystack.includes(token)).length;
+  return matched >= Math.min(2, tokens.length);
+}
+
 function sealedRipAiJson(raw) {
   let value = raw?.response ?? raw?.result ?? raw?.answer ?? raw;
   if (value && typeof value === "object" && !Array.isArray(value)) return value;
@@ -476,11 +597,11 @@ function sealedRipOddsSupported(odds, evidenceText) {
 }
 
 function sealedRipNormalize(raw, evidenceRows, market) {
-  const evidenceText = evidenceRows.map(row => `${row.title} ${row.snippet}`).join("\n");
+  const evidenceText = evidenceRows.map(row => `${row.title} ${row.snippet} ${row.pageText || ""}`).join("\n");
   const chaseCards = (Array.isArray(raw?.chaseCards) ? raw.chaseCards : []).slice(0, 5).map(row => ({
     name: String(row?.name || "").trim().slice(0, 140),
     why: String(row?.why || "").trim().slice(0, 240),
-  })).filter(row => row.name);
+  })).filter(row => row.name && sealedRipChaseSupported(row.name, evidenceText));
   const pullOdds = (Array.isArray(raw?.pullOdds) ? raw.pullOdds : []).slice(0, 8).map(row => ({
     item: String(row?.item || "").trim().slice(0, 160),
     odds: String(row?.odds || "").trim().slice(0, 80),
@@ -488,39 +609,48 @@ function sealedRipNormalize(raw, evidenceRows, market) {
     note: String(row?.note || "").trim().slice(0, 260),
   })).filter(row => row.item && row.odds && sealedRipOddsSupported(row.odds, evidenceText));
 
+  const chaseEvidenceAvailable = Boolean(raw?.chaseEvidenceAvailable) && chaseCards.length > 0;
   const pullEvidenceAvailable = Boolean(raw?.pullEvidenceAvailable) && pullOdds.length > 0;
-  const sentimentEvidenceAvailable = Boolean(raw?.sentimentEvidenceAvailable);
+  const hasCommunitySource = evidenceRows.some(row => row?.sourceType === "community");
+  const sentimentEvidenceAvailable = Boolean(raw?.sentimentEvidenceAvailable) && hasCommunitySource;
   const priceScore = sealedRipPriceScore(market?.shelfPrice, market?.median);
   const parts = {
     priceScore,
-    chaseScore: sealedRipClampScore(raw?.chaseScore),
-    pullScore: sealedRipClampScore(raw?.pullScore),
+    chaseScore: chaseEvidenceAvailable ? sealedRipClampScore(raw?.chaseScore) : null,
+    chaseEvidenceAvailable,
+    pullScore: pullEvidenceAvailable ? sealedRipClampScore(raw?.pullScore) : null,
     pullEvidenceAvailable,
-    sentimentScore: sealedRipClampScore(raw?.sentimentScore),
+    sentimentScore: sentimentEvidenceAvailable ? sealedRipClampScore(raw?.sentimentScore) : null,
     sentimentEvidenceAvailable,
   };
   const overallScore = sealedRipWeightedScore(parts);
   const ripScore = sealedRipQualityScore(parts);
+  const evidenceCount = [chaseEvidenceAvailable, pullEvidenceAvailable, sentimentEvidenceAvailable].filter(Boolean).length;
   const confidenceRaw = String(raw?.confidence || "low").toLowerCase();
+  const qualitySummary = chaseEvidenceAvailable
+    ? String(raw?.qualitySummary || "").trim().slice(0, 700)
+    : "Scout found price data, but not enough source-supported named chase information to make a buy recommendation yet.";
   return {
     overallScore,
-    finalVerdict: sealedRipFinalVerdict(overallScore),
+    finalVerdict: sealedRipFinalVerdict(overallScore, parts),
     ripScore,
     ripGrade: sealedRipGrade(ripScore),
     priceScore,
     chaseScore: parts.chaseScore,
-    pullScore: pullEvidenceAvailable ? parts.pullScore : null,
+    chaseEvidenceAvailable,
+    pullScore: parts.pullScore,
     pullEvidenceAvailable,
-    sentimentScore: sentimentEvidenceAvailable ? parts.sentimentScore : null,
+    sentimentScore: parts.sentimentScore,
     sentimentEvidenceAvailable,
     sentimentLabel: sentimentEvidenceAvailable ? String(raw?.sentimentLabel || "mixed").slice(0, 40) : "unknown",
-    qualitySummary: String(raw?.qualitySummary || "").trim().slice(0, 700),
+    evidenceCount,
+    qualitySummary,
     chaseCards,
     pullOdds,
-    collectorTake: String(raw?.collectorTake || "").trim().slice(0, 700),
+    collectorTake: sentimentEvidenceAvailable ? String(raw?.collectorTake || "").trim().slice(0, 700) : "Scout did not find enough exact-product collector discussion to score sentiment.",
     positives: (Array.isArray(raw?.positives) ? raw.positives : []).map(x => String(x || "").trim().slice(0, 220)).filter(Boolean).slice(0, 4),
     negatives: (Array.isArray(raw?.negatives) ? raw.negatives : []).map(x => String(x || "").trim().slice(0, 220)).filter(Boolean).slice(0, 4),
-    confidence: ["high", "medium", "low"].includes(confidenceRaw) ? confidenceRaw : "low",
+    confidence: evidenceCount < 2 ? "low" : (["high", "medium", "low"].includes(confidenceRaw) ? confidenceRaw : "low"),
   };
 }
 
@@ -820,7 +950,7 @@ export default {
         return json({ ok: false, error: "missing_market", message: "Run the market-price check first so Scout can combine price and rip quality.", researchSearchesUsed: 0, marketplaceSearchesUsed: 0 }, 400, cors);
       }
 
-      const cacheKey = `sealed:rip:v1:${encodeURIComponent(productLabel.toLowerCase()).slice(0, 300)}`;
+      const cacheKey = `sealed:rip:v2:${encodeURIComponent(productLabel.toLowerCase()).slice(0, 300)}`;
       if (env.SCOUT_DATA) {
         try {
           const cached = await env.SCOUT_DATA.get(cacheKey, { type: "json" });
@@ -831,8 +961,10 @@ export default {
         } catch {}
       }
 
-      const checklistQuery = `${productLabel} checklist odds chase cards rookies parallels autograph retail`;
-      const communityQuery = `${productLabel} pulls review reddit collector quality`;
+      const formatTerms = sealedRipFormatTerms(identity);
+      const exactSet = [String(identity?.year || "").trim(), String(identity?.set || "").trim()].filter(Boolean).join(" ");
+      const checklistQuery = `"${exactSet}" ${formatTerms} odds checklist rookies case hits autographs parallels`;
+      const communityQuery = `"${exactSet}" ${formatTerms} pulls review ${sealedRipCommunitySite(identity?.category)}`;
       let checklistData = {}, communityData = {};
       let researchSearchesUsed = 0;
       try {
@@ -845,24 +977,27 @@ export default {
         if (results[1].status === "fulfilled") communityData = results[1].value;
       } catch {}
 
-      const evidenceRows = [
+      let evidenceRows = [
         ...sealedRipEvidenceRows(checklistData, "checklist-and-odds"),
         ...sealedRipEvidenceRows(communityData, "collector-reports"),
       ];
+      evidenceRows = sealedRipFilterRelevantEvidence(evidenceRows, identity);
+      evidenceRows = await sealedRipExpandEvidenceRows(evidenceRows);
       if (evidenceRows.length < 2) {
         return json({ ok: false, error: "rip_research_too_thin", message: "Scout could not find enough trustworthy product-specific rip information yet. Try again later or judge this one manually.", researchSearchesUsed, marketplaceSearchesUsed: 0 }, 502, cors);
       }
 
       const sources = evidenceRows.slice(0, 10).map(row => ({ title: row.title, link: row.link, sourceType: row.sourceType, queryKind: row.queryKind }));
       const evidenceForPrompt = evidenceRows.slice(0, 14).map((row, index) =>
-        `[${index + 1}] TYPE=${row.sourceType}; SEARCH=${row.queryKind}; TITLE=${row.title}; SOURCE=${row.source}; URL=${row.link}; SNIPPET=${row.snippet}`
-      ).join("\n\n").slice(0, 15000);
+        `[${index + 1}] TYPE=${row.sourceType}; SEARCH=${row.queryKind}; TITLE=${row.title}; SOURCE=${row.source}; URL=${row.link}; SNIPPET=${row.snippet}; PAGE=${row.pageText || ""}`
+      ).join("\n\n").slice(0, 30000);
 
       const schema = {
         type: "object",
         properties: {
           qualitySummary: { type: "string" },
           chaseScore: { type: "number" },
+          chaseEvidenceAvailable: { type: "boolean" },
           pullScore: { type: "number" },
           pullEvidenceAvailable: { type: "boolean" },
           sentimentScore: { type: "number" },
@@ -875,13 +1010,13 @@ export default {
           negatives: { type: "array", items: { type: "string" }, maxItems: 4 },
           confidence: { type: "string", enum: ["high", "medium", "low"] }
         },
-        required: ["qualitySummary", "chaseScore", "pullScore", "pullEvidenceAvailable", "sentimentScore", "sentimentEvidenceAvailable", "sentimentLabel", "chaseCards", "pullOdds", "collectorTake", "positives", "negatives", "confidence"]
+        required: ["qualitySummary", "chaseScore", "chaseEvidenceAvailable", "pullScore", "pullEvidenceAvailable", "sentimentScore", "sentimentEvidenceAvailable", "sentimentLabel", "chaseCards", "pullOdds", "collectorTake", "positives", "negatives", "confidence"]
       };
       const prompt = `You are evaluating whether a collector should OPEN/RIP an exact sealed trading-card product, not whether it is good for sealed resale. Product: ${productLabel}. Exact format: ${String(identity?.productType || identity?.boxType || "")}. Category: ${String(identity?.category || "")}. Year: ${String(identity?.year || "")}. Set: ${String(identity?.set || "")}.
 
 Use ONLY the research evidence below. Do not rely on memory. NEVER invent, estimate, calculate, or extrapolate an exact pull odd. Only include an odds string in pullOdds when that exact odds text is literally supported by the supplied evidence and applies to this exact product format. If reliable format-specific odds are not supported, set pullEvidenceAvailable=false and return an empty pullOdds array. Clearly distinguish official/checklist odds from community-reported observations; community anecdotes are not official odds.
 
-Score chaseScore 0-100 for breadth and quality of meaningful rookies, stars, inserts, case hits, autographs, numbered/color parallels, and format exclusives. Do not give a high chase score solely because one nearly impossible jackpot exists. Score pullScore 0-100 only when the evidence supports a realistic assessment for this exact format; otherwise set pullEvidenceAvailable=false. For collector sentiment, summarize recurring product-specific themes rather than one lucky or angry opening. Set sentimentEvidenceAvailable=false if there is not enough community/review evidence. Note recurring quality-control, collation, damage, or repetitive-base complaints in negatives. Keep conclusions conservative when evidence is thin.
+Only put a card/player/insert in chaseCards when it is explicitly named in the supplied evidence. Set chaseEvidenceAvailable=false and return an empty chaseCards array if you cannot support named chases from the evidence. Score chaseScore 0-100 only when chaseEvidenceAvailable=true, for breadth and quality of meaningful rookies, stars, inserts, case hits, autographs, numbered/color parallels, and format exclusives. Do not give a high chase score solely because one nearly impossible jackpot exists. Score pullScore 0-100 only when the evidence supports a realistic assessment for this exact format; otherwise set pullEvidenceAvailable=false. For collector sentiment, summarize recurring product-specific themes rather than one lucky or angry opening. Set sentimentEvidenceAvailable=false if there is not enough community/review evidence. Note recurring quality-control, collation, damage, or repetitive-base complaints in negatives. Keep conclusions conservative when evidence is thin.
 
 Research evidence:\n${evidenceForPrompt}`;
 
