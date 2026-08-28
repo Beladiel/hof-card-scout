@@ -45,4 +45,4 @@ jobs:
           git commit -m 'Force sports rip research to primary authority source'
           git push
 
-# retry after aligning migration with current 3.38.9 query
+# retry after updating the 3.38.9 regression expectation
