@@ -21,6 +21,19 @@ jobs:
       - name: Apply Showdown reliability patch
         run: python3 scripts/showdown-research-reliability.py
 
+      - name: Normalize retry regression assertion
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/sealed-product-vision.test.cjs')
+          s=p.read_text(encoding='utf-8')
+          old="assert.ok(worker.includes('sealed rip primary synthesis failed; trying compact authority-only retry'),'rip analysis must retry once with a compact authority-only prompt without another search');"
+          new="assert.ok(worker.includes('sealed rip primary synthesis/parse failed; trying compact authority-only retry'),'rip analysis must retry once on synthesis or parse failure without another search');"
+          if old not in s:
+              raise SystemExit('stale retry assertion not found')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+
       - name: Validate Showdown reliability
         run: |
           set -euo pipefail
