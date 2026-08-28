@@ -1,4 +1,4 @@
-const VERSION = "3.38.10";
+const VERSION = "3.38.11";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -440,7 +440,7 @@ function sealedRipEvidenceRows(data, queryKind) {
   return out;
 }
 
-async function sealedRipGoogleSearch(query, apiKey) {
+async function sealedRipGoogleSearch(query, apiKey, timeoutMs = 15000) {
   const url = new URL("https://serpapi.com/search.json");
   url.searchParams.set("engine", "google");
   url.searchParams.set("q", query);
@@ -449,7 +449,7 @@ async function sealedRipGoogleSearch(query, apiKey) {
   url.searchParams.set("gl", "us");
   url.searchParams.set("api_key", apiKey);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+  const timeout = setTimeout(() => controller.abort(), Math.max(8000, Number(timeoutMs) || 15000));
   try {
     const response = await fetch(url.toString(), { signal: controller.signal });
     const data = await response.json().catch(() => ({}));
@@ -1031,7 +1031,7 @@ export default {
         return json({ ok: false, error: "missing_market", message: "Run the market-price check first so Scout can combine price and rip quality.", researchSearchesUsed: 0, marketplaceSearchesUsed: 0 }, 400, cors);
       }
 
-      const cacheKey = `sealed:rip:v7:${encodeURIComponent(productLabel.toLowerCase()).slice(0, 300)}`;
+      const cacheKey = `sealed:rip:v8:${encodeURIComponent(productLabel.toLowerCase()).slice(0, 300)}`;
       if (env.SCOUT_DATA) {
         try {
           const cached = await env.SCOUT_DATA.get(cacheKey, { type: "json" });
@@ -1052,14 +1052,20 @@ export default {
       // validate the returned sources locally. This still spends exactly one research
       // search for product/checklist evidence and one for collector sentiment.
       const authoritySite = sealedRipPrimaryAuthoritySite(identity?.category);
-      const checklistQuery = `"${exactSet}" ${formatTerms} ${authoritySite}`.trim();
+      // Authority discovery should identify the SET page, not require the page title/snippet
+      // to mention the exact retail format. Beckett's set page contains the Value/Blaster
+      // odds in the body, but forcing "blaster"/"value box" into discovery can suppress it.
+      // Avoid a quoted season string too: sources may write 2025-26, 2025/26, or 2025 26.
+      const authorityYear = String(identity?.year || "").replace(/[^0-9]+/g, " ").trim();
+      const authorityCategory = String(identity?.category || "").trim().toLowerCase();
+      const checklistQuery = `${authorityYear} ${researchSet} ${authorityCategory} ${authoritySite}`.replace(/\s+/g, " ").trim();
       const communityQuery = `"${exactSet}" ${formatTerms} pulls review ${sealedRipCommunitySite(identity?.category)}`;
       let checklistData = {}, communityData = {};
       let researchSearchesUsed = 0;
       try {
         const results = await Promise.allSettled([
-          sealedRipGoogleSearch(checklistQuery, env.SERPAPI_KEY),
-          sealedRipGoogleSearch(communityQuery, env.SERPAPI_KEY),
+          sealedRipGoogleSearch(checklistQuery, env.SERPAPI_KEY, 18000),
+          sealedRipGoogleSearch(communityQuery, env.SERPAPI_KEY, 12000),
         ]);
         researchSearchesUsed = 2;
         if (results[0].status === "fulfilled") checklistData = results[0].value;
