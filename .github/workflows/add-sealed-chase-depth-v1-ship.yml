@@ -42,8 +42,9 @@ jobs:
           p=Path('tests/sealed-product-vision.test.cjs')
           text=p.read_text(encoding='utf-8')
           old="assert.match(worker,/14 \\* 24 \\* 60 \\* 60/,'product intelligence should be reusable for fourteen days');"
-          new="""assert.ok(worker.includes('researchMode === \"showdown\" ? 3 : 14'),'Showdown price-guide intelligence should refresh after three days while single-product intelligence remains reusable for fourteen');
-assert.match(worker,/intelligenceTtlDays \\* 24 \\* 60 \\* 60/,'mode-specific intelligence TTL must be applied to cache writes');"""
+          new=("assert.ok(worker.includes('researchMode === \\\"showdown\\\" ? 3 : 14'),'Showdown price-guide intelligence should refresh after three days while single-product intelligence remains reusable for fourteen');\\n"
+               "assert.match(worker,/intelligenceTtlDays \\* 24 \\* 60 \\* 60/,'mode-specific intelligence TTL must be applied to cache writes');")
+          new=new.replace('\\n','\n')
           if old not in text:
               raise SystemExit('missing old fixed-TTL assertion')
           p.write_text(text.replace(old,new,1),encoding='utf-8')
