@@ -1,0 +1,68 @@
+name: Showdown AI Budget Diagnostics
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/showdown-ai-budget-diagnostics.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-deploy:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply Showdown AI budget diagnostics patch
+        run: python3 scripts/showdown-ai-budget-diagnostics.py
+
+      - name: Validate Showdown AI budget diagnostics
+        run: |
+          set -euo pipefail
+          node --check src/index.js
+          node --check sealed-product-scout.js
+          node tests/sealed-product-vision.test.cjs
+          node tests/chase-depth-canonical.test.cjs
+          node tests/format-access-section-local.test.cjs
+          node tests/showdown-research-reliability.test.cjs
+          node tests/showdown-json-reliability.test.cjs
+          node tests/showdown-ai-budget.test.cjs
+          grep -q 'const VERSION = "3.49.0"' src/index.js
+          grep -q 'sealed:intel:v20:' src/index.js
+          grep -q 'SEALED_SHOWDOWN_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"' src/index.js
+          git diff --check
+
+      - name: Commit Showdown AI budget diagnostics
+        run: |
+          set -euo pipefail
+          git config user.name 'HOF Card Scout Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/index.js tests/sealed-product-vision.test.cjs tests/showdown-research-reliability.test.cjs tests/showdown-json-reliability.test.cjs tests/showdown-ai-budget.test.cjs
+          git commit -m 'Reduce Showdown AI cost and expose failures'
+          git push
+
+      - name: Deploy Worker
+        env:
+          CF_API_TOKEN_RAW: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID_RAW: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ "$CF_API_TOKEN_RAW" =~ (cfut_[A-Za-z0-9_-]+) ]]; then
+            export CLOUDFLARE_API_TOKEN="${BASH_REMATCH[1]}"
+          else
+            TOKEN_CLEAN="$(printf '%s' "$CF_API_TOKEN_RAW" | tr -d '\r\n\t ')"
+            TOKEN_CLEAN="${TOKEN_CLEAN#Bearer}"
+            TOKEN_CLEAN="${TOKEN_CLEAN#bearer}"
+            TOKEN_CLEAN="${TOKEN_CLEAN//\"/}"
+            TOKEN_CLEAN="${TOKEN_CLEAN//\'/}"
+            export CLOUDFLARE_API_TOKEN="$TOKEN_CLEAN"
+          fi
+          export CLOUDFLARE_ACCOUNT_ID="$(printf '%s' "$CF_ACCOUNT_ID_RAW" | tr -d '\r\n\t ')"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          npx --yes wrangler@4 deploy
