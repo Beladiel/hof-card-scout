@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/showdown-ai-budget-diagnostics.yml'
+      - 'scripts/showdown-ai-budget-diagnostics.py'
 
 permissions:
   contents: write
