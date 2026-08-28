@@ -4,7 +4,7 @@ const worker=fs.readFileSync('src/index.js','utf8');
 const app=fs.readFileSync('sealed-product-scout.js','utf8');
 const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
 
-assert.match(worker,/const VERSION = "3\.38\.2"/);
+assert.match(worker,/const VERSION = "3\.38\.3"/);
 assert.match(wrangler,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/s,'Workers AI binding must be configured');
 assert.match(worker,/\/sealed\/identify/,'sealed vision endpoint must exist');
 assert.match(worker,/\/sealed\/barcode-identify/,'sealed barcode endpoint must exist');
@@ -16,9 +16,13 @@ assert.match(app,/rawField=byId\(\"sealedShelfPrice\"\)/,'market check must read
 assert.match(app,/saveDraft\(\{shelfPrice,store:/,'market check must auto-save the entered shelf price');
 assert.match(worker,/engine\", \"ebay/,'sealed market check must use the eBay search engine');
 assert.ok(worker.includes('rip\\s*(?:&|and)\\s*ship'),'sealed market check must reject rip-and-ship listings');
-assert.match(worker,/sealed:value:v2:/,'sealed market filter changes must invalidate stale cached results');
+assert.match(worker,/sealed:value:v3:/,'sealed market benchmark changes must invalidate stale cached results');
 assert.match(worker,/sealedMarketIdentityMatches/,'sealed market check must require product-family identity matches');
 assert.match(worker,/sealedMarketIsMultiUnit/,'sealed market check must reject multi-box lots');
+assert.match(worker,/sealedMarketCompetitiveSummary/,'sealed market check must use a competitive-price band');
+assert.match(worker,/Math\.min\(10, all\.length\)/,'competitive-price band must use at most ten lowest clean matches');
+assert.match(app,/Competitive-listing median/,'sealed market UI must label the competitive median clearly');
+assert.match(app,/totalCleanCount/,'sealed market UI must show competitive matches versus total clean listings');
 assert.match(app,/TAKE FRONT PHOTO FOR PRODUCT TYPE/,'barcode-confirmed products should request a front photo when type is missing');
 assert.match(app,/sealed\/classify-type/,'front end must call the narrow product type classifier');
 assert.match(app,/classifyProductTypeFromPhoto/,'front end should classify only package type after barcode identity');

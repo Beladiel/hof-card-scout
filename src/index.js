@@ -1,4 +1,4 @@
-const VERSION = "3.38.2";
+const VERSION = "3.38.3";
 const DEFAULT_ORIGIN = "https://beladiel.github.io";
 const VALUATION_CACHE_VERSION = 1;
 const TARGET_RANKING_VERSION = 1;
@@ -216,13 +216,40 @@ function sealedMarketQuery(identity, lookupTitle) {
 
 function sealedMarketVerdict(shelfPrice, median, sampleCount) {
   if (!Number.isFinite(shelfPrice) || shelfPrice <= 0 || !Number.isFinite(median) || median <= 0 || sampleCount < 3) {
-    return { verdict: "CHECK MANUALLY", reason: "Scout found too few clean matching listings for a reliable price verdict." };
+    return { verdict: "CHECK MANUALLY", reason: "Scout found too few competitive matching listings for a reliable price verdict." };
   }
   const ratio = shelfPrice / median;
   const differencePct = Math.round(Math.abs(1 - ratio) * 100);
-  if (ratio <= 0.85) return { verdict: "GOOD BUY", reason: `Shelf price is about ${differencePct}% below the median current listing price.` };
-  if (ratio <= 1.10) return { verdict: "FAIR", reason: `Shelf price is within about ${differencePct}% of the median current listing price.` };
-  return { verdict: "PASS", reason: `Shelf price is about ${differencePct}% above the median current listing price.` };
+  if (ratio <= 0.85) return { verdict: "GOOD BUY", reason: `Shelf price is about ${differencePct}% below the competitive current-listing median.` };
+  if (ratio <= 1.10) return { verdict: "FAIR", reason: `Shelf price is within about ${differencePct}% of the competitive current-listing median.` };
+  return { verdict: "PASS", reason: `Shelf price is about ${differencePct}% above the competitive current-listing median.` };
+}
+
+function sealedMarketCompetitiveSummary(listings) {
+  const all = (Array.isArray(listings) ? listings : [])
+    .filter(row => Number.isFinite(Number(row?.price)) && Number(row.price) > 0)
+    .slice()
+    .sort((a, b) => Number(a.price) - Number(b.price));
+  if (!all.length) {
+    return { median: null, low: null, high: null, sampleCount: 0, totalCleanCount: 0, listings: [] };
+  }
+
+  // Active asking-price pages often contain stale sellers priced far above the amount
+  // a buyer can actually choose today. Use the cheapest ten clean single-unit matches
+  // as the competitive market band, then take the median of that band. One unusually
+  // cheap listing cannot control the result, while a wall of unrealistic high asks
+  // cannot make an ordinary shelf price look like a bargain.
+  const competitive = all.slice(0, Math.min(10, all.length));
+  const prices = competitive.map(row => Number(row.price));
+  const median = sealedMarketMedian(prices);
+  return {
+    median: Number.isFinite(median) ? Number(median.toFixed(2)) : null,
+    low: prices.length ? Number(Math.min(...prices).toFixed(2)) : null,
+    high: prices.length ? Number(Math.max(...prices).toFixed(2)) : null,
+    sampleCount: competitive.length,
+    totalCleanCount: all.length,
+    listings: competitive.slice(0, 5),
+  };
 }
 
 function sealedMarketIdentityTokens(value) {
@@ -517,13 +544,15 @@ export default {
         return json({ ok: false, error: "missing_fields", message: "Confirm the product type and save the shelf price before checking market value.", searchUsed: 0, marketplaceSearchesUsed: 0 }, 400, cors);
       }
 
-      const cacheKey = `sealed:value:v2:${encodeURIComponent(query.toLowerCase()).slice(0, 300)}`;
+      const cacheKey = `sealed:value:v3:${encodeURIComponent(query.toLowerCase()).slice(0, 300)}`;
       if (env.SCOUT_DATA) {
         try {
           const cached = await env.SCOUT_DATA.get(cacheKey, { type: "json" });
-          if (cached?.query === query && Array.isArray(cached?.listings)) {
-            const verdict = sealedMarketVerdict(shelfPrice, Number(cached.median), cached.listings.length);
-            return json({ ok: true, version: VERSION, query, shelfPrice, ...cached, ...verdict, cacheHit: true, searchUsed: 0, marketplaceSearchesUsed: 0 }, 200, cors);
+          const cachedListings = Array.isArray(cached?.allListings) ? cached.allListings : (Array.isArray(cached?.listings) ? cached.listings : []);
+          if (cached?.query === query && cachedListings.length) {
+            const summary = sealedMarketCompetitiveSummary(cachedListings);
+            const verdict = sealedMarketVerdict(shelfPrice, Number(summary.median), summary.sampleCount);
+            return json({ ok: true, version: VERSION, query, shelfPrice, ...summary, checkedAt: cached.checkedAt || new Date().toISOString(), ...verdict, cacheHit: true, searchUsed: 0, marketplaceSearchesUsed: 0 }, 200, cors);
           }
         } catch {}
       }
@@ -551,22 +580,12 @@ export default {
       }
 
       const listings = sealedMarketResultRows(data, identity, lookupTitle);
-      const prices = listings.map(x => x.price);
-      const median = sealedMarketMedian(prices);
-      const low = prices.length ? Math.min(...prices) : null;
-      const high = prices.length ? Math.max(...prices) : null;
-      const verdict = sealedMarketVerdict(shelfPrice, Number(median), listings.length);
-      const market = {
-        query,
-        median: Number.isFinite(median) ? Number(median.toFixed(2)) : null,
-        low: Number.isFinite(low) ? Number(low.toFixed(2)) : null,
-        high: Number.isFinite(high) ? Number(high.toFixed(2)) : null,
-        listings: listings.slice().sort((a, b) => a.price - b.price).slice(0, 5),
-        sampleCount: listings.length,
-        checkedAt: new Date().toISOString(),
-      };
+      const summary = sealedMarketCompetitiveSummary(listings);
+      const verdict = sealedMarketVerdict(shelfPrice, Number(summary.median), summary.sampleCount);
+      const checkedAt = new Date().toISOString();
+      const market = { query, ...summary, checkedAt };
       if (env.SCOUT_DATA && listings.length) {
-        try { await env.SCOUT_DATA.put(cacheKey, JSON.stringify({ ...market, listings }), { expirationTtl: 6 * 60 * 60 }); } catch {}
+        try { await env.SCOUT_DATA.put(cacheKey, JSON.stringify({ query, allListings: listings, checkedAt }), { expirationTtl: 6 * 60 * 60 }); } catch {}
       }
       return json({ ok: true, version: VERSION, shelfPrice, ...market, ...verdict, cacheHit: false, searchUsed: 1, marketplaceSearchesUsed: 1 }, 200, cors);
     }

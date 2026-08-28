@@ -457,7 +457,8 @@
       const label=safeUrl?`<a href="${esc(safeUrl)}" target="_blank" rel="noopener">${title}</a>`:title;
       return `<div class="sealed-market-item"><span class="sealed-market-price">${money(item.price)||"—"}</span> · ${label}</div>`;
     }).join("");
-    box.innerHTML=`<div class="section-eyebrow">SCOUT'S PRICE CHECK</div><div class="sealed-market-verdict">${esc(research.verdict)}</div><div class="sealed-market-meta">${esc(research.reason||"")}<br>Shelf: <strong>${money(research.shelfPrice)||"—"}</strong> · Current-listing median: <strong>${median}</strong> · Range: ${low}–${high} · ${Number(research.sampleCount||0)} clean match${Number(research.sampleCount||0)===1?"":"es"}.<br>${used} marketplace search${used===1?"":"es"} used${cached}. Current eBay asking prices, before shipping; not sold comps.</div>${rows?`<div class="sealed-market-list">${rows}</div>`:""}`;
+    const competitiveCount=Number(research.sampleCount||0),totalCleanCount=Number(research.totalCleanCount||competitiveCount);
+    box.innerHTML=`<div class="section-eyebrow">SCOUT'S PRICE CHECK</div><div class="sealed-market-verdict">${esc(research.verdict)}</div><div class="sealed-market-meta">${esc(research.reason||"")}<br>Shelf: <strong>${money(research.shelfPrice)||"—"}</strong> · Competitive-listing median: <strong>${median}</strong> · Competitive range: ${low}–${high} · ${competitiveCount} competitive match${competitiveCount===1?"":"es"}${totalCleanCount>competitiveCount?` from ${totalCleanCount} clean listings`:""}.<br>${used} marketplace search${used===1?"":"es"} used${cached}. Current eBay asking prices, before shipping; not sold comps. Scout weights the lowest 10 clean single-unit matches so stale high asks do not inflate the verdict.</div>${rows?`<div class="sealed-market-list">${rows}</div>`:""}`;
   }
 
   async function runValueResearch(){
@@ -488,7 +489,7 @@
       const res=await fetch(`${String(cfg.endpoint).replace(/\/+$/,"")}/sealed/value-check`,{method:"POST",headers:{"Content-Type":"application/json","X-Scout-Key":cfg.accessKey},body:JSON.stringify({identity:draft.identity,shelfPrice,lookupTitle:draft.barcodeTitle||""})});
       const data=await res.json().catch(()=>({}));
       if(!res.ok||!data.ok)throw new Error(data.message||"Scout could not complete the sealed-product market check.");
-      const research={verdict:data.verdict||"CHECK MANUALLY",reason:data.reason||"",shelfPrice:Number(data.shelfPrice||shelfPrice),median:data.median,low:data.low,high:data.high,sampleCount:Number(data.sampleCount||0),listings:Array.isArray(data.listings)?data.listings:[],query:data.query||"",cacheHit:!!data.cacheHit,marketplaceSearchesUsed:Number(data.marketplaceSearchesUsed||0),checkedAt:data.checkedAt||new Date().toISOString()};
+      const research={verdict:data.verdict||"CHECK MANUALLY",reason:data.reason||"",shelfPrice:Number(data.shelfPrice||shelfPrice),median:data.median,low:data.low,high:data.high,sampleCount:Number(data.sampleCount||0),totalCleanCount:Number(data.totalCleanCount||data.sampleCount||0),listings:Array.isArray(data.listings)?data.listings:[],query:data.query||"",cacheHit:!!data.cacheHit,marketplaceSearchesUsed:Number(data.marketplaceSearchesUsed||0),checkedAt:data.checkedAt||new Date().toISOString()};
       saveDraft({marketResearch:research});renderMarketResearch(research);
       status.className="sealed-status ok";status.textContent=`✓ Market check complete. ${research.marketplaceSearchesUsed} marketplace search${research.marketplaceSearchesUsed===1?"":"es"} used.`;
       byId("sealedMarketResult")?.scrollIntoView({behavior:"smooth",block:"center"});
