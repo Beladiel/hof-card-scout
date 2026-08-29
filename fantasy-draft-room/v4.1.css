@@ -1,0 +1,11 @@
+.board-tools-v41{display:grid;grid-template-columns:minmax(220px,1fr);gap:6px;min-width:min(430px,42vw)}
+.board-quick-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.board-quick-actions button{min-height:34px;padding:5px 9px;font-size:8px;letter-spacing:.02em}
+.board-quick-actions .missed-pick-btn{border-color:rgba(230,189,99,.55);color:var(--gold)}
+.league-rosters-card.lr-collapsed{padding-bottom:8px}
+.league-rosters-card.lr-collapsed #leagueRostersApp,.league-rosters-card.lr-collapsed .section-copy{display:none}
+.lr-toggle{min-width:150px;white-space:nowrap}
+.backup-te-alert{border-left-color:var(--lobster)!important;background:rgba(216,91,79,.12)!important}
+#playerBoard button:disabled,.top5-draft-btn:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:900px){.board-tools-v41{min-width:0;width:100%}.board-quick-actions{justify-content:flex-start}}
+@media(max-width:620px){.board-quick-actions{display:grid;grid-template-columns:1fr 1fr}.board-quick-actions .missed-pick-btn{grid-column:1/-1}.board-quick-actions button{min-height:40px}.lr-toggle{width:100%;margin-top:7px}.league-rosters-card .section-head{display:block}}
