@@ -18,7 +18,7 @@
   <main class="shell">
     <header class="hero lobster-hero">
       <div>
-        <div class="eyebrow">🦞 LOBSTAHS · SCOUT FANTASY DRAFT ROOM · V4.4</div>
+        <div class="eyebrow">🦞 LOBSTAHS · SCOUT FANTASY DRAFT ROOM · V4.5</div>
         <h1>Draft smart. Pinch value. 🦞🏈</h1>
         <p>Yahoo Prize Prestige 1384925 · 10 teams · Half-PPR · 60-second picks</p>
       </div>
@@ -127,7 +127,7 @@
           <div class="board-quick-actions">
             <button id="clearSearchBtn" type="button" class="ghost">CLEAR SEARCH</button>
             <button id="boardUndoBtn" type="button" class="ghost">↶ UNDO LAST</button>
-            <button id="missedPickBtn" type="button" class="ghost missed-pick-btn" aria-disabled="true">＋ MISSED PICK</button>
+            <button id="selectedMissedPickActionV45" type="button" class="ghost missed-pick-btn" aria-disabled="true">＋ MISSED PICK</button>
           </div>
         </div>
       </div>
@@ -154,7 +154,7 @@
             <tr><td>4–5</td><td>Fill starters / FLEX</td><td>McConkey, DeVonta, Etienne, Waddle, Bucky. Loveland only at value.</td></tr>
             <tr><td>6</td><td>Attack upside</td><td>Watson if he falls, Egbuka; Tuten only if discounted.</td></tr>
             <tr><td>7</td><td>Mid-round WR upside</td><td>Christian Watson / Parker Washington. Do not wait until Round 9 on Parker.</td></tr>
-            <tr><td>8</td><td>Tier-break value</td><td>Best WR/RB; Kittle/Pitts only if TE is still empty.</td></tr>
+            <tr><td>8</td><td>Tier-break value</td><td>Best WR/RB; Kittle/Pitts only if TE is empty.</td></tr>
             <tr><td>9–10</td><td>Open late-QB window</td><td>Herbert, Nix, Caleb, Lawrence, Purdy; Godwin/Corum if skill value wins.</td></tr>
             <tr><td>11–13</td><td>Bench ceiling</td><td>Diggs, Jordan Mason, Chris Rodriguez, Allgeier, RJ Harvey. If your starting TE carries an injury flag, add a backup TE before specialists.</td></tr>
             <tr><td>14–15</td><td>Finish specialists</td><td>Aubrey is the kicker exception. Otherwise target SEA → PHI → JAX → LAC → PIT D/ST, then best remaining kicker.</td></tr>
@@ -174,6 +174,20 @@
     </section>
   </main>
 
+  <div id="missedPickModalV45" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="missedPickTitleV45">
+    <div class="mp45-panel">
+      <div id="missedPickTitleV45" class="mp45-title">Record missed Yahoo pick</div>
+      <div id="missedPickPlayerV45" class="mp45-player"></div>
+      <label for="missedPickNumberV45">YAHOO OVERALL PICK NUMBER</label>
+      <input id="missedPickNumberV45" type="number" inputmode="numeric" min="1" max="150" step="1">
+      <div id="missedPickErrorV45" aria-live="polite"></div>
+      <div class="mp45-actions">
+        <button id="missedPickCancelV45" type="button" class="ghost">CANCEL</button>
+        <button id="missedPickConfirmV45" type="button">ADD MISSED PICK</button>
+      </div>
+    </div>
+  </div>
+
   <script src="data.js?v=1"></script>
   <script src="rankings-aug29-1.js?v=4.0"></script>
   <script src="rankings-aug29-2.js?v=4.0"></script>
@@ -189,5 +203,6 @@
   <script src="league-rosters.js?v=4.0"></script>
   <script src="ownership-sync-v4.1.1.js?v=4.1.2"></script>
   <script src="draft-controls-v4.4.js?v=4.4"></script>
+  <script src="missed-pick-v4.5.js?v=4.5"></script>
 </body>
 </html>
