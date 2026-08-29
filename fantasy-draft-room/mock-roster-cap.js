@@ -48,7 +48,12 @@
 
   function isMockLocked(state = readState()) {
     const picks = Array.isArray(state.userPicks) ? state.userPicks : [];
-    return state.mode === "mock" && (picks.length >= ROSTER_ROUNDS || state.mockActive === false && picks.length > 0);
+    return state.mode === "mock" && picks.length >= ROSTER_ROUNDS;
+  }
+
+  function setText(id, text) {
+    const el = document.getElementById(id);
+    if (el && el.textContent !== text) el.textContent = text;
   }
 
   function enforceLock() {
@@ -60,29 +65,25 @@
       topFive.innerHTML = `<div class="empty-state mock-complete-lock"><strong>Mock complete — 15-player roster locked.</strong><br>Review your draft below or start a new mock.</div>`;
     }
 
-    const call = document.getElementById("scoutCall");
-    if (call) call.textContent = "Draft complete";
-
-    const round = document.getElementById("roundText");
-    if (round) round.textContent = "15 rounds complete";
-
-    const next = document.getElementById("nextPickText");
-    if (next) next.textContent = "SCOUT MOCK · DRAFT COMPLETE";
+    setText("scoutCall", "Draft complete");
+    setText("roundText", "15 rounds complete");
+    setText("nextPickText", "SCOUT MOCK · DRAFT COMPLETE");
 
     document.querySelectorAll("#playerBoard [data-mine], .top5-draft-btn").forEach(btn => {
-      btn.disabled = true;
-      btn.setAttribute("aria-disabled", "true");
-      if (btn.matches("#playerBoard [data-mine]")) btn.textContent = "DRAFT COMPLETE";
+      if (!btn.disabled) btn.disabled = true;
+      if (btn.getAttribute("aria-disabled") !== "true") btn.setAttribute("aria-disabled", "true");
+      if (btn.matches("#playerBoard [data-mine]") && btn.textContent !== "DRAFT COMPLETE") {
+        btn.textContent = "DRAFT COMPLETE";
+      }
     });
 
     const summary = document.getElementById("leagueIntelSummary");
-    if (summary) {
-      summary.innerHTML = `<div class="intel-call neutral"><strong>DRAFT COMPLETE</strong><span>Opponent pressure is no longer relevant; your 15-player roster is locked.</span></div>`;
+    if (summary && !summary.querySelector(".mock-cap-summary")) {
+      summary.innerHTML = `<div class="intel-call neutral mock-cap-summary"><strong>DRAFT COMPLETE</strong><span>Opponent pressure is no longer relevant; your 15-player roster is locked.</span></div>`;
     }
   }
 
-  // Block both the large player-board control and the one-tap Top 5 shortcut
-  // before their existing handlers can run.
+  // Block only draft controls after the 15-player roster is complete.
   document.addEventListener("click", event => {
     const draftControl = event.target.closest?.("#playerBoard [data-mine], .top5-draft-btn");
     if (!draftControl || !isMockLocked()) return;
@@ -91,9 +92,16 @@
     enforceLock();
   }, true);
 
-  const observer = new MutationObserver(() => enforceLock());
+  let scheduled = false;
+  const observer = new MutationObserver(() => {
+    if (scheduled || !isMockLocked()) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      enforceLock();
+    });
+  });
   observer.observe(document.body, {childList:true, subtree:true});
-  document.addEventListener("input", () => setTimeout(enforceLock, 0));
-  document.addEventListener("change", () => setTimeout(enforceLock, 0));
+
   enforceLock();
 })();
