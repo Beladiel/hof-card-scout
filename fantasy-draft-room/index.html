@@ -5,28 +5,29 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#071c16">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Scout Draft Room">
-  <title>Scout Fantasy Draft Room</title>
+  <meta name="apple-mobile-web-app-title" content="Lobstahs Draft Room">
+  <title>Lobstahs · Scout Fantasy Draft Room</title>
   <link rel="stylesheet" href="styles.css?v=2">
   <link rel="stylesheet" href="v2.css?v=2">
   <link rel="stylesheet" href="v3.css?v=3">
   <link rel="stylesheet" href="top5-actions.css?v=3.2">
+  <link rel="stylesheet" href="lobstahs.css?v=4.0">
 </head>
 <body>
   <main class="shell">
-    <header class="hero">
+    <header class="hero lobster-hero">
       <div>
-        <div class="eyebrow">🏈 SCOUT FANTASY DRAFT ROOM · V3.3.1</div>
-        <h1>Your draft board. Scout's call.</h1>
+        <div class="eyebrow">🦞 LOBSTAHS · SCOUT FANTASY DRAFT ROOM · V4.0</div>
+        <h1>Draft smart. Pinch value. 🦞🏈</h1>
         <p>Yahoo Prize Prestige 1384925 · 10 teams · Half-PPR · 60-second picks</p>
       </div>
-      <div class="hero-ball">🏈</div>
+      <div class="hero-ball lobster-mark" aria-hidden="true">🦞</div>
     </header>
 
     <section class="setup card">
       <div class="setup-grid">
         <div>
-          <label for="draftSlot">YOUR DRAFT SLOT</label>
+          <label for="draftSlot">LOBSTAHS DRAFT SLOT</label>
           <select id="draftSlot">
             <option value="">Set when Yahoo assigns it</option>
             <option value="1">1</option><option value="2">2</option><option value="3">3</option>
@@ -37,7 +38,7 @@
         <div class="draft-status">
           <div class="mini-label">DRAFT PROGRESS</div>
           <div id="roundText" class="big-stat">Round 1</div>
-          <div id="nextPickText" class="subtle">Set your slot to show picks until you're up.</div>
+          <div id="nextPickText" class="subtle">Set your slot to show picks until Lobstahs are up.</div>
         </div>
         <div class="draft-actions">
           <button id="undoBtn" class="ghost">↶ UNDO</button>
@@ -56,6 +57,13 @@
         <button id="startMockBtn" class="mode-btn">🎲 START SCOUT MOCK</button>
       </div>
     </section>
+
+    <nav class="card quick-nav" aria-label="Draft Room sections">
+      <a href="#leagueRostersCard">🦞 LEAGUE ROSTERS</a>
+      <a href="#roundPlanCard">🧭 ROUND PLAN</a>
+      <a href="#bestAvailableCard">📊 BEST AVAILABLE</a>
+      <a href="#leagueIntelCard">👀 OPPONENT INTEL</a>
+    </nav>
 
     <section class="top-grid">
       <div class="card scout-picks">
@@ -80,11 +88,11 @@
       </div>
     </section>
 
-    <section class="card roster-card">
+    <section class="card roster-card lobstahs-roster">
       <div class="section-head">
         <div>
-          <div class="eyebrow">📋 MY TEAM</div>
-          <h2>Roster construction</h2>
+          <div class="eyebrow">🦞 LOBSTAHS</div>
+          <h2>My roster construction</h2>
         </div>
         <span id="rosterCount" class="pill">0 players</span>
       </div>
@@ -103,9 +111,21 @@
       <div id="leagueGrid" class="league-grid"></div>
     </section>
 
+    <section id="leagueRostersCard" class="card league-rosters-card">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">🦞 POST-DRAFT HQ</div>
+          <h2>League Rosters</h2>
+          <p class="section-copy">Draft picks populate automatically. During the season, edit team names and record adds, drops or trades here so Scout can use the real league when we talk waivers and trades.</p>
+        </div>
+        <span class="pill">10-team source of truth</span>
+      </div>
+      <div id="leagueRostersApp"></div>
+    </section>
+
     <section id="mockReview" class="card mock-review" hidden></section>
 
-    <section class="card board-card">
+    <section id="bestAvailableCard" class="card board-card">
       <div class="section-head board-head">
         <div>
           <div class="eyebrow">📊 BEST AVAILABLE</div>
@@ -134,23 +154,55 @@
       <div id="playerBoard" class="player-board"></div>
     </section>
 
+    <section id="roundPlanCard" class="card round-plan-card">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">🧭 LOBSTAHS ROUND PLAN</div>
+          <h2>Use the board, not a rigid script</h2>
+        </div>
+        <span class="pill">15-round roster</span>
+      </div>
+      <div class="round-plan-wrap">
+        <table class="round-plan-table">
+          <thead><tr><th>Round</th><th>Primary goal</th><th>Targets / rule</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Elite value</td><td>Gibbs, Bijan, Puka, Chase, Amon-Ra, Taylor/Cook tier.</td></tr>
+            <tr><td>2</td><td>Second cornerstone</td><td>RB slightly preferred: Chase Brown, Hampton, Walker, Barkley; Jeanty only at a discount.</td></tr>
+            <tr><td>3</td><td>Complete elite core</td><td>Olave/London + best RB/WR tier. Bowers/McBride only if value falls.</td></tr>
+            <tr><td>4–5</td><td>Fill starters / FLEX</td><td>McConkey, DeVonta, Etienne, Waddle, Bucky. Loveland only at value.</td></tr>
+            <tr><td>6</td><td>Attack upside</td><td>Watson if he falls, Egbuka; Tuten only if discounted.</td></tr>
+            <tr><td>7</td><td>Mid-round WR upside</td><td>Christian Watson / Parker Washington. Do not wait until Round 9 on Parker.</td></tr>
+            <tr><td>8</td><td>Tier-break value</td><td>Best WR/RB; Kittle/Pitts only if TE is still empty.</td></tr>
+            <tr><td>9–10</td><td>Open late-QB window</td><td>Herbert, Nix, Caleb, Lawrence, Purdy; Godwin/Corum if skill value wins.</td></tr>
+            <tr><td>11–13</td><td>Bench ceiling</td><td>Diggs, Jordan Mason, Chris Rodriguez, Allgeier, RJ Harvey. Avoid QB2 in normal build.</td></tr>
+            <tr><td>14–15</td><td>Finish specialists</td><td>Aubrey is the kicker exception. Otherwise target SEA → PHI → JAX → LAC → PIT D/ST, then best remaining kicker.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <section class="card strategy-card">
       <div class="eyebrow">SCOUT'S DRAFT-NIGHT RULES</div>
       <div class="strategy-grid">
-        <div><strong>Rounds 1–3</strong><span>Build RB/WR core. Aim for 2 RB when value is fair.</span></div>
-        <div><strong>QB</strong><span>Usually wait. Ten-team depth is our friend.</span></div>
-        <div><strong>TE</strong><span>Pay only for a real edge or wait.</span></div>
-        <div><strong>K / DEF</strong><span>Save them for the final two rounds.</span></div>
+        <div><strong>Rounds 1–3</strong><span>Build the RB/WR core. Aim for 2 RB when value is fair.</span></div>
+        <div><strong>QB</strong><span>Usually wait. Herbert/Nix/Caleb/Lawrence/Purdy are the value zone.</span></div>
+        <div><strong>TE</strong><span>Pay only for a real edge or wait for value.</span></div>
+        <div><strong>K / DEF</strong><span>Final two rounds. Aubrey is the only kicker with permission to jump the defense queue.</span></div>
       </div>
     </section>
   </main>
 
   <script src="data.js?v=1"></script>
+  <script src="rankings-aug29-1.js?v=4.0"></script>
+  <script src="rankings-aug29-2.js?v=4.0"></script>
+  <script src="rankings-aug29-3.js?v=4.0"></script>
   <script src="deep-data.js?v=2"></script>
+  <script src="draft-updates-aug29.js?v=4.0"></script>
   <script src="app.js?v=2"></script>
   <script src="opponent-intel.js?v=3"></script>
   <script src="strategy-intel.js?v=3.1"></script>
   <script src="top5-actions.js?v=3.2"></script>
   <script src="mock-roster-cap.js?v=3.3.1"></script>
+  <script src="league-rosters.js?v=4.0"></script>
 </body>
 </html>
