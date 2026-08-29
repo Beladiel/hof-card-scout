@@ -122,8 +122,7 @@
     if (!old || old.dataset.tapSelect === "1") return;
     const btn = old.cloneNode(true);
     btn.dataset.tapSelect = "1";
-    old.replaceWith(btn); // strips the older search-first click handler
-    btn.addEventListener("click", insertSelectedMissedPick);
+    old.replaceWith(btn);
     updateMissedButton();
   }
 
@@ -139,6 +138,15 @@
     `;
     document.head.appendChild(style);
   }
+
+  document.addEventListener("click", event => {
+    const missed = event.target.closest?.("#missedPickBtn");
+    if (!missed) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    insertSelectedMissedPick();
+  }, true);
 
   document.addEventListener("click", event => {
     const row = event.target.closest?.("#playerBoard .player-row");
