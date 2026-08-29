@@ -23,8 +23,14 @@
     if (changed) localStorage.setItem(KEY, JSON.stringify(state));
   }
   document.addEventListener("click", event => {
+    if (event.target.closest?.("#missedPickBtn") && !String(document.getElementById("searchInput")?.value || "").trim()) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      alert("Search for the missed player first, then tap MISSED PICK.");
+      return;
+    }
     if (!event.target.closest?.("#playerBoard [data-drafted], #playerBoard [data-mine], .top5-draft-btn, #undoBtn, #boardUndoBtn")) return;
     sync();
-  });
+  }, true);
   sync();
 })();
