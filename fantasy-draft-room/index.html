@@ -18,7 +18,7 @@
   <main class="shell">
     <header class="hero lobster-hero">
       <div>
-        <div class="eyebrow">🦞 LOBSTAHS · SCOUT FANTASY DRAFT ROOM · V4.3</div>
+        <div class="eyebrow">🦞 LOBSTAHS · SCOUT FANTASY DRAFT ROOM · V4.4</div>
         <h1>Draft smart. Pinch value. 🦞🏈</h1>
         <p>Yahoo Prize Prestige 1384925 · 10 teams · Half-PPR · 60-second picks</p>
       </div>
@@ -122,7 +122,14 @@
     <section id="bestAvailableCard" class="card board-card">
       <div class="section-head board-head">
         <div><div class="eyebrow">📊 BEST AVAILABLE</div><h2>Tap fast. Scout recalculates instantly.</h2></div>
-        <div class="board-tools"><input id="searchInput" type="search" placeholder="Search player…"></div>
+        <div class="board-tools board-tools-v44">
+          <input id="searchInput" type="search" placeholder="Search player…">
+          <div class="board-quick-actions">
+            <button id="clearSearchBtn" type="button" class="ghost">CLEAR SEARCH</button>
+            <button id="boardUndoBtn" type="button" class="ghost">↶ UNDO LAST</button>
+            <button id="missedPickBtn" type="button" class="ghost missed-pick-btn" aria-disabled="true">＋ MISSED PICK</button>
+          </div>
+        </div>
       </div>
       <div class="filters" id="positionFilters">
         <button data-pos="ALL" class="active">ALL</button><button data-pos="QB">QB</button><button data-pos="RB">RB</button>
@@ -181,6 +188,6 @@
   <script src="mock-roster-cap.js?v=3.3.1"></script>
   <script src="league-rosters.js?v=4.0"></script>
   <script src="ownership-sync-v4.1.1.js?v=4.1.2"></script>
-  <script src="draft-controls-v4.3.js?v=4.3"></script>
+  <script src="draft-controls-v4.4.js?v=4.4"></script>
 </body>
 </html>
