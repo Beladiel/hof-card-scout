@@ -116,5 +116,13 @@
   if (topFive && "MutationObserver" in window) new MutationObserver(() => requestAnimationFrame(enforceTopFiveBalance)).observe(topFive,{childList:true,subtree:true});
   document.addEventListener("click", () => setTimeout(refresh,0));
   document.addEventListener("change", () => setTimeout(refresh,0));
+
+  if (!document.querySelector('script[data-scout-season-hq]')) {
+    const script = document.createElement("script");
+    script.src = "season-hq-v4.6.js?v=4.6";
+    script.dataset.scoutSeasonHq = "true";
+    document.body.appendChild(script);
+  }
+
   refresh();
 })();
