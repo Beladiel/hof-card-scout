@@ -1,0 +1,58 @@
+name: Install Red or Green post-draft rosters
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/add-redgreen-postdraft.yml
+
+permissions:
+  contents: write
+
+jobs:
+  install-rosters:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate roster seed
+        run: node --check fantasy-draft-room/redgreen-postdraft-aug30.js
+
+      - name: Wire roster seed into app
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          p=Path('fantasy-draft-room/index.html')
+          text=p.read_text(encoding='utf-8')
+          tag='  <script src="redgreen-postdraft-aug30.js?v=1"></script>\n'
+          if tag in text:
+              print('Roster seed tag already present.')
+          else:
+              anchor='  <script src="league-context-v4.6.js?v=4.6"></script>\n'
+              if anchor not in text:
+                  raise SystemExit('league-context script anchor not found')
+              text=text.replace(anchor,anchor+tag,1)
+              p.write_text(text,encoding='utf-8')
+              print('Added Red or Green post-draft roster seed.')
+          PY
+
+      - name: Validate app wiring
+        run: |
+          grep -q 'redgreen-postdraft-aug30.js?v=1' fantasy-draft-room/index.html
+          grep -q 'Red or Green Machine' fantasy-draft-room/redgreen-postdraft-aug30.js
+          grep -q 'Pittsburgh Steelers D/ST' fantasy-draft-room/redgreen-postdraft-aug30.js
+
+      - name: Commit app update
+        run: |
+          if git diff --quiet -- fantasy-draft-room/index.html; then
+            echo 'No index change to commit.'
+            exit 0
+          fi
+          git config user.name 'Scout App Updater'
+          git config user.email 'actions@users.noreply.github.com'
+          git add fantasy-draft-room/index.html
+          git commit -m 'Load Red or Green post-draft rosters'
+          git push
