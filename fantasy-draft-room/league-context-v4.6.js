@@ -43,7 +43,6 @@
   const originalSetItem = proto.setItem;
   const originalRemoveItem = proto.removeItem;
 
-  // Preserve the existing single-team app data by migrating it to Lobstahs once.
   try {
     const oldDraft = originalGetItem.call(localStorage, LEGACY_DRAFT_KEY);
     const lobDraft = originalGetItem.call(localStorage, LEAGUES.lobstahs.draftKey);
@@ -95,7 +94,6 @@
     location.reload();
   };
 
-  // Make old helper-script alerts league-aware without rewriting every legacy module.
   const nativeAlert = window.alert.bind(window);
   window.alert = message => nativeAlert(String(message ?? "").replaceAll("Lobstahs", active.teamName));
 
@@ -106,7 +104,7 @@
     if (apple) apple.setAttribute("content", `${active.teamName} Draft Room`);
 
     const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-    setText("heroEyebrow", `${active.emoji} ${active.teamName.toUpperCase()} · SCOUT FANTASY DRAFT ROOM · V4.6`);
+    setText("heroEyebrow", `${active.emoji} ${active.teamName.toUpperCase()} · SCOUT FANTASY DRAFT ROOM · V4.7.1`);
     setText("heroTitle", active.heroTitle);
     setText("heroMeta", `${active.leagueName} · 10 teams · Half-PPR · 60-second picks · ${active.waiverLabel}`);
     setText("heroMark", active.emoji);
