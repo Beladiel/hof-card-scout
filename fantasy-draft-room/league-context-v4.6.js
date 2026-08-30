@@ -1,6 +1,7 @@
 (() => {
   const ACTIVE_KEY = "scoutFantasyActiveLeague2026V1";
   const LEGACY_DRAFT_KEY = "scoutFantasyDraftRoom2026V2";
+  const LEGACY_OLD_DRAFT_KEY = "scoutFantasyDraftRoom2026V1";
   const LEGACY_META_KEY = "scoutFantasyLeagueRosters2026V1";
 
   const LEAGUES = {
@@ -14,6 +15,7 @@
       waiverLabel: "FAAB waivers",
       heroTitle: "Draft smart. Pinch value. 🦞🏈",
       draftKey: "scoutFantasyDraftRoom2026LobstahsV1",
+      oldDraftKey: "scoutFantasyDraftRoom2026LobstahsLegacyV1",
       metaKey: "scoutFantasyLeagueRosters2026LobstahsV1"
     },
     redgreen: {
@@ -26,6 +28,7 @@
       waiverLabel: "Rolling waivers · no FAAB",
       heroTitle: "Red. Green. Christmas. Touchdowns. 🌶️🏈",
       draftKey: "scoutFantasyDraftRoom2026RedGreenV1",
+      oldDraftKey: "scoutFantasyDraftRoom2026RedGreenLegacyV1",
       metaKey: "scoutFantasyLeagueRosters2026RedGreenV1"
     }
   };
@@ -41,6 +44,10 @@
     const lobDraft = originalGetItem.call(localStorage, LEAGUES.lobstahs.draftKey);
     if (oldDraft && !lobDraft) originalSetItem.call(localStorage, LEAGUES.lobstahs.draftKey, oldDraft);
 
+    const oldV1 = originalGetItem.call(localStorage, LEGACY_OLD_DRAFT_KEY);
+    const lobV1 = originalGetItem.call(localStorage, LEAGUES.lobstahs.oldDraftKey);
+    if (oldV1 && !lobV1) originalSetItem.call(localStorage, LEAGUES.lobstahs.oldDraftKey, oldV1);
+
     const oldMeta = originalGetItem.call(localStorage, LEGACY_META_KEY);
     const lobMeta = originalGetItem.call(localStorage, LEAGUES.lobstahs.metaKey);
     if (oldMeta && !lobMeta) originalSetItem.call(localStorage, LEAGUES.lobstahs.metaKey, oldMeta);
@@ -55,6 +62,7 @@
 
   function mappedKey(key) {
     if (key === LEGACY_DRAFT_KEY) return active.draftKey;
+    if (key === LEGACY_OLD_DRAFT_KEY) return active.oldDraftKey;
     if (key === LEGACY_META_KEY) return active.metaKey;
     return key;
   }
