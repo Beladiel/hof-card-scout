@@ -3,6 +3,7 @@
   const LEGACY_DRAFT_KEY = "scoutFantasyDraftRoom2026V2";
   const LEGACY_OLD_DRAFT_KEY = "scoutFantasyDraftRoom2026V1";
   const LEGACY_META_KEY = "scoutFantasyLeagueRosters2026V1";
+  const SEASON_KEY = "scoutFantasySeasonHQ2026V1";
 
   const LEAGUES = {
     lobstahs: {
@@ -13,10 +14,12 @@
       leagueName: "Yahoo Prize Prestige 1384925",
       draftTime: "Sat Sep 5 · 6:00 PM MDT",
       waiverLabel: "FAAB waivers",
+      waiverField: "FAAB remaining",
       heroTitle: "Draft smart. Pinch value. 🦞🏈",
       draftKey: "scoutFantasyDraftRoom2026LobstahsV1",
       oldDraftKey: "scoutFantasyDraftRoom2026LobstahsLegacyV1",
-      metaKey: "scoutFantasyLeagueRosters2026LobstahsV1"
+      metaKey: "scoutFantasyLeagueRosters2026LobstahsV1",
+      seasonKey: "scoutFantasySeasonHQ2026LobstahsV1"
     },
     redgreen: {
       id: "redgreen",
@@ -26,10 +29,12 @@
       leagueName: "Yahoo Prize H2H-Pts 1464991",
       draftTime: "Sun Aug 30 · 11:00 AM MDT",
       waiverLabel: "Rolling waivers · no FAAB",
+      waiverField: "Waiver priority",
       heroTitle: "Red. Green. Christmas. Touchdowns. 🌶️🏈",
       draftKey: "scoutFantasyDraftRoom2026RedGreenV1",
       oldDraftKey: "scoutFantasyDraftRoom2026RedGreenLegacyV1",
-      metaKey: "scoutFantasyLeagueRosters2026RedGreenV1"
+      metaKey: "scoutFantasyLeagueRosters2026RedGreenV1",
+      seasonKey: "scoutFantasySeasonHQ2026RedGreenV1"
     }
   };
 
@@ -64,6 +69,7 @@
     if (key === LEGACY_DRAFT_KEY) return active.draftKey;
     if (key === LEGACY_OLD_DRAFT_KEY) return active.oldDraftKey;
     if (key === LEGACY_META_KEY) return active.metaKey;
+    if (key === SEASON_KEY) return active.seasonKey;
     return key;
   }
 
