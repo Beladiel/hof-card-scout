@@ -94,39 +94,49 @@
     const mockOn = state.mode === "mock" && state.mockActive;
     document.querySelectorAll("#playerBoard [data-mine]").forEach(btn => {
       if (btn.disabled) return;
-      btn.textContent = mockOn ? "DRAFT THIS" : "DRAFT TO MY TEAM";
-      btn.title = `Draft this available player to ${league.teamName}`;
+      const nextText = mockOn ? "DRAFT THIS" : "DRAFT TO MY TEAM";
+      const nextTitle = `Draft this available player to ${league.teamName}`;
+      if (btn.textContent !== nextText) btn.textContent = nextText;
+      if (btn.title !== nextTitle) btn.title = nextTitle;
     });
   }
 
   function personalizeLegacyText() {
     const call = document.getElementById("scoutCall");
-    if (call && league.teamName !== "Lobstahs") call.textContent = call.textContent.replaceAll("Lobstahs", league.teamName);
+    if (!call || league.teamName === "Lobstahs") return;
+    const next = call.textContent.replaceAll("Lobstahs", league.teamName);
+    if (call.textContent !== next) call.textContent = next;
   }
 
+  let refreshQueued = false;
   function refresh() {
-    relabelDraftButtons();
-    enforceTopFiveBalance();
-    personalizeLegacyText();
+    if (refreshQueued) return;
+    refreshQueued = true;
+    requestAnimationFrame(() => {
+      refreshQueued = false;
+      relabelDraftButtons();
+      enforceTopFiveBalance();
+      personalizeLegacyText();
+    });
   }
 
   const board = document.getElementById("playerBoard");
-  if (board && "MutationObserver" in window) new MutationObserver(() => requestAnimationFrame(refresh)).observe(board,{childList:true,subtree:true});
+  if (board && "MutationObserver" in window) new MutationObserver(refresh).observe(board,{childList:true,subtree:true});
   const topFive = document.getElementById("topFive");
-  if (topFive && "MutationObserver" in window) new MutationObserver(() => requestAnimationFrame(enforceTopFiveBalance)).observe(topFive,{childList:true,subtree:true});
+  if (topFive && "MutationObserver" in window) new MutationObserver(refresh).observe(topFive,{childList:true,subtree:true});
   document.addEventListener("click", () => setTimeout(refresh,0));
   document.addEventListener("change", () => setTimeout(refresh,0));
 
   if (!document.querySelector('script[data-scout-season-hq]')) {
     const script = document.createElement("script");
-    script.src = "season-hq-v4.6.js?v=4.6";
+    script.src = "season-hq-v4.6.js?v=4.6.1";
     script.dataset.scoutSeasonHq = "true";
     document.body.appendChild(script);
   }
 
   if (!document.querySelector('script[data-scout-adp]')) {
     const script = document.createElement("script");
-    script.src = "adp-display-v4.7.js?v=4.7";
+    script.src = "adp-display-v4.7.js?v=4.7.1";
     script.dataset.scoutAdp = "true";
     document.body.appendChild(script);
   }
