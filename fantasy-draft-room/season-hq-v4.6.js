@@ -1,8 +1,18 @@
 (() => {
   const KEY = "scoutFantasySeasonHQ2026V1";
   const league = window.SCOUT_LEAGUE_CONFIG || {teamName:"Lobstahs",emoji:"🦞",waiverField:"Waiver status",waiverLabel:""};
-  const root = document.getElementById("seasonHqApp");
-  if (!root) return;
+
+  let root = document.getElementById("seasonHqApp");
+  if (!root) {
+    const anchor = document.querySelector(".roster-card");
+    if (!anchor) return;
+    const section = document.createElement("section");
+    section.id = "seasonHqCard";
+    section.className = "card season-hq-card";
+    section.innerHTML = `<div class="section-head"><div><div class="eyebrow">📅 SEASON HQ</div><h2>${league.emoji} ${league.teamName} weekly tracker</h2></div><span class="pill">Separate league state</span></div><div id="seasonHqApp"></div>`;
+    anchor.insertAdjacentElement("afterend", section);
+    root = section.querySelector("#seasonHqApp");
+  }
 
   function initial() {
     return {week:"1",wins:0,losses:0,ties:0,waiver:"",notes:"",updated:""};
