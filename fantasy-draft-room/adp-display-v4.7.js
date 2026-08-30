@@ -84,6 +84,10 @@
     return `<span class="scout-adp">${prefix} ${info.adp.toFixed(info.exact ? 1 : 0)} · ${roundPick(info.adp)}</span><span class="scout-adp-value ${v.cls}">${v.text}</span>`;
   }
 
+  function setBadgeHtml(target, html) {
+    if (target.innerHTML !== html) target.innerHTML = html;
+  }
+
   function decorateTopFive() {
     document.querySelectorAll("#topFive .pick-card").forEach(card => {
       const name = card.querySelector(".pick-name")?.textContent?.trim();
@@ -95,7 +99,7 @@
         row.className = "scout-adp-row";
         meta.insertAdjacentElement("afterend", row);
       }
-      row.innerHTML = badge(name);
+      setBadgeHtml(row, badge(name));
     });
   }
 
@@ -110,7 +114,7 @@
         adp.className = "scout-board-adp";
         meta.insertAdjacentElement("afterend", adp);
       }
-      adp.innerHTML = badge(name);
+      setBadgeHtml(adp, badge(name));
     });
   }
 
@@ -123,28 +127,41 @@
     legend.appendChild(note);
   }
 
-  function refresh() { decorateTopFive(); decorateBoard(); addSourceNote(); }
+  let refreshQueued = false;
+  function refresh() {
+    if (refreshQueued) return;
+    refreshQueued = true;
+    requestAnimationFrame(() => {
+      refreshQueued = false;
+      decorateTopFive();
+      decorateBoard();
+      addSourceNote();
+    });
+  }
 
-  const style = document.createElement("style");
-  style.textContent = `
-    .scout-adp-row,.scout-board-adp{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:4px}
-    .scout-adp,.scout-adp-value{display:inline-block;border-radius:999px;padding:3px 6px;font-size:8px;font-weight:950;letter-spacing:.02em;border:1px solid var(--line)}
-    .scout-adp{color:#d7e8e1;background:rgba(255,255,255,.05)}
-    .scout-adp-value.great{color:#9ff0bd;border-color:rgba(88,197,139,.55);background:rgba(88,197,139,.12)}
-    .scout-adp-value.value{color:#b8edcc;border-color:rgba(88,197,139,.38);background:rgba(88,197,139,.08)}
-    .scout-adp-value.fair{color:#f1d181;border-color:rgba(230,189,99,.38);background:rgba(230,189,99,.08)}
-    .scout-adp-value.early,.scout-adp-value.reach{color:#ffb0a8;border-color:rgba(239,118,118,.38);background:rgba(239,118,118,.08)}
-    .adp-source-note{opacity:.85}
-    @media(max-width:620px){.scout-adp,.scout-adp-value{font-size:7px;padding:2px 5px}.scout-board-adp{margin-top:3px}}
-  `;
-  document.head.appendChild(style);
+  if (!document.getElementById("scoutAdpStyleV471")) {
+    const style = document.createElement("style");
+    style.id = "scoutAdpStyleV471";
+    style.textContent = `
+      .scout-adp-row,.scout-board-adp{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:4px}
+      .scout-adp,.scout-adp-value{display:inline-block;border-radius:999px;padding:3px 6px;font-size:8px;font-weight:950;letter-spacing:.02em;border:1px solid var(--line)}
+      .scout-adp{color:#d7e8e1;background:rgba(255,255,255,.05)}
+      .scout-adp-value.great{color:#9ff0bd;border-color:rgba(88,197,139,.55);background:rgba(88,197,139,.12)}
+      .scout-adp-value.value{color:#b8edcc;border-color:rgba(88,197,139,.38);background:rgba(88,197,139,.08)}
+      .scout-adp-value.fair{color:#f1d181;border-color:rgba(230,189,99,.38);background:rgba(230,189,99,.08)}
+      .scout-adp-value.early,.scout-adp-value.reach{color:#ffb0a8;border-color:rgba(239,118,118,.38);background:rgba(239,118,118,.08)}
+      .adp-source-note{opacity:.85}
+      @media(max-width:620px){.scout-adp,.scout-adp-value{font-size:7px;padding:2px 5px}.scout-board-adp{margin-top:3px}}
+    `;
+    document.head.appendChild(style);
+  }
 
   const top = document.getElementById("topFive");
   const board = document.getElementById("playerBoard");
-  if (top && "MutationObserver" in window) new MutationObserver(() => requestAnimationFrame(refresh)).observe(top,{childList:true,subtree:true});
-  if (board && "MutationObserver" in window) new MutationObserver(() => requestAnimationFrame(refresh)).observe(board,{childList:true,subtree:true});
+  if (top && "MutationObserver" in window) new MutationObserver(refresh).observe(top,{childList:true,subtree:true});
+  if (board && "MutationObserver" in window) new MutationObserver(refresh).observe(board,{childList:true,subtree:true});
   const counter = document.getElementById("pickCounter");
-  if (counter && "MutationObserver" in window) new MutationObserver(() => requestAnimationFrame(refresh)).observe(counter,{childList:true,subtree:true,characterData:true});
+  if (counter && "MutationObserver" in window) new MutationObserver(refresh).observe(counter,{childList:true,subtree:true,characterData:true});
   document.addEventListener("click", () => setTimeout(refresh,0));
   document.addEventListener("change", () => setTimeout(refresh,0));
   refresh();
