@@ -124,5 +124,12 @@
     document.body.appendChild(script);
   }
 
+  if (!document.querySelector('script[data-scout-adp]')) {
+    const script = document.createElement("script");
+    script.src = "adp-display-v4.7.js?v=4.7";
+    script.dataset.scoutAdp = "true";
+    document.body.appendChild(script);
+  }
+
   refresh();
 })();
