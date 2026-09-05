@@ -27,7 +27,6 @@ export default {
     if (!asset) return new Response("Not found", { status: 404 });
 
     const upstreamUrl = new URL(`${REPO_BASE}/${asset}`);
-    // A changing query parameter prevents stale edge/browser copies of draft-night data.
     upstreamUrl.searchParams.set("scout_refresh", Date.now().toString());
 
     let upstream;
@@ -50,12 +49,14 @@ export default {
 
     if (asset === "index.html") {
       let html = await upstream.text();
-      html = html.replace(
-        "🦞 LOBSTAHS · SCOUT FANTASY DRAFT ROOM · V4.7.1",
-        `🦞 LOBSTAHS · SCOUT FANTASY DRAFT ROOM · ${UPDATED_LABEL}`
-      );
-      // Bump the ranking payload URL so the tablet can never reuse the Aug. 29 copy.
       html = html.replace("draft-updates-aug29.js?v=4.0", "draft-updates-aug29.js?v=sep5-1349");
+
+      // Add an unmistakable ranking freshness badge directly above the title.
+      const badge = `<div id="scoutRankingFreshness" style="display:inline-block;margin:6px 0 10px;padding:7px 10px;border-radius:999px;background:#e6bd63;color:#071c16;font-size:11px;font-weight:900;letter-spacing:.04em;box-shadow:0 0 0 1px rgba(255,255,255,.15) inset">✅ RANKINGS UPDATED SEP. 5, 2026 · 1:49 PM MDT</div>`;
+      if (!html.includes("scoutRankingFreshness")) {
+        html = html.replace('<h1 id="heroTitle">', `${badge}<h1 id="heroTitle">`);
+      }
+
       return new Response(html, { status: 200, headers });
     }
 
