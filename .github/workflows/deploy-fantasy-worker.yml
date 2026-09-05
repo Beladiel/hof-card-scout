@@ -1,0 +1,41 @@
+name: Deploy Lobstahs Fantasy Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/fantasy-worker.js'
+      - 'wrangler-fantasy.jsonc'
+      - 'fantasy-draft-room/**'
+      - '.github/workflows/deploy-fantasy-worker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy Lobstahs Worker
+        env:
+          CF_API_TOKEN_RAW: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID_RAW: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [[ "$CF_API_TOKEN_RAW" =~ (cfut_[A-Za-z0-9_-]+) ]]; then
+            export CLOUDFLARE_API_TOKEN="${BASH_REMATCH[1]}"
+          else
+            TOKEN_CLEAN="$(printf '%s' "$CF_API_TOKEN_RAW" | tr -d '\r\n\t ')"
+            TOKEN_CLEAN="${TOKEN_CLEAN#Bearer}"
+            TOKEN_CLEAN="${TOKEN_CLEAN#bearer}"
+            TOKEN_CLEAN="${TOKEN_CLEAN//\"/}"
+            TOKEN_CLEAN="${TOKEN_CLEAN//\'/}"
+            export CLOUDFLARE_API_TOKEN="$TOKEN_CLEAN"
+          fi
+          export CLOUDFLARE_ACCOUNT_ID="$(printf '%s' "$CF_ACCOUNT_ID_RAW" | tr -d '\r\n\t ')"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          npx --yes wrangler@4 deploy --config wrangler-fantasy.jsonc
