@@ -1,4 +1,82 @@
 (() => {
+  if (window.SCOUT_ACTIVE_LEAGUE !== "lobstahs") return;
+  const MARKER = "scoutFantasyLobstahsPostDraftSeed2026Sep5V1";
+  if (localStorage.getItem(MARKER) === "1") return;
+  const DRAFT_KEY = "scoutFantasyDraftRoom2026V2";
+  const META_KEY = "scoutFantasyLeagueRosters2026V1";
+  const HOME_SLOT = 8;
+  const roster = [
+    ["Jayden Daniels","QB","WAS"],
+    ["Amon-Ra St. Brown","WR","DET"],
+    ["Chris Olave","WR","NO"],
+    ["Chase Brown","RB","CIN"],
+    ["Bhayshul Tuten","RB","JAX"],
+    ["Trey McBride","TE","ARI"],
+    ["Tetairoa McMillan","WR","CAR"],
+    ["Will Reichard","K","MIN"],
+    ["Minnesota Vikings D/ST","DEF","MIN"],
+    ["Parker Washington","WR","JAX"],
+    ["DK Metcalf","WR","PIT"],
+    ["RJ Harvey","RB","DEN"],
+    ["Jayden Reed","WR","GB"],
+    ["Kenny Gainwell","RB","TB"],
+    ["Jake Ferguson","TE","DAL"]
+  ];
+  let priorDraft = {}, priorMeta = {};
+  try { priorDraft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "{}") || {}; } catch {}
+  try { priorMeta = JSON.parse(localStorage.getItem(META_KEY) || "{}") || {}; } catch {}
+
+  const drafted = {...(priorDraft.drafted || {})};
+  const overrides = {...(priorMeta.overrides || {})};
+  const customPlayers = {...(priorMeta.customPlayers || {})};
+  const mine = [];
+  roster.forEach(([name,pos,nfl]) => {
+    drafted[name] = "mine";
+    overrides[name] = HOME_SLOT;
+    customPlayers[name] = {...(customPlayers[name] || {}), team:nfl, pos, owner:HOME_SLOT};
+    mine.push(name);
+  });
+
+  const draftState = {
+    ...priorDraft,
+    drafted,
+    mine,
+    draftSlot:String(HOME_SLOT),
+    mode:"live",
+    mockActive:false
+  };
+
+  const teamNames = Array.from({length:10},(_,i)=>priorMeta.teamNames?.[i] || `Team ${i+1}`);
+  teamNames[HOME_SLOT-1] = "Lobstahs";
+  const notes = Array.from({length:10},(_,i)=>priorMeta.notes?.[i] || "");
+  notes[HOME_SLOT-1] = "Pending FAAB waiver: Keaton Mitchell for Jake Ferguson. Ferguson remains rostered unless the claim wins.";
+  const moves = Array.isArray(priorMeta.moves) ? priorMeta.moves.slice() : [];
+  moves.unshift({at:new Date().toISOString(),text:"Pending FAAB waiver claim: Keaton Mitchell in / Jake Ferguson out if successful."});
+  moves.unshift({at:new Date().toISOString(),text:"Imported Lobstahs final draft roster (Sep. 5, 2026)."});
+
+  const pendingWaivers = Array.isArray(priorMeta.pendingWaivers) ? priorMeta.pendingWaivers.filter(x => x?.id !== "sep5-keaton-for-ferguson") : [];
+  pendingWaivers.unshift({id:"sep5-keaton-for-ferguson",status:"pending",add:"Keaton Mitchell",drop:"Jake Ferguson",submittedAt:"2026-09-05"});
+
+  const metaState = {
+    ...priorMeta,
+    teamNames,
+    notes,
+    overrides,
+    customPlayers,
+    moves:moves.slice(0,80),
+    homeNamedSlot:HOME_SLOT,
+    pendingWaivers,
+    rosterSource:"Yahoo Prize Prestige 1384925",
+    rosterImportedAt:"2026-09-05",
+    rosterImportVersion:1
+  };
+
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draftState));
+  localStorage.setItem(META_KEY, JSON.stringify(metaState));
+  localStorage.setItem(MARKER, "1");
+})();
+
+(() => {
   if (window.SCOUT_ACTIVE_LEAGUE !== "redgreen") return;
   const MARKER="scoutFantasyRedGreenPostDraftSeed2026Aug30V1";
   if(localStorage.getItem(MARKER)==="1") return;
