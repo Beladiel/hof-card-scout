@@ -141,5 +141,12 @@
     document.body.appendChild(script);
   }
 
+  if (window.SCOUT_ACTIVE_LEAGUE === "lobstahs" && !document.querySelector('script[data-scout-lobstahs-postdraft]')) {
+    const script = document.createElement("script");
+    script.src = "lobstahs-postdraft-sep5.js?v=2";
+    script.dataset.scoutLobstahsPostdraft = "true";
+    document.body.appendChild(script);
+  }
+
   refresh();
 })();
