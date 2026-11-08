@@ -75,3 +75,15 @@
 .scout-pick strong{display:block;color:var(--text);font-size:14px}
 .scout-pick-title{display:block;color:var(--gold);font-size:13px;margin:2px 0 3px}
 .scout-pick small{display:block;color:var(--muted);font-size:11px}
+
+/* v1.5: accessible shopping links for every wish-list item and Scout's Picks */
+.shop-actions{margin:11px 0 8px;gap:7px}
+a.shop-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;white-space:nowrap}
+.shop-link:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.scout-pick-item{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#141922}
+.scout-pick-item .scout-pick{border:0;border-radius:0;background:transparent}
+.scout-pick-item:has(input:checked){border-color:var(--gold);background:#2b2824}
+.scout-pick-shops{padding:0 12px 9px}
+.scout-pick-shops .shop-actions{margin:0;gap:6px}
+.scout-pick-shops .shop-link{font-size:10px;padding:6px 8px}
+@media(max-width:640px){.shop-actions{flex-wrap:wrap}a.shop-link{max-width:100%}}
