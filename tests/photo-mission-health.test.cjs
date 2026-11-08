@@ -89,6 +89,8 @@ test("main app compiles, retires Sealed Product Scout, and loads Photo Mission",
   assert.doesNotMatch(html, /<script src="sealed-product-scout\.js/);
   assert.doesNotMatch(html, /zxing-browser\.min\.js/);
   assert.match(cardPhotoSource, /scout:card-photo-changed/);
+  assert.match(html, /JSON exports do not include image files/);
+  assert.match(html, /photos not included/);
 });
 
 test("photo inventory checks only arrived owned cards and counts cloud successes", async () => {
