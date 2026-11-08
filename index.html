@@ -1325,7 +1325,7 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
             <div><label for="pricingEndpoint" style="display:block;font-size:11px;color:var(--muted);font-weight:850;margin-bottom:4px">Worker URL</label><input id="pricingEndpoint" placeholder="https://hof-card-scout-pricing.yourname.workers.dev"></div>
             <div><label for="pricingAccessKey" style="display:block;font-size:11px;color:var(--muted);font-weight:850;margin-bottom:4px">Scout access key</label><input id="pricingAccessKey" type="password" autocomplete="off" placeholder="Saved only on this device"></div>
           </div>
-          <div class="connect-actions"><button type="button" class="secondary" id="savePricingBtn">SAVE CONNECTION</button><button type="button" class="ghost" id="testPricingBtn">TEST CONNECTION</button></div>
+          <div class="connect-actions"><button type="button" class="secondary" id="savePricingBtn">SAVE CONNECTION</button><button type="button" class="ghost" id="testPricingBtn">TEST CONNECTION</button><button type="button" class="ghost" id="copyPricingKeyBtn">📋 COPY ACCESS KEY</button></div>
           <div id="pricingStatus" class="loading-line">Not connected yet.</div>
         </details>
         <div class="shop-tools">
@@ -4864,6 +4864,19 @@ function pricingConfig(){
     accessKey:localStorage.getItem("hofScoutAccessKey")||""
   };
 }
+async function copyScoutAccessKey(){
+  const key=$("pricingAccessKey").value||localStorage.getItem("hofScoutAccessKey")||"";
+  if(!key){
+    updatePricingStatus("There is no access key saved on this device.","bad");
+    return;
+  }
+  try{
+    await navigator.clipboard.writeText(key);
+    updatePricingStatus("Access key copied. Paste directly into your screensaver setup; keep it private.","ok");
+  }catch(err){
+    updatePricingStatus("Browser blocked clipboard access. Please allow clipboard access and try again.","bad");
+  }
+}
 function loadPricingConfig(){
   const c=pricingConfig();
   $("pricingEndpoint").value=c.endpoint;
@@ -6028,6 +6041,7 @@ $("nextCardBtn").addEventListener("click",nextCard);
 $("fastModeToggle").addEventListener("change",e=>applyFastMode(e.target.checked));
 $("shopForm").addEventListener("submit",shopAnalysis);
 $("savePricingBtn").addEventListener("click",savePricingConfig);
+$("copyPricingKeyBtn").addEventListener("click",copyScoutAccessKey);
 $("testPricingBtn").addEventListener("click",testPricingConnection);
 $("cloudSyncBtn").addEventListener("click",()=>cloudStartupSync(true));
 $("monthlyScoutBtn").addEventListener("click",()=>monthlyScout(false));
