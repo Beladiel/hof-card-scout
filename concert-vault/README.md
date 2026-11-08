@@ -1,6 +1,15 @@
-# Encore Concert Vault · v1.0
+# Encore Concert Vault · v1.1
 
 A free, private, mobile-first library for physical live-concert Blu-rays, DVDs and 4K UHD discs.
+
+## New in v1.1 — Cover Helper
+
+- Open **Cover Helper** from the app navigation or Collection page.
+- Choose up to **24 cover photos** from iPhone Photos at a time, or take one photo with the camera. Each image is compressed and resized to a maximum of 720 pixels along the longest edge before saving.
+- Preview the photos, filter concert names, and match each photo to its correct entry. Save one or all matched photos. Duplicated assignments are blocked; replacing an existing cover requires confirmation.
+- **Local Photo Storage** shows the exact total number of bytes used by saved cover images and the number of concert entries with covers. If supported, `navigator.storage.estimate()` shows the browser's estimated quota/usage (which may include other content served from the same origin). This is **not** remaining iPhone space and does not guarantee iOS won't purge browser data.
+- Cover images remain exclusively in **device-local IndexedDB**. They are never uploaded to GitHub or ChatGPT from the app. GitHub stores only the public app source code.
+- Export a complete backup after adding a group of covers: it includes the images. Opening the same Home Screen icon is important to preserve the existing browser-local storage.
 
 ## What v1.0 does
 
