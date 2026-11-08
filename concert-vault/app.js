@@ -132,7 +132,7 @@ function addBatch(json){
  const keys=new Set(state.discs.map(discKey)),added=[];let dup=0;
  for(const obj of list){
   if(!obj||typeof obj!=="object"||!cleanText(obj.artist,160)||!cleanText(obj.title,180))throw Error("Each entry needs a readable artist and concert title");
-  const clean=normalize(obj);const key=discKey(clean);
+  const clean=normalize(Object.assign({format:"Other"},obj));const key=discKey(clean);
   if(keys.has(key)){dup++;continue;}keys.add(key);clean.id=uuid();added.push(clean);
  }
  if(!added.length)return {added:0,duplicates:dup};
@@ -154,12 +154,11 @@ async function backupImport(file){
   if(data.format!=="encore-concert-vault"||!data.data||!Array.isArray(data.data.discs))throw Error("Not a Concert Vault backup");
   const owned=new Set(state.discs.map(discKey));
   const incoming=data.data.discs.map(normalize).filter(x=>x.artist&&x.title);
-  const newDiscs=[];for(const d of incoming){const key=discKey(d);if(owned.has(key))continue;owned.add(key);if(state.discs.some(x=>x.id===d.id))d.id=uuid();newDiscs.push(d);}
+  const newDiscs=[],sourceIds=[];for(const d of incoming){const key=discKey(d);if(owned.has(key))continue;owned.add(key);const sourceId=d.id;if(state.discs.some(x=>x.id===d.id))d.id=uuid();newDiscs.push(d);sourceIds.push(sourceId);}
   if(!newDiscs.length){toast("No new concerts; existing records preserved");return;}
   if(!confirm("Merge "+newDiscs.length+" new concerts from backup? Your existing collection will stay unchanged."))return;
   const covers=Array.isArray(data.covers)?{}:data.covers||{};
-  const copyOriginal=newDiscs.map(d=>Object.assign({},d));
-  for(let i=0;i<newDiscs.length;i++){const d=newDiscs[i],old=copyOriginal[i];const raw=covers[old.id];if(typeof raw==="string"&&raw.length<12*1024*1024){await coverPut(d.id,dataToBlob(raw));}}
+  for(let i=0;i<newDiscs.length;i++){const d=newDiscs[i];const raw=covers[sourceIds[i]];if(typeof raw==="string"&&raw.length<12*1024*1024){await coverPut(d.id,dataToBlob(raw));}}
   state.discs.push(...newDiscs);if(!save())throw Error("Could not save merged data");
   render();toast("Merged "+newDiscs.length+" new concerts");
  }catch(e){toast("Import failed: "+e.message);}
