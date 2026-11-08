@@ -6,6 +6,8 @@ on:
     paths:
       - 'index.html'
       - 'photo-mission.js'
+      - 'card-show.js'
+      - 'tests/card-show-mode.test.cjs'
       - 'card-photo.js'
       - 'special-collection.js'
       - 'src/index.js'
@@ -19,6 +21,8 @@ on:
     paths:
       - 'index.html'
       - 'photo-mission.js'
+      - 'card-show.js'
+      - 'tests/card-show-mode.test.cjs'
       - 'card-photo.js'
       - 'special-collection.js'
       - 'src/index.js'
@@ -45,10 +49,11 @@ jobs:
         run: |
           node --check src/index.js
           node --check photo-mission.js
+          node --check card-show.js
           node --check card-photo.js
           node --check special-collection.js
           node --check collection-value.js
           node --check collection-value-dashboard.js
       - name: Test Photo Mission and app integration
         run: |
-          node --test tests/photo-mission-health.test.cjs tests/card-photos.test.cjs tests/collection-value-foundation.test.cjs tests/collection-value-dashboard.test.cjs tests/collection-value-history-dashboard.test.cjs
+          node --test tests/photo-mission-health.test.cjs tests/card-photos.test.cjs tests/collection-value-foundation.test.cjs tests/collection-value-dashboard.test.cjs tests/collection-value-history-dashboard.test.cjs tests/card-show-mode.test.cjs
