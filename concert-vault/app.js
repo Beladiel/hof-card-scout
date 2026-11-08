@@ -257,7 +257,7 @@ function alphabetBar(){
 }
 function ownershipLookup(){
  if(!search.trim())return '';
- const results=state.discs.filter(d=>matchDisc(d,search)).sort((a,b)=>(a.status==="Owned"?0:1)-(b.status==="Owned"?0:1)||sortConcerts(a,b));
+ const results=state.discs.filter(d=>[d.artist,d.title].some(value=>String(value||"").toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))).sort((a,b)=>(a.status==="Owned"?0:1)-(b.status==="Owned"?0:1)||sortConcerts(a,b));
  const owned=results.filter(d=>d.status==="Owned").length;
  const wanted=results.filter(d=>d.status==="Wishlist").length;
  return '<div class="ownership-results" role="status" aria-live="polite"><div class="ownership-results-head"><strong>Ownership check</strong><span>'+
