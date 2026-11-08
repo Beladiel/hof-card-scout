@@ -62,6 +62,15 @@
     return "sp_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
   }
   function photoName(id) { return "scout-special-" + id; }
+  function photoFingerprint(id) {
+    // Scout Cloud's photo API uses the same eight-digit fingerprint format as HOF photos.
+    let hash = 0x811c9dc5;
+    for (const ch of photoName(id)) {
+      hash ^= ch.charCodeAt(0);
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return ("00000000" + hash.toString(16)).slice(-8);
+  }
   function urlFor(id) {
     const c = options.connection() || {};
     const endpoint = clean(c.endpoint).replace(/\/$/, "");
@@ -156,7 +165,7 @@
     if (!url) return false;
     const response = await fetch(url, {
       method:"POST",
-      headers:{"X-Scout-Key":key(),"Content-Type":"image/jpeg","X-Scout-Card-Fingerprint":id},
+      headers:{"X-Scout-Key":key(),"Content-Type":"image/jpeg","X-Scout-Card-Fingerprint":photoFingerprint(id)},
       body:blob
     });
     if (!response.ok) throw new Error("Cloud photo upload returned " + response.status);
