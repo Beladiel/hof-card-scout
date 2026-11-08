@@ -1,6 +1,6 @@
 /* Miniature Paint Studio — offline shell caching; user data stays in browser storage. */
-const CACHE="mini-paint-studio-shell-v1";
-const ASSETS=["./","./index.html","./styles.css?v=1","./academy.js?v=1","./app.js?v=1","./manifest.webmanifest","./icon.svg"];
+const CACHE="mini-paint-studio-shell-v2";
+const ASSETS=["./","./index.html","./styles.css?v=2","./academy.js?v=2","./app.js?v=2","./manifest.webmanifest","./icon.svg"];
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
 });
