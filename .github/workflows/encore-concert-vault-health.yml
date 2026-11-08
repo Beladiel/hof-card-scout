@@ -1,0 +1,29 @@
+name: Encore Concert Vault Health
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'concert-vault/**'
+      - '.github/workflows/encore-concert-vault-health.yml'
+  pull_request:
+    paths:
+      - 'concert-vault/**'
+      - '.github/workflows/encore-concert-vault-health.yml'
+  workflow_dispatch:
+jobs:
+  concert-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check concert-vault/app.js
+          node --check concert-vault/sw.js
+      - name: Test concert vault
+        run: node --test concert-vault/tests/concert-health.test.cjs
