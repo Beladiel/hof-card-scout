@@ -26,11 +26,12 @@ const sample={
  schemeId:"renaissance",customColors:[],steps:[],journal:[],createdAt:now(),updatedAt:now()
 };
 function normalizeMini(item){
- const base={id:ID(),name:"Untitled miniature",game:"",type:"Character / Hero",status:"Unpainted",notes:"",schemeId:"",customColors:[],steps:[],journal:[],createdAt:now(),updatedAt:now()};
+ const base={id:ID(),name:"Untitled miniature",game:"",type:"Character / Hero",status:"Unpainted",notes:"",paintingPlan:"",schemeId:"",customColors:[],steps:[],journal:[],createdAt:now(),updatedAt:now()};
  const x=Object.assign(base,item||{});
  x.name=String(x.name||"Untitled miniature").slice(0,120);
  x.game=String(x.game||"").slice(0,120);
  x.notes=String(x.notes||"").slice(0,2000);
+ x.paintingPlan=String(x.paintingPlan||"").slice(0,16000);
  x.type=String(x.type||"Character / Hero").slice(0,70);
  x.status=STATUS.includes(x.status)?x.status:"Unpainted";
  x.steps=Array.isArray(x.steps)?x.steps.filter(v=>Number.isInteger(v)&&v>=0&&v<STAGES.length):[];
@@ -232,6 +233,7 @@ function renderMini(){
  '<div class="panel detail-info"><span class="tag warm">'+esc(p.status)+'</span><div><div class="kicker">CURRENT PAINT SCHEME</div><h2>'+esc(sourcePalette(p).name)+'</h2><p>'+esc(sourcePalette(p).note)+'</p></div><div class="swatches">'+paletteChips(sourcePalette(p).colors)+'</div><div class="detail-stat-row"><span>'+p.steps.length+'/'+STAGES.length+' painting steps</span><span>'+p.journal.length+' journal entries</span><span>Updated '+esc(shortDate(p.updatedAt))+'</span></div><div class="actions"><button class="btn btn-primary" data-inspire="'+esc(p.id)+'">✦ OPEN COLOR LAB</button><button class="btn btn-soft" data-photo="'+esc(p.id)+'|finished">📸 FINISHED PHOTO</button></div></div></section>'+
  '<div class="two-col" style="margin-top:20px"><section class="panel"><h2>Painting Checklist</h2><p>Mark each stage as you finish it, in whatever order works for you.</p><div class="steps-list">'+steps+'</div><div class="actions" style="margin-top:12px"><label class="field" style="flex:1">OVERALL STATUS<select id="miniStatus">'+STATUS.map(v=>'<option '+(v===p.status?"selected":"")+'>'+esc(v)+'</option>').join("")+'</select></label></div></section>'+
  '<section class="panel"><h2>Painting Journal</h2><p>Record techniques, mixtures, discoveries and happy accidents.</p><form id="journalForm"><label class="field">NEW NOTE<textarea id="journalText" required maxlength="3000" placeholder="Today I painted the axe heads with dark steel, then added edge highlights…"></textarea></label><button class="btn btn-primary" type="submit" style="margin-top:9px">+ SAVE JOURNAL ENTRY</button></form><div style="margin-top:12px">'+(journal||'<p>No journal entries yet. Your first brushstroke deserves a note.</p>')+'</div></section></div>'+
+ '<section class="panel" style="margin-top:16px"><div class="eyebrow">YOUR PAINTING GUIDE</div><h2>Saved Painting Plan</h2><p>Your brush-by-brush plan from Scout, tailored to this miniature and your Paint Rack.</p>'+(p.paintingPlan?'<div style="white-space:pre-wrap;line-height:1.65">'+esc(p.paintingPlan)+'</div>':'<p>No personalized painting plan saved yet. Open Art-to-Mini to copy a plan request that includes your owned paints.</p>')+'<div class="actions" style="margin-top:10px"><button class="btn btn-primary btn-sm" data-inspire="'+esc(p.id)+'">✦ CREATE / EDIT PAINTING PLAN</button></div></section>'+
  '<section class="panel" style="margin-top:16px"><h2>Miniature Notes</h2><p>'+esc(p.notes||"No notes yet.")+'</p><div class="actions"><button class="btn btn-outline btn-sm" data-edit-mini="'+esc(p.id)+'">EDIT DETAILS</button><button class="btn btn-soft btn-sm" data-open-lesson="leather">LEARN A TECHNIQUE</button></div></section>';
 }
 function paletteChips(colors){
@@ -257,6 +259,11 @@ function renderInspiration(){
  '<div class="info-list" style="margin-top:14px"><div class="info-line"><strong>1 · Copy your prompt</strong><p>Choose the style and tap Copy Painting Prompt.</p></div><div class="info-line"><strong>2 · Return to our existing chat</strong><p>Switch back to the ChatGPT conversation you already use with Scout. Paste the prompt and attach your original unpainted miniature photo from Photos or Files. No ChatGPT link or new sign-in is needed.</p></div><div class="info-line"><strong>3 · Save Scout’s image</strong><p>When I generate your painted preview, save the image locally to Photos or Files on your phone.</p></div><div class="info-line"><strong>4 · Add the preview here</strong><p>Return to this miniature in Studio, tap the button below, and choose the image you just saved. It goes into the Painted Concept slot.</p></div></div>'+
  '<div class="actions" style="margin-top:12px"><button class="btn btn-primary" id="importScoutPreview">📷 ADD SAVED PAINTED PREVIEW</button></div>'+
  '<p class="section-sub">Your photo and painting projects stay stored in this browser until you choose to upload them elsewhere. This is a manual copy-and-upload workflow; the Studio cannot automatically access this conversation. ChatGPT image-generation availability follows your existing plan limits.</p></section>'+
+ '<section class="panel" style="margin-top:16px"><div class="eyebrow">YOUR OWN PAINTS · GUIDED PAINTING</div><h2>🖌 Build My Painting Plan</h2><p>Once Scout has painted your preview and you have saved it above, use your Paint Rack to get a <strong>part-by-part recipe and painting order</strong> for this actual miniature. No extra subscription or AI API. The plan request includes only paints you have marked as owned.</p>'+
+ '<p class="section-sub">'+state.paints.filter(x=>x.quantity>0).length+' owned paints available from your rack. Paint names, bottle numbers and notes will be included in the copied request. Add more bottles in Paint Rack for more accurate recommendations.</p>'+
+ '<div class="actions"><button class="btn btn-primary" id="copyPaintPlanRequest">📋 COPY PAINTING PLAN REQUEST</button><button class="btn btn-outline" data-navto="paints">◉ UPDATE PAINT RACK</button></div>'+
+ '<p class="section-sub">Return to this Scout conversation, paste the plan request, and attach the <strong>painted preview</strong> (and ideally the original unpainted photo). I will compare the images and suggest precisely which of your owned paints to put on which sculpted areas, plus basecoat → wash → highlight steps. The app cannot automatically analyze the picture or read this chat.</p>'+
+ '<form id="paintPlanForm" style="margin-top:15px"><label class="field">PASTE YOUR FINISHED PLAN FROM SCOUT<textarea id="paintingPlanText" maxlength="16000" rows="9" placeholder="Paste Scout’s painting plan here so you can refer to it beside your mini...">'+esc(p.paintingPlan||"")+'</textarea></label><button class="btn btn-primary" type="submit" style="margin-top:10px">💾 SAVE PLAN TO THIS MINIATURE</button></form></section>'+
  '<section class="panel ai-preview-panel" style="margin-top:16px"><div class="eyebrow">FREE · IN-APP IMAGE-TO-IMAGE AI</div><h2>Paint My Mini — AI Preview</h2><p>Upload just your unpainted miniature above, choose a style, and generate a painted concept here. <strong>No artwork card required.</strong></p><div class="form-grid"><label class="field">PAINTING LOOK<select id="aiStyle"><option value="surprise">🎲 Surprise Me!</option><option value="renaissance">Renaissance Adventurer</option><option value="fantasy">Dark Fantasy</option><option value="heroic">Bright Heroic</option><option value="realistic">Realistic &amp; Weathered</option><option value="custom">My Own Idea</option></select></label><label class="field wide">OPTIONAL DETAILS<textarea id="aiExtra" maxlength="400" rows="2" placeholder="For example: emerald cloak, leather boots, bronze armor, glowing magical sword"></textarea></label></div><div class="actions"><button class="btn btn-primary" id="generatePaintPreview">🎨 GENERATE FREE PAINTED PREVIEW</button></div><p class="ai-status" id="aiStatus" role="status">This uses free, volunteer-powered AI Horde image-to-image generation. Your model photo is sent to volunteer machines; do not use private photos. Anonymous jobs may be slow or unavailable, and results may change sculpt details.</p><div id="aiResult" class="ai-result" aria-live="polite"></div></section>'+
  '<div class="two-col"><section class="panel"><div class="kicker">ARTWORK COLORS / PAINT PALETTE</div><h2>'+esc(palette.name)+'</h2><p>'+esc(palette.note)+'</p><div class="swatches">'+paletteChips(palette.colors)+'</div>'+
  '<div class="actions"><button class="btn btn-primary btn-sm" id="extractColors">◉ EXTRACT ARTWORK COLORS</button><button class="btn btn-outline btn-sm" id="resetPalette">RESET TO PRESET</button></div><hr class="divider"><label class="field">OR TRY A HAND-PICKED PALETTE<select id="schemeChoice">'+SCHEMES.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===p.schemeId?"selected":"")+'>'+esc(x.name)+'</option>').join("")+'</select></label></section>'+
@@ -383,6 +390,33 @@ async function generatePaintPreview(){
  }
 }
 
+
+function ownedPaintsForPrompt(){
+ const inventory=state.paints.filter(x=>x.quantity>0).slice().sort((a,b)=>a.name.localeCompare(b.name));
+ if(!inventory.length)return "No paint inventory recorded yet. Use generic Vallejo color families without claiming I own any particular paint.";
+ const available=inventory.slice(0,300);
+ const rows=available.map(x=>"- "+[x.brand,x.range,x.name,x.number?"#"+x.number:"no bottle number","Qty "+x.quantity,"Swatch "+x.color,x.notes?"Note "+x.notes:""].filter(Boolean).join(" | "));
+ if(inventory.length>available.length)rows.push("NOTE: "+(inventory.length-available.length)+" more owned paints were not included. Ask for a shorter shortlist if necessary.");
+ return rows.join("\n");
+}
+function paintPlanPrompt(p){
+ return "Scout, make me a detailed, practical painting plan for my exact miniature, "+p.name+(p.game?" from "+p.game:"")+". I will attach both an image of my unpainted sculpt and the AI-painted PREVIEW we selected. Use both pictures: the real sculpt determines what physical areas actually exist; the painted preview is the color target, not permission to invent details. I paint tabletop board-game miniatures primarily with Vallejo paints. Below is my ACTUAL paint inventory, exported from my private Miniature Paint Studio Paint Rack (only bottles with quantity above zero). Please map visible model parts such as bones/skin, weapon, shield, armor, leather, cloth, eyes, trim, and base ONLY WHEN THEY REALLY APPEAR IN THE IMAGES. For EACH part, tell me exactly which of my available bottles to use (brand, name and number where available); describe primer, basecoat, dark wash, midtone/highlight, final edge highlight or drybrush and any mixing ratios. Organize the work in a smart step-by-step order so it is easy to paint in a short hobby session. Prefer supplies I already own; do not invent ownership or bottle numbers, and mark unowned alternatives clearly as OPTIONAL, not required. Use simple methods at tabletop scale, give concise brush/control tips, and flag any colors that cannot be closely matched with my listed paints. The swatches in the app are approximate manual entries, not calibrated product specifications. Please provide a clear, copyable plan that I can paste back into the Studio under Saved Painting Plan.\n\nMY OWNED PAINTS:\n"+ownedPaintsForPrompt();
+}
+async function copyPaintPlanRequest(){
+ const p=mini(activeMiniId);if(!p)return;
+ const prompt=paintPlanPrompt(p);
+ try{
+  await navigator.clipboard.writeText(prompt);
+  notice("Painting plan request copied with your Paint Rack! Paste it in THIS Scout conversation with the preview image.");
+ }catch{
+  const textArea=document.createElement("textarea");
+  textArea.value=prompt;textArea.readOnly=true;textArea.style.position="fixed";textArea.style.opacity="0";
+  document.body.appendChild(textArea);textArea.focus();textArea.select();
+  let copied=false;try{copied=document.execCommand("copy");}catch{}
+  textArea.remove();
+  notice(copied?"Plan request copied! Paste with your preview.":"Copy was blocked by this browser. Try a direct browser tab or copy your Paint Rack details manually.");
+ }
+}
 
 function scoutPaintPrompt(p,style,notes){
  const schemes={
@@ -640,6 +674,7 @@ function wire(){
   if(btn.id==="exportBackup"){await exportBackup();return;}
   if(btn.id==="importBackup"){$("restorePicker").value="";$("restorePicker").click();return;}
   if(btn.id==="copyScoutRequest"){await copyScoutRequest();return;}
+  if(btn.id==="copyPaintPlanRequest"){await copyPaintPlanRequest();return;}
   if(btn.id==="downloadMiniPhoto"){await downloadMiniPhoto();return;}
   if(btn.id==="importScoutPreview"){importScoutPreview();return;}
   if(btn.id==="generatePaintPreview"){await generatePaintPreview();return;}
@@ -684,6 +719,14 @@ function wire(){
   if(e.target.id==="paintSearch"){paintSearch=e.target.value;render();const x=$("paintSearch");x?.focus();x?.setSelectionRange(paintSearch.length,paintSearch.length);}
  });
  document.body.addEventListener("submit",event=>{
+  if(event.target.id==="paintPlanForm"){
+   event.preventDefault();
+   const p=mini(activeMiniId);if(!p)return;
+   p.paintingPlan=String($("paintingPlanText")?.value||"").trim().slice(0,16000);
+   p.updatedAt=now();save();render();
+   notice(p.paintingPlan?"Painting plan saved to this miniature.":"Painting plan cleared.");
+   return;
+  }
   if(event.target.id==="journalForm"){
    event.preventDefault();
    const p=mini(activeMiniId),text=String($("journalText").value||"").trim();
