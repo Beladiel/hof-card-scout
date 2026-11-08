@@ -62,6 +62,17 @@ function status(p){
   if(p.owned)return p.target?"OWNED · UPGRADE TARGET":"OWNED";
   return p.target?"NEED · TARGET SAVED":"NEED";
 }
+function surnameForSort(p){
+  const explicit=clean(p&&p.last);
+  if(explicit)return explicit;
+  const parts=clean(p&&p.name).split(/\s+/).filter(Boolean);
+  while(parts.length>1&&/^(?:jr\.?|sr\.?|ii|iii|iv|v)$/i.test(parts[parts.length-1]))parts.pop();
+  return parts[parts.length-1]||"";
+}
+function comparePlayersByLastName(a,b){
+  const last=surnameForSort(a).localeCompare(surnameForSort(b),undefined,{sensitivity:"base"});
+  return last||clean(a&&a.name).localeCompare(clean(b&&b.name),undefined,{sensitivity:"base"});
+}
 function showRows(players,which,query){
   const needle=clean(query).toLowerCase();
   return (players||[]).filter(p=>{
@@ -76,7 +87,7 @@ function showRows(players,which,query){
       const aTarget=!!a.target,bTarget=!!b.target;
       if(aTarget!==bTarget)return aTarget?-1:1;
     }
-    return a.name.localeCompare(b.name);
+    return comparePlayersByLastName(a,b);
   });
 }
 function purchaseHaul(players,settings){
@@ -91,7 +102,7 @@ function purchaseHaul(players,settings){
   return {rows,count:rows.length,spent:rows.reduce((n,p)=>n+(cash(p.pricePaid)||0),0),unknown:rows.filter(p=>cash(p.pricePaid)===null).length};
 }
 function documentedRows(players,fingerprint,photos){
-  return (players||[]).filter(p=>p&&p.owned&&p.name).slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>{
+  return (players||[]).filter(p=>p&&p.owned&&p.name).slice().sort(comparePlayersByLastName).map(p=>{
     const paid=cash(p.pricePaid),value=currentValue(p,fingerprint);
     const photo=photos&&photos[p.name]||{};
     const problems=[];
