@@ -61,10 +61,10 @@ test("Photo storage, export, import and privacy boundaries are explicit",()=>{
  assert.match(src,/await photoClear\(\)/);
  assert.match(src,/photos\[photoKey\(p.id,slot\)\]=await fileToDataUrl\(blob\)/);
  assert.match(src,/AI Horde/i);
- assert.match(html,/academy\.js\?v=2/);
- assert.match(html,/app\.js\?v=2/);
- assert.match(html,/styles\.css\?v=2/);
- assert.match(sw,/mini-paint-studio-shell-v2/);
+ assert.match(html,/academy\.js\?v=3/);
+ assert.match(html,/app\.js\?v=3/);
+ assert.match(html,/styles\.css\?v=3/);
+ assert.match(sw,/mini-paint-studio-shell-v3/);
  assert.equal(manifest.start_url,"./");
  assert.ok(css.includes("@media(max-width:550px)"));
 });
@@ -90,4 +90,17 @@ test("Free in-app AI image-to-image is wired with clear privacy boundaries",asyn
  assert.match(inspiration,/generatePaintPreview/);
  assert.match(inspiration,/Surprise Me!/);
  assert.match(inspiration,/No artwork card required/);
+});
+
+test("Paint with Scout offers a free manual photo share and import workflow",async()=>{
+ const app=openStudio();await app.ready();
+ const html=app.page("inspiration/nova-warrior");
+ assert.match(html,/Paint with Scout/);
+ assert.match(html,/copyScoutRequest/);
+ assert.match(html,/shareScoutMini/);
+ assert.match(html,/importScoutPreview/);
+ assert.match(html,/No separate AI API fees/);
+ assert.match(src,/function scoutPaintPrompt/);
+ assert.match(src,/await navigator\.share\(/);
+ assert.match(src,/photoTarget=p\.id\+"\\|concept"/);
 });
