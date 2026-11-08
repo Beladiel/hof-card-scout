@@ -514,7 +514,7 @@ function importScoutPaintBatch(input){
  };
  const existing=new Set(state.paints.map(toKey));
  const extraNames=new Set(state.paints.map(x=>[norm(x.brand),norm(x.range),norm(x.name)].join("|")));
- const candidates=[],seen=new Set();let duplicates=0;
+ const candidates=[],seen=new Set(),seenNames=new Set();let duplicates=0;
  for(let i=0;i<paints.length;i++){
   const x=paints[i];
   if(!x||typeof x!=="object"||Array.isArray(x))throw Error("Paint "+(i+1)+" is not an entry.");
@@ -528,8 +528,8 @@ function importScoutPaintBatch(input){
   const color=x.color&&/^#[0-9a-f]{6}$/i.test(x.color)?x.color:"#8a7357";
   const paint={brand,range,name,number,quantity:qty,color,notes};
   const key=toKey(paint),nameKey=[norm(brand),norm(range),norm(name)].join("|");
-  if(existing.has(key)||seen.has(key)||extraNames.has(nameKey)){duplicates++;continue;}
-  candidates.push(paint);seen.add(key);
+  if(existing.has(key)||seen.has(key)||extraNames.has(nameKey)||seenNames.has(nameKey)){duplicates++;continue;}
+  candidates.push(paint);seen.add(key);seenNames.add(nameKey);
  }
  if(!candidates.length)return {added:0,duplicates,accepted:0};
  const summary="Add "+candidates.length+" new bottle"+(candidates.length===1?"":"s")+" to your local Paint Rack? "+duplicates+" duplicate"+(duplicates===1?"":"s")+" will be skipped. Existing entries will not change.";
