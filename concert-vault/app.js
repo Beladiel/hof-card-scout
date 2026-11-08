@@ -8,17 +8,20 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 const uuid=()=>typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID():"disc-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2);
 const now=()=>new Date().toISOString();
+const todayLocal=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");};
+const validWatchDate=value=>/^(?:19|20)\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/.test(String(value||""))&&!Number.isNaN(new Date(value+"T12:00:00").getTime())?String(value):"";
+const showWatchDate=value=>validWatchDate(value)?new Date(value+"T12:00:00").toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}):"Not recorded";
 const cleanText=(value,max=300)=>String(value??"").trim().slice(0,max);
 const opts=(items,selected)=>items.map(item=>'<option value="'+esc(item)+'" '+(item===selected?"selected":"")+'>'+esc(item)+'</option>').join("");
 const stamp=v=>{if(!v)return "";const d=new Date(v);return Number.isNaN(d.getTime())?"":d.toLocaleDateString();};
 function normalize(d){
- const x=Object.assign({id:uuid(),artist:"",title:"",format:"Blu-ray",status:"Owned",year:"",releaseYear:"",venue:"",audio:"Unknown",discs:1,watched:false,favorite:false,rating:0,notes:"",addedAt:now(),updatedAt:now()},d||{});
+ const x=Object.assign({id:uuid(),artist:"",title:"",format:"Blu-ray",status:"Owned",year:"",releaseYear:"",venue:"",audio:"Unknown",discs:1,watched:false,lastWatched:"",favorite:false,rating:0,notes:"",addedAt:now(),updatedAt:now()},d||{});
  x.id=cleanText(x.id,90)||uuid();x.artist=cleanText(x.artist,160);x.title=cleanText(x.title,180);x.venue=cleanText(x.venue,180);
  x.format=FMT.includes(x.format)?x.format:"Other";x.status=STATS.includes(x.status)?x.status:"Owned";
  x.year=/^(19|20)\d{2}$/.test(String(x.year||""))?String(x.year):"";
  x.releaseYear=/^(19|20)\d{2}$/.test(String(x.releaseYear||""))?String(x.releaseYear):"";
  x.audio=AUDIO.includes(x.audio)?x.audio:"Other";x.discs=Math.max(1,Math.min(30,parseInt(x.discs,10)||1));
- x.watched=Boolean(x.watched);x.favorite=Boolean(x.favorite);x.rating=Math.max(0,Math.min(5,Number(x.rating)||0));
+ x.watched=Boolean(x.watched);x.lastWatched=validWatchDate(x.lastWatched);x.favorite=Boolean(x.favorite);x.rating=Math.max(0,Math.min(5,Number(x.rating)||0));
  x.notes=cleanText(x.notes,3000);x.addedAt=cleanText(x.addedAt,40)||now();x.updatedAt=cleanText(x.updatedAt,40)||now();return x;
 }
 function parse(raw){if(!raw)return null;const data=JSON.parse(raw);if(!data||!Array.isArray(data.discs))return null;return {version:1,discs:data.discs.map(normalize)};}
@@ -224,8 +227,8 @@ async function saveQueued(ids){
 }
 
 function discKey(d){return [d.artist,d.title,d.format].map(x=>x.toLowerCase().trim().replace(/\s+/g," ")).join("|");}
-function header(){const c=counts();return '<section class="hero"><span class="eyebrow">YOUR LIVE MUSIC LIBRARY</span><h2>The concert never ends.</h2><p>Catalog the concert DVDs, Blu-rays, and 4K discs on your shelves. Keep track of great performances, surround sound mixes, favorites, and the next show to play.</p><div class="actions"><button class="btn primary" data-action="add">+ ADD A CONCERT</button><button class="btn ghost" data-view="pick">♫ WHAT SHOULD I WATCH?</button></div></section><div class="stats"><div class="stat"><strong>'+c.owned+'</strong><span>Owned discs</span></div><div class="stat"><strong>'+c.wishlist+'</strong><span>Wishlist</span></div><div class="stat"><strong>'+c.favorites+'</strong><span>Favorites</span></div><div class="stat"><strong>'+c.unwatched+'</strong><span>Not watched yet</span></div></div>';}
-function discCard(d){return '<article class="disc"><div class="cover" data-cover="'+esc(d.id)+'"><span class="no-cover">♫</span><span class="format">'+esc(d.format)+'</span></div><div class="disc-info"><span class="artist">'+esc(d.artist)+'</span><h3>'+esc(d.title)+'</h3><div class="meta">'+esc(d.year||d.releaseYear||"Year unknown")+(d.venue?' · '+esc(d.venue):'')+'</div><div class="meta">'+esc(d.audio)+(d.watched?' · Watched':'')+'</div><div class="meta stars">'+(d.favorite?"★ Favorite · ":"")+(d.rating>0?"★".repeat(d.rating):"")+'</div><div class="actions"><button class="btn small" data-action="edit" data-id="'+esc(d.id)+'">DETAILS</button><button class="btn small" data-action="favorite" data-id="'+esc(d.id)+'">'+(d.favorite?"★":"☆")+'</button><button class="btn small" data-action="watched" data-id="'+esc(d.id)+'">'+(d.watched?"WATCHED ✓":"WATCHED?")+'</button></div></div></article>';}
+function header(){const c=counts();return '<section class="hero"><span class="eyebrow">YOUR LIVE MUSIC LIBRARY</span><h2>The concert never ends.</h2><p>Catalog the concert DVDs, Blu-rays, and 4K discs on your shelves. Keep track of great performances, surround sound mixes, favorites, and the next show to play.</p><div class="actions"><button class="btn primary" data-action="add">+ ADD A CONCERT</button><button class="btn ghost" data-view="pick">♫ WHAT SHOULD I WATCH?</button></div></section><div class="stats"><div class="stat"><strong>'+c.owned+'</strong><span>Owned discs</span></div><div class="stat"><strong>'+c.wishlist+'</strong><span>Wishlist</span></div><div class="stat"><strong>'+c.favorites+'</strong><span>Favorites</span></div><div class="stat"><strong>'+c.unwatched+'</strong><span>Ready this round</span></div></div>';}
+function discCard(d){return '<article class="disc"><div class="cover" data-cover="'+esc(d.id)+'"><span class="no-cover">♫</span><span class="format">'+esc(d.format)+'</span></div><div class="disc-info"><span class="artist">'+esc(d.artist)+'</span><h3>'+esc(d.title)+'</h3><div class="meta">'+esc(d.year||d.releaseYear||"Year unknown")+(d.venue?' · '+esc(d.venue):'')+'</div><div class="meta">'+esc(d.audio)+(d.watched?' · Watched this round':'')+'</div><div class="meta">Last watched: '+esc(showWatchDate(d.lastWatched))+'</div><div class="meta stars">'+(d.favorite?"★ Favorite · ":"")+(d.rating>0?"★".repeat(d.rating):"")+'</div><div class="actions"><button class="btn small" data-action="edit" data-id="'+esc(d.id)+'">DETAILS</button><button class="btn small" data-action="favorite" data-id="'+esc(d.id)+'">'+(d.favorite?"★":"☆")+'</button><button class="btn small" data-action="watched" data-id="'+esc(d.id)+'">'+(d.watched?"WATCHED ✓":"MARK WATCHED")+'</button></div></div></article>';}
 function collectionPage(wishlist=false){
  const discs=state.discs.filter(d=>(wishlist?d.status==="Wishlist":d.status==="Owned")&&[d.artist,d.title,d.venue,d.notes,d.audio].join(" ").toLowerCase().includes(search.toLowerCase())&&(formatFilter==="All"||d.format===formatFilter)).sort((a,b)=>a.artist.localeCompare(b.artist)||a.title.localeCompare(b.title));
  return '<div class="section-head"><div><h2>'+(wishlist?"Wish List":"Your Concert Collection")+'</h2><p>'+(wishlist?"Concerts you hope to own someday.":"Your discs, performances and memories — all in one place.")+'</p></div><div class="actions"><button class="btn" data-view="covers">📷 COVER HELPER</button><button class="btn primary" data-action="add">+ ADD</button></div></div>'+
@@ -235,9 +238,21 @@ function collectionPage(wishlist=false){
 function pickPage(){
  const choices=state.discs.filter(d=>d.status==="Owned");
  const picked=choices.find(d=>d.id===pickId);
- return '<div class="section-head"><div><h2>Concert Night</h2><p>Let the shelf pick tonight’s show. A suggestion, not an algorithm.</p></div></div>'+
- '<div class="panel"><h2>Pick a performance</h2><p>Choose randomly from the concert discs you already own. Great for rediscovering something you haven’t watched in a while.</p><div class="actions"><button class="btn primary" data-action="pick" '+(choices.length?"":"disabled")+'>♫ PICK MY CONCERT</button><button class="btn" data-action="pick-unwatched" '+(choices.some(d=>!d.watched)?"":"disabled")+'>SURPRISE ME WITH AN UNWATCHED SHOW</button></div></div>'+
- (picked?'<div class="pick-result"><span class="eyebrow">TONIGHT\'S ENCORE</span><h3>'+esc(picked.artist)+' — '+esc(picked.title)+'</h3><p>'+esc(picked.format)+' · '+esc(picked.audio)+(picked.venue?" · "+esc(picked.venue):"")+'</p><div class="actions"><button class="btn primary" data-action="watched" data-id="'+esc(picked.id)+'">MARK AS '+(picked.watched?"UNWATCHED":"WATCHED")+'</button><button class="btn" data-action="edit" data-id="'+esc(picked.id)+'">VIEW DETAILS</button></div></div>':"");
+ const marked=choices.filter(d=>d.watched).length;
+ const available=choices.length-marked;
+ return '<div class="section-head"><div><h2>Concert Night</h2><p>Spin the concert wheel — keep a fresh watch rotation without losing your history.</p></div></div>'+
+ '<div class="panel"><h2>Pick a performance</h2>'+
+ '<p>Choose from all your owned discs, or only the ones you have <strong>not marked watched this round</strong>. Last Watched dates stay on the individual concert entries even after you reset the round.</p>'+
+ '<div class="watch-cycle-stats"><span><strong>'+marked+'</strong> watched this round</span><span><strong>'+available+'</strong> ready to pick</span></div>'+
+ '<div class="actions"><button class="btn primary" data-action="pick" '+(choices.length?"":"disabled")+'>♫ PICK FROM ALL CONCERTS</button>'+
+ '<button class="btn" data-action="pick-unwatched" '+(available?"":"disabled")+'>SURPRISE ME WITH ONE NOT WATCHED THIS ROUND</button></div></div>'+
+ '<div class="panel watch-reset"><h2>Start a new watch rotation</h2><p>This clears only the watched checkmarks. Your permanent <strong>Last Watched</strong> dates, favorites, ratings, and concert details all stay untouched.</p>'+
+ '<button class="btn" data-action="reset-watched" '+(state.discs.some(d=>d.watched)?"":"disabled")+'>↻ RESET WATCHED INDICATORS</button></div>'+
+ (picked?'<div class="pick-result"><span class="eyebrow">TONIGHT\'S ENCORE</span><h3>'+esc(picked.artist)+' — '+esc(picked.title)+'</h3>'+
+ '<p>'+esc(picked.format)+' · '+esc(picked.audio)+(picked.venue?" · "+esc(picked.venue):"")+'</p>'+
+ '<p><strong>Last watched:</strong> '+esc(showWatchDate(picked.lastWatched))+' · '+(picked.watched?"Watched this round":"Not watched this round")+'</p>'+
+ '<div class="actions"><button class="btn primary" data-action="watched" data-id="'+esc(picked.id)+'">'+(picked.watched?"CLEAR WATCHED INDICATOR":"MARK WATCHED TODAY")+'</button>'+
+ '<button class="btn" data-action="edit" data-id="'+esc(picked.id)+'">VIEW DETAILS</button></div></div>':"");
 }
 function backupPage(){
  return '<div class="section-head"><div><h2>Backup & Import</h2><p>Keep your collection safe on your iPhone.</p></div></div>'+
@@ -266,7 +281,8 @@ function openModal(id){
  '<form id="discForm"><div class="form-grid">'+inp("artist","Artist / band",x.artist)+inp("title","Concert title",x.title)+
  select("format",FMT,x.format)+select("status",STATS,x.status)+inp("year","Concert year",x.year)+inp("releaseYear","Release year",x.releaseYear)+inp("venue","Venue / location",x.venue)+select("audio",AUDIO,x.audio)+inp("discs","Number of discs",x.discs,"number")+
  '<label class="field">YOUR RATING<select name="rating">'+opts(["0","1","2","3","4","5"],String(x.rating))+'</select></label>'+
- '<label class="field">WATCHED<select name="watched">'+opts(["No","Yes"],x.watched?"Yes":"No")+'</select></label>'+
+ '<label class="field">WATCHED THIS ROUND<select name="watched">'+opts(["No","Yes"],x.watched?"Yes":"No")+'</select></label>'+
+ '<label class="field">LAST WATCHED (SAVED HISTORY)<input name="lastWatched" type="date" value="'+esc(x.lastWatched)+'"></label>'+ 
  '<label class="field">FAVORITE<select name="favorite">'+opts(["No","Yes"],x.favorite?"Yes":"No")+'</select></label>'+
  '<label class="field wide">NOTES, SONG HIGHLIGHTS, EDITION INFO<textarea name="notes" maxlength="3000" rows="4" placeholder="Favorite performance, sound mix, bonus songs, how the disc looks on your TV…">'+esc(x.notes)+'</textarea></label></div>'+
  '<div class="modal-foot"><div class="actions">'+(d?'<button type="button" class="btn" data-action="cover" data-id="'+esc(d.id)+'">📷 ADD / CHANGE COVER</button><button type="button" class="btn danger" data-action="delete" data-id="'+esc(d.id)+'">DELETE</button>':"")+'</div><button type="submit" class="btn primary">SAVE CONCERT</button></div></form></div></div>';
@@ -278,6 +294,12 @@ function saveForm(form){
  const data=Object.fromEntries(new FormData(form).entries());
  const original=state.discs.find(x=>x.id===editing);
  const result=normalize(Object.assign({},original||{},data,{watched:data.watched==="Yes",favorite:data.favorite==="Yes",updatedAt:now()}));
+ // If a concert is marked watched for a new round, stamp today. If someone
+ // deliberately edited the date, respect their manually chosen date instead.
+ const previousDate=original?.lastWatched||"";
+ const dateChanged=data.lastWatched!==previousDate;
+ if(result.watched&&(!original||!original.watched)&&!dateChanged)result.lastWatched=todayLocal();
+ // Turning off the round's indicator never deletes the last-watched date.
  if(!result.artist||!result.title){toast("Enter artist and concert title");return;}
  if(original)Object.assign(original,result);else{result.id=uuid();state.discs.push(result);}
  if(save()){closeModal();render();toast(original?"Concert updated":"Concert added");}
@@ -337,7 +359,20 @@ function bind(){
   if(action==="edit")openModal(id);
   if(action==="close")closeModal();
   if(action==="cover"){coverFor=id;$("coverPicker").value="";$("coverPicker").click();}
-  if(action==="favorite"||action==="watched"){const d=state.discs.find(x=>x.id===id);if(!d)return;d[action==="favorite"?"favorite":"watched"]=!d[action==="favorite"?"favorite":"watched"];d.updatedAt=now();save();render();}
+  if(action==="favorite"||action==="watched"){
+   const d=state.discs.find(x=>x.id===id);if(!d||storageProblem)return;
+   if(action==="favorite")d.favorite=!d.favorite;
+   else{d.watched=!d.watched;if(d.watched)d.lastWatched=todayLocal();}
+   d.updatedAt=now();save();render();
+  }
+  if(action==="reset-watched"){
+   if(storageProblem)return;
+   const marked=state.discs.filter(x=>x.watched).length;
+   if(!marked){toast("All watched indicators are already clear.");return;}
+   if(!confirm("Start a new Concert Night rotation? This will clear "+marked+" watched indicators, but all Last Watched dates will be kept."))return;
+   for(const disc of state.discs){if(disc.watched){disc.watched=false;disc.updatedAt=now();}}
+   save();render();toast(marked+" watched indicators cleared. Last Watched dates saved.");
+  }
   if(action==="delete"){const d=state.discs.find(x=>x.id===id);if(!d||!confirm('Delete "'+d.title+'" from this device?'))return;state.discs=state.discs.filter(x=>x.id!==id);if(save()){await coverDelete(id);closeModal();render();toast("Concert removed");}}
   if(action==="pick"||action==="pick-unwatched"){const discs=state.discs.filter(x=>x.status==="Owned"&&(action==="pick"||!x.watched));pickId=discs[Math.floor(Math.random()*discs.length)]?.id||null;render();}
   if(action==="export")await backupExport();
