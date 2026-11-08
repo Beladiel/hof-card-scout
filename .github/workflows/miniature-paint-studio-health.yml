@@ -1,0 +1,30 @@
+name: Miniature Paint Studio Health
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'miniature-paint-studio/**'
+      - '.github/workflows/miniature-paint-studio-health.yml'
+  pull_request:
+    paths:
+      - 'miniature-paint-studio/**'
+      - '.github/workflows/miniature-paint-studio-health.yml'
+  workflow_dispatch:
+jobs:
+  studio-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check miniature-paint-studio/app.js
+          node --check miniature-paint-studio/academy.js
+          node --check miniature-paint-studio/sw.js
+      - name: Test Miniature Paint Studio
+        run: node --test miniature-paint-studio/tests/studio-health.test.cjs
