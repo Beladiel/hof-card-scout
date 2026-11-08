@@ -98,7 +98,7 @@ test("Paint with Scout copies a ready-to-paste prompt into the same conversation
  assert.match(page,/Paint with Scout/);
  assert.match(page,/copyScoutRequest/);
  assert.match(page,/scoutPromptText/);
- assert.match(page,/Save Original Photo/);
+ assert.match(page,/SAVE ORIGINAL PHOTO/);
  assert.match(page,/Return to our existing chat/);
  assert.match(page,/importScoutPreview/);
  assert.match(page,/ADD SAVED PAINTED PREVIEW/);
