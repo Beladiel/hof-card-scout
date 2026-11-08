@@ -16,7 +16,7 @@ function app(initial={},instrument=false){
  const window={addEventListener(name,fn){listeners["w:"+name]=fn;}};
  const location={hash:"#collection"};
  const localStorage={getItem:k=>records.get(k)??null,setItem:(k,v)=>records.set(k,v)};
- const context={document,window,location,localStorage,navigator:{},crypto:{randomUUID:()=>"test-unique"},setTimeout(){return 1;},clearTimeout(){},console:{warn(){},log(){}},confirm(){return true;}};
+ const context={document,window,location,localStorage,URL,navigator:{},crypto:{randomUUID:()=>"test-unique"},setTimeout(){return 1;},clearTimeout(){},console:{warn(){},log(){}},confirm(){return true;}};
  const code=instrument?source.replace('if(document.readyState==="loading")','window.__importBatch=addBatch; if(document.readyState==="loading")'):source;
  vm.runInNewContext(code,context);
  return {records,listeners,location,window,elements,async start(){await listeners.DOMContentLoaded();},page(route){location.hash="#"+route;listeners["w:hashchange"]();return node("view").innerHTML;}};
