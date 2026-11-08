@@ -250,12 +250,13 @@ function renderInspiration(){
  return '<div class="page-head"><div><div class="eyebrow">IDEAS BEFORE THE FIRST BRUSHSTROKE</div><h1>Art-to-Mini Lab</h1><p>Upload just your unpainted miniature to generate a painted concept. Add artwork only when you want an exact reference.</p></div></div>'+
  '<label class="field" style="max-width:450px;margin-bottom:18px">CHOOSE MINIATURE<select id="inspireMini">'+state.miniatures.map(m=>'<option value="'+esc(m.id)+'" '+(m.id===p.id?"selected":"")+'>'+esc(m.name)+' · '+esc(m.game||"Unassigned")+'</option>').join("")+'</select></label>'+
  '<div class="art-grid">'+slots.map(s=>'<div class="art-slot"><div class="art-image" data-photo-key="'+esc(p.id)+'|'+s.slot+'"><span class="art-emoji">'+s.emoji+'</span></div><div class="art-bottom"><strong>'+esc(s.name)+'</strong><p>'+esc(s.desc)+'</p><div class="art-actions"><button class="btn btn-primary btn-sm" data-photo="'+esc(p.id)+'|'+s.slot+'">📷 ADD / REPLACE</button><button class="btn btn-soft btn-sm" data-remove-photo="'+esc(p.id)+'|'+s.slot+'">REMOVE</button></div></div></div>').join("")+'</div>'+
- '<section class="panel scout-workflow" style="margin-top:16px"><div class="eyebrow">RECOMMENDED · FREE · BETTER SCULPT FIDELITY</div><h2>🎨 Paint with Scout</h2><p>Use ChatGPT to paint your <strong>actual miniature photo</strong>, then bring the resulting image straight back into this project. No separate AI API fees. Your regular ChatGPT image limits still apply.</p>'+
+ '<section class="panel scout-workflow" style="margin-top:16px"><div class="eyebrow">RECOMMENDED · USE THIS CONVERSATION</div><h2>🎨 Paint with Scout</h2><p><strong>No links, extra logins, or new subscriptions.</strong> This app prepares your request. You paste it into the ChatGPT conversation you already have open with Scout and attach your miniature photo yourself. After I generate the painted image, save it to your phone and upload it back here.</p>'+
  '<div class="form-grid"><label class="field">CHOOSE PAINT STYLE<select id="scoutStyle"><option value="surprise">🎲 Scout, Surprise Me!</option><option value="grimdark">Grimdark / Ancient Undead</option><option value="frozen">Frozen Draugr</option><option value="classic">Classic Fantasy</option><option value="heroic">Bright Heroic</option><option value="weathered">Realistic & Weathered</option><option value="custom">Custom Colors</option></select></label><label class="field wide">OPTIONAL COLOR IDEAS<textarea id="scoutNotes" rows="2" maxlength="400" placeholder="e.g. dirty bone skeleton, rusted sword, aged wooden shield"></textarea></label></div>'+
- '<div class="actions"><button class="btn btn-primary" id="copyScoutRequest">📋 1 · COPY REQUEST</button><button class="btn btn-outline" id="shareScoutMini">📤 2 · SHARE MODEL PHOTO</button><button class="btn btn-outline" id="openScoutChat">↗ OPEN CHATGPT</button></div>'+
- '<p class="section-sub">Share the unpainted photo to ChatGPT if your iPhone offers it in the Share menu, or attach the photo in ChatGPT yourself. Paste your copied request, then save the generated image to Photos.</p>'+
- '<div class="actions"><button class="btn btn-primary" id="importScoutPreview">📷 3 · ADD SCOUT PREVIEW TO THIS PROJECT</button><button class="btn btn-soft" id="downloadMiniPhoto">↓ SAVE MODEL PHOTO</button></div>'+
- '<p class="section-sub">Your images remain in this device’s Studio unless you choose to share them. The ChatGPT app cannot automatically read the Studio’s locally saved images. The free community generator is still available below if you prefer to stay in the Studio.</p></section>'+
+ '<label class="field" style="margin-top:12px">YOUR READY-TO-PASTE REQUEST<textarea id="scoutPromptText" rows="7" readonly aria-label="Your painting prompt">'+esc(scoutPaintPrompt(p,"surprise",""))+'</textarea></label>'+
+ '<div class="actions"><button class="btn btn-primary" id="copyScoutRequest">📋 COPY PAINTING PROMPT</button><button class="btn btn-soft" id="downloadMiniPhoto">↓ SAVE ORIGINAL PHOTO (IF NEEDED)</button></div>'+
+ '<div class="info-list" style="margin-top:14px"><div class="info-line"><strong>1 · Copy your prompt</strong><p>Choose the style and tap Copy Painting Prompt.</p></div><div class="info-line"><strong>2 · Return to our existing chat</strong><p>Switch back to the ChatGPT conversation you already use with Scout. Paste the prompt and attach your original unpainted miniature photo from Photos or Files. No ChatGPT link or new sign-in is needed.</p></div><div class="info-line"><strong>3 · Save Scout’s image</strong><p>When I generate your painted preview, save the image locally to Photos or Files on your phone.</p></div><div class="info-line"><strong>4 · Add the preview here</strong><p>Return to this miniature in Studio, tap the button below, and choose the image you just saved. It goes into the Painted Concept slot.</p></div></div>'+
+ '<div class="actions" style="margin-top:12px"><button class="btn btn-primary" id="importScoutPreview">📷 ADD SAVED PAINTED PREVIEW</button></div>'+
+ '<p class="section-sub">Your photo and painting projects stay stored in this browser until you choose to upload them elsewhere. This is a manual copy-and-upload workflow; the Studio cannot automatically access this conversation. ChatGPT image-generation availability follows your existing plan limits.</p></section>'+
  '<section class="panel ai-preview-panel" style="margin-top:16px"><div class="eyebrow">FREE · IN-APP IMAGE-TO-IMAGE AI</div><h2>Paint My Mini — AI Preview</h2><p>Upload just your unpainted miniature above, choose a style, and generate a painted concept here. <strong>No artwork card required.</strong></p><div class="form-grid"><label class="field">PAINTING LOOK<select id="aiStyle"><option value="surprise">🎲 Surprise Me!</option><option value="renaissance">Renaissance Adventurer</option><option value="fantasy">Dark Fantasy</option><option value="heroic">Bright Heroic</option><option value="realistic">Realistic &amp; Weathered</option><option value="custom">My Own Idea</option></select></label><label class="field wide">OPTIONAL DETAILS<textarea id="aiExtra" maxlength="400" rows="2" placeholder="For example: emerald cloak, leather boots, bronze armor, glowing magical sword"></textarea></label></div><div class="actions"><button class="btn btn-primary" id="generatePaintPreview">🎨 GENERATE FREE PAINTED PREVIEW</button></div><p class="ai-status" id="aiStatus" role="status">This uses free, volunteer-powered AI Horde image-to-image generation. Your model photo is sent to volunteer machines; do not use private photos. Anonymous jobs may be slow or unavailable, and results may change sculpt details.</p><div id="aiResult" class="ai-result" aria-live="polite"></div></section>'+
  '<div class="two-col"><section class="panel"><div class="kicker">ARTWORK COLORS / PAINT PALETTE</div><h2>'+esc(palette.name)+'</h2><p>'+esc(palette.note)+'</p><div class="swatches">'+paletteChips(palette.colors)+'</div>'+
  '<div class="actions"><button class="btn btn-primary btn-sm" id="extractColors">◉ EXTRACT ARTWORK COLORS</button><button class="btn btn-outline btn-sm" id="resetPalette">RESET TO PRESET</button></div><hr class="divider"><label class="field">OR TRY A HAND-PICKED PALETTE<select id="schemeChoice">'+SCHEMES.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===p.schemeId?"selected":"")+'>'+esc(x.name)+'</option>').join("")+'</select></label></section>'+
@@ -396,37 +397,23 @@ function scoutPaintPrompt(p,style,notes){
  const description=String(notes||"").trim().slice(0,400);
  return "Scout, paint preview — "+p.name+(p.game?" from "+p.game:"")+". I am attaching a real photograph of MY ACTUAL unpainted tabletop miniature. Generate ONE realistic macro photograph of this SAME sculpt after being hand-painted, using the uploaded miniature photograph as the primary and strict geometry reference. Preserve EXACTLY the original miniature’s stance, anatomy (including whether it is a skeleton), head, number and shapes of limbs, weapons, shield, armor pieces, sculpted costume, proportions, orientation and existing gaming base. Do NOT invent a different figure, replace the weapon or shield, add new costume details, alter the pose, redesign the miniature or turn it into a life-size person or digital illustration. Keep the viewpoint similar so I can compare before and after. Paint style: "+(schemes[style]||schemes.surprise)+(description?" Additional preferences: "+description+".":"")+" Show believable Vallejo-style hand-painted acrylic results with neat basecoats, dark washes, layered highlights, drybrushing and restrained weathering. If anything in the photo is unclear, preserve its shape rather than inventing details. I want paint inspiration, not a new character design.";
 }
+function updateScoutPrompt(){
+ const p=mini(activeMiniId),el=$("scoutPromptText");
+ if(!p||!el)return;
+ el.value=scoutPaintPrompt(p,$("scoutStyle")?.value||"surprise",$("scoutNotes")?.value||"");
+}
 async function copyScoutRequest(){
  const p=mini(activeMiniId);if(!p)return;
- const prompt=scoutPaintPrompt(p,$("scoutStyle")?.value||"surprise",$("scoutNotes")?.value||"");
+ updateScoutPrompt();
+ const prompt=$("scoutPromptText")?.value||scoutPaintPrompt(p,"surprise","");
  try{
   await navigator.clipboard.writeText(prompt);
-  notice("Scout request copied! Share your photo, then paste the request in ChatGPT.");
+  notice("Prompt copied! Return to THIS Scout chat, paste it and attach your original photo.");
  }catch{
-  const ta=document.createElement("textarea");ta.value=prompt;ta.setAttribute("readonly","");ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();
-  const copied=typeof document.execCommand==="function"&&document.execCommand("copy");ta.remove();
-  notice(copied?"Scout request copied! Paste it with your photo in ChatGPT.":"Clipboard access blocked. Try opening ChatGPT and saying: Scout, paint preview.");
+  const field=$("scoutPromptText");
+  if(field){field.focus();field.select();}
+  notice("Clipboard blocked. Select and copy the painting prompt shown above, then paste it into our chat.");
  }
-}
-async function shareScoutMini(){
- const p=mini(activeMiniId);if(!p)return;
- const blob=await photoGet(p.id,"before");
- if(!blob){notice("First add your original miniature in YOUR MODEL.");return;}
- const filename=(p.name||"miniature").replace(/[^a-z0-9-_]+/gi,"-").slice(0,45)+"-unpainted.jpg";
- const file=new File([blob],filename,{type:blob.type||"image/jpeg"});
- const prompt=scoutPaintPrompt(p,$("scoutStyle")?.value||"surprise",$("scoutNotes")?.value||"");
- if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
-  try{
-   await navigator.share({title:"Paint my miniature with Scout",text:prompt,files:[file]});
-   notice("Photo shared. In ChatGPT, send the image and your painting request.");
-   return;
-  }catch(e){
-   if(e.name==="AbortError"){notice("Sharing cancelled; your photo is still in Studio.");return;}
-   console.warn("Photo sharing unavailable",e);
-  }
- }
- downloadMiniPhoto();
- notice("Direct sharing is unavailable. Save the photo, open ChatGPT and attach it there.");
 }
 async function downloadMiniPhoto(){
  const p=mini(activeMiniId);if(!p)return;
@@ -653,9 +640,7 @@ function wire(){
   if(btn.id==="exportBackup"){await exportBackup();return;}
   if(btn.id==="importBackup"){$("restorePicker").value="";$("restorePicker").click();return;}
   if(btn.id==="copyScoutRequest"){await copyScoutRequest();return;}
-  if(btn.id==="shareScoutMini"){await shareScoutMini();return;}
   if(btn.id==="downloadMiniPhoto"){await downloadMiniPhoto();return;}
-  if(btn.id==="openScoutChat"){window.open("https://chatgpt.com/","_blank","noopener,noreferrer");return;}
   if(btn.id==="importScoutPreview"){importScoutPreview();return;}
   if(btn.id==="generatePaintPreview"){await generatePaintPreview();return;}
   if(btn.id==="extractColors"){await extractArtColors(activeMiniId);return;}
@@ -675,6 +660,7 @@ function wire(){
   const el=event.target;
   if(el.id==="miniFilter"){projectFilter=el.value;render();return;}
   if(el.id==="inspireMini"){activeMiniId=el.value;routeTo("inspiration",activeMiniId);render();return;}
+  if(el.id==="scoutStyle"){updateScoutPrompt();return;}
   if(el.id==="miniStatus"){
    const p=mini(activeMiniId);if(!p)return;p.status=el.value;p.updatedAt=now();save();render();notice("Painting status updated.");return;
   }
@@ -693,6 +679,7 @@ function wire(){
   }
  });
  document.body.addEventListener("input",e=>{
+  if(e.target.id==="scoutNotes"){updateScoutPrompt();return;}
   if(e.target.id==="miniSearch"){projectSearch=e.target.value;render();const x=$("miniSearch");x?.focus();x?.setSelectionRange(projectSearch.length,projectSearch.length);}
   if(e.target.id==="paintSearch"){paintSearch=e.target.value;render();const x=$("paintSearch");x?.focus();x?.setSelectionRange(paintSearch.length,paintSearch.length);}
  });
