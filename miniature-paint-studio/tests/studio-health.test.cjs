@@ -17,7 +17,7 @@ const lessons=m.exports;
 function openStudio(seed,appSource=src){
  const storage=new Map(seed?Object.entries(seed):[]),callbacks={},view={innerHTML:"",textContent:"",classList:{toggle(){},add(){},remove(){}},addEventListener(){}};
  const window={PaintAcademy:lessons,scrollTo(){},addEventListener(name,fn){callbacks[name]=fn;}};
- const doc={readyState:"loading",body:{addEventListener(){}},addEventListener(name,fn){callbacks[name]=fn;},getElementById(){return view;},querySelectorAll(){return []}};
+ const doc={readyState:"loading",body:{addEventListener(name,fn){callbacks["body:"+name]=fn;}},addEventListener(name,fn){callbacks[name]=fn;},getElementById(){return view;},querySelectorAll(){return []}};
  const loc={hash:""},context={window,document:doc,localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},navigator:{},location:loc,crypto:{randomUUID:()=>"seed-id"},setTimeout(){},clearTimeout(){},confirm(){return true;},console:{warn(){},log(){}}};
  vm.runInNewContext(appSource,context);
  return {window,storage,callbacks,view,loc,async ready(){await callbacks.DOMContentLoaded();},page(route){loc.hash="#"+route;callbacks.hashchange();return view.innerHTML;}};
@@ -61,10 +61,10 @@ test("Photo storage, export, import and privacy boundaries are explicit",()=>{
  assert.match(src,/await photoClear\(\)/);
  assert.match(src,/photos\[photoKey\(p.id,slot\)\]=await fileToDataUrl\(blob\)/);
  assert.match(src,/AI Horde/i);
- assert.match(html,/academy\.js\?v=8/);
- assert.match(html,/app\.js\?v=8/);
- assert.match(html,/styles\.css\?v=8/);
- assert.match(sw,/mini-paint-studio-shell-v8/);
+ assert.match(html,/academy\.js\?v=9/);
+ assert.match(html,/app\.js\?v=9/);
+ assert.match(html,/styles\.css\?v=9/);
+ assert.match(sw,/mini-paint-studio-shell-v9/);
  assert.equal(manifest.start_url,"./");
  assert.ok(css.includes("@media(max-width:550px)"));
 });
@@ -230,4 +230,59 @@ test("Paint Rack swatches match owned paint colors without changing user records
  assert.equal(persisted.paints.find(x=>x.id==="p4").color,"#123456","Manual swatches remain unchanged");
  assert.equal(persisted.miniatures[0].name,"Draugr","Project must survive update");
  assert.match(src,/Fantasy-Pro","Extra Opaque","Shade","Layer","Technical","Texture","Contrast/);
+});
+
+test("Project workbench recommends only owned bottles for warrior, with optional free choice",async()=>{
+ const paint=(id,brand,range,name,number)=>({id,brand,range,name,number,color:"#8a7357",quantity:1});
+ const paints=[
+  paint("r","Vallejo","Model Color","Hull Red","70.985"),
+  paint("b","Vallejo","Game Color","Bonewhite","72.034"),
+  paint("m","Vallejo","Model Color","Oily Steel","70.865"),
+  paint("c","Citadel","Shade","Agrax Earthshade",""),
+  paint("h","Vallejo","Model Color","Ivory","70.918"),
+  paint("alt","Vallejo","Game Color","Orange Fire","72.008")
+ ];
+ const original={version:1,miniatures:[{id:"nova-warrior",name:"Dual-Axe Warrior",game:"Nova Aetas Renaissance",status:"Unpainted",type:"Character / Hero",steps:[],journal:[],recipeDone:[],recipeChoices:{}},{id:"d",name:"Draugr",game:"Trudvang",type:"Monster",status:"Painting",steps:[],journal:[],paintingPlan:"My saved plan"}],paints,lessonProgress:{}};
+ const app=openStudio({miniPaintStudioV1:JSON.stringify(original)});await app.ready();
+ const page=app.page("mini/nova-warrior");
+ assert.match(page,/MATCHED TO MY PAINT RACK/);
+ assert.match(page,/My Painting Workbench/);
+ assert.match(page,/Clean Grimdark/);
+ assert.match(page,/Burgundy/);
+ assert.match(page,/Hull Red/);
+ assert.match(page,/Bonewhite/);
+ assert.match(page,/Oily Steel/);
+ assert.match(page,/Agrax Earthshade/);
+ assert.match(page,/Breastplate and both axe heads/);
+ assert.match(page,/Recommended painting order/);
+ assert.match(page,/data-recipe-step="0"/);
+ assert.match(page,/data-recipe-choice="red-cloth"/);
+ assert.match(page,/option value="alt"/);
+ assert.equal(app.callbacks["body:change"] instanceof Function,true);
+ app.callbacks["body:change"]({target:{id:"",dataset:{recipeChoice:"red-cloth"},value:"alt"}});
+ let updated=JSON.parse(app.storage.get("miniPaintStudioV1"));
+ assert.equal(updated.miniatures[0].recipeChoices["red-cloth"],"alt");
+ assert.match(app.page("mini/nova-warrior"),/Orange Fire/);
+ app.callbacks["body:change"]({target:{id:"",dataset:{recipeStep:"0"},checked:true}});
+ updated=JSON.parse(app.storage.get("miniPaintStudioV1"));
+ assert.deepEqual(updated.miniatures[0].recipeDone,[0]);
+ assert.equal(updated.miniatures[1].name,"Draugr");
+ assert.equal(updated.miniatures[1].paintingPlan,"My saved plan");
+ assert.equal(updated.paints.length,6);
+ const reloaded=openStudio({miniPaintStudioV1:JSON.stringify(updated)});await reloaded.ready();
+ const next=reloaded.page("mini/nova-warrior");
+ assert.match(next,/Orange Fire/);
+ assert.match(next,/checked/);
+});
+test("Draugr and new projects also have project-specific or generic guides",async()=>{
+ const data={version:1,miniatures:[{id:"d",name:"Draugr",game:"Trudvang",type:"Monster",status:"Unpainted"},{id:"x",name:"Another Figure",game:"Other Game",type:"Character / Hero",status:"Unpainted"}],paints:[],lessonProgress:{}};
+ const app=openStudio({miniPaintStudioV1:JSON.stringify(data)});await app.ready();
+ const d=app.page("mini/d");
+ assert.match(d,/Skull and exposed bone/);
+ assert.match(d,/Shield wood and metal rim/);
+ assert.match(d,/no paints cataloged/);
+ assert.match(d,/No matching owned bottle/);
+ const generic=app.page("mini/x");
+ assert.match(generic,/Main cloth and large surfaces/);
+ assert.doesNotMatch(generic,/Skull and exposed bone/);
 });
