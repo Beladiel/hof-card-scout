@@ -25,3 +25,41 @@
 .watch-reset{border-color:#504638;background:linear-gradient(125deg,#221f22,#1b2530)}
 .watch-reset h2{font-size:22px}
 .watch-reset .btn{border-color:#907555}
+
+
+/* v1.3: Alphabetical artist browser and fast ownership lookup */
+.concert-search{background:linear-gradient(115deg,#26262d,#171d27);border:1px solid #776249;border-radius:15px;padding:17px;margin:16px 0}
+.concert-search>label{display:block;margin-bottom:9px}
+.concert-search>input{display:block;width:100%;min-height:46px;padding:12px 14px;border:1px solid #877158;background:#111721;color:#f3f1eb;border-radius:11px;font-size:16px}
+.concert-search>input:focus{outline:2px solid #dcb477;outline-offset:1px}
+.concert-search>p{margin:7px 0 0;line-height:1.5}
+.alphabet-bar{display:flex;flex-wrap:wrap;gap:5px;margin:17px 0 8px;align-items:center}
+.alphabet-button{background:#1c2330;border:1px solid #45505e;color:#ded9d1;min-width:34px;min-height:36px;padding:6px 8px;border-radius:8px;font-size:13px;font-weight:750}
+.alphabet-button:first-child{min-width:46px}
+.alphabet-button.selected{background:#dcb477;border-color:#dcb477;color:#191710}
+.alphabet-button:disabled{opacity:.3;cursor:not-allowed}
+.alpha-caption{margin:0 0 14px;color:#aaaeb9;font-size:11px;line-height:1.4}
+.result-count{font-size:12px;color:var(--muted);padding:10px}
+.ownership-results{margin-top:13px;border:1px solid #514837;background:#151c26;border-radius:12px;overflow:hidden}
+.ownership-results-head{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;padding:11px 13px;border-bottom:1px solid #3d414b}
+.ownership-results-head strong{color:#f3efe8;font-size:13px}
+.ownership-results-head>span{font-size:11px;color:#dcb477}
+.ownership-items{max-height:380px;overflow-y:auto}
+.ownership-item{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 13px;border-bottom:1px solid #29303a}
+.ownership-item:last-child{border-bottom:0}
+.ownership-item-name{min-width:0;display:flex;flex-direction:column;gap:2px;overflow-wrap:anywhere}
+.ownership-item-name strong{font-size:13px;color:#f2efe9}
+.ownership-item-name span{font-size:12px;color:#adb1ba}
+.ownership-item-meta{flex:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px}
+.ownership-status{border-radius:6px;padding:5px 8px;font-size:10px;font-weight:900;white-space:nowrap}
+.ownership-status.is-owned{background:#1f4938;color:#9be7be;border:1px solid #387359}
+.ownership-status.is-wishlist{background:#54472b;color:#f5d59a;border:1px solid #947948}
+.ownership-format{font-size:10px;color:#afb0b8}
+.ownership-results>p{padding:0 13px 10px;line-height:1.5}
+@media(max-width:640px){
+ .alphabet-bar{gap:4px}
+ .alphabet-button{min-width:32px;min-height:36px;font-size:12px;padding:6px}
+ .concert-search{padding:13px}
+ .ownership-item{align-items:flex-start;gap:8px}
+ .ownership-item-meta{flex-direction:column;align-items:flex-end}
+}
