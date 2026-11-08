@@ -1,8 +1,15 @@
-# Miniature Paint Studio · v1.6
+# Miniature Paint Studio · v1.7
 
 Standalone, mobile-friendly, local-first hobby studio for miniature painters. Live URL (after GitHub Pages deploy):
 
 https://beladiel.github.io/hof-card-scout/miniature-paint-studio/
+
+## v1.7 — matching paint swatches
+
+- Paint Rack now displays color-matched bottle icons for photographed/imported Vallejo and Citadel paints, including technicals, washes, bone, violet and metallic colors. Prior records with the original default brown swatch show a computed **approximate** color without altering saved data.
+- Paint-number mapping and color-name fallbacks work on the existing inventory. Unrecognized paints display a neutral gray. Manually selected swatches take priority, and the editor allows fine-tuning them.
+- Paint Rack editor now supports Citadel Shade/Layer/Technical/Texture/Contrast plus Vallejo Fantasy-Pro and Extra Opaque ranges.
+- Existing user miniatures, photo slots, journal entries and paint quantities remain in their original browser storage; upgrades neither reinstall the app nor change storage keys. Continue opening the same Home Screen icon and export backups periodically.
 
 ## Features
 
