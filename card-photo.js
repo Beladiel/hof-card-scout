@@ -222,7 +222,8 @@
       if(!res.ok||!data.ok)throw new Error(data.message||("Photo upload returned HTTP "+res.status));
       const meta={fingerprint:activeFingerprint,updatedAt:data.updatedAt||new Date().toISOString(),contentType:"image/jpeg"};
       await cachePut({player:playerAtStart.name,blob,...meta});
-      if(token===loadToken){setPhotoBlob(blob,meta);notify("📷 Card photo saved for "+playerAtStart.name+".");}
+      if(token===loadToken){setPhotoBlob(blob,meta);notify("📷 Card photo saved for "+playerAtStart.name+".");
+        document.dispatchEvent(new CustomEvent("scout:card-photo-changed",{detail:{player:playerAtStart.name,hasPhoto:true}}));}
     }catch(err){if(token===loadToken)setStatus(err.message||"Scout could not save that photo.","bad");}
     finally{if(token===loadToken)setBusy(false);}
   }
@@ -239,6 +240,7 @@
       let data={};try{data=await res.json();}catch{}
       if(!res.ok||!data.ok)throw new Error(data.message||("Photo removal returned HTTP "+res.status));
       await cacheDelete(name);setNoPhoto();notify("Card photo removed for "+name+".");
+      document.dispatchEvent(new CustomEvent("scout:card-photo-changed",{detail:{player:name,hasPhoto:false}}));
     }catch(err){setStatus(err.message||"Scout could not remove that photo.","bad");}
     finally{setBusy(false);}
   }
