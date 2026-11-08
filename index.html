@@ -6168,7 +6168,7 @@ $("monthlyBudget").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventD
 if(window.ScoutCardPhotos)ScoutCardPhotos.init({getConfig:pricingConfig,toast});
 if(window.ScoutPhotoMission)ScoutPhotoMission.init({players:()=>PLAYERS,connection:pricingConfig,navigate:showScreen,openPlayer:p=>openPlayer(p,"photoMissionScreen"),toast});
   if(window.ScoutSpecialCollection)ScoutSpecialCollection.init({read:currentEdits,save:saveSpecialCollectionCards,connection:pricingConfig,navigate:showScreen,toast});
-  if(window.ScoutCardShow)ScoutCardShow.init({players:()=>PLAYERS,navigate:showScreen,openCheck:(p,asking)=>{openShop(p);if(asking!=="")$("shopPrice").value=asking;},fingerprint:p=>window.ScoutCollectionValue?ScoutCollectionValue.fingerprintForPlayer(p):"",downloadWorkbook:(sheets,name,meta)=>ScoutShoppingReport.downloadWorkbook(sheets,name,meta),toast});
+  if(window.ScoutCardShow)ScoutCardShow.init({players:()=>PLAYERS,navigate:showScreen,openCheck:(p,asking)=>{openShop(p);if(asking!=="")$("shopPrice").value=asking;},parseTargetLabel:phase3bParseTarget,fingerprint:p=>window.ScoutCollectionValue?ScoutCollectionValue.fingerprintForPlayer(p):"",downloadWorkbook:(sheets,name,meta)=>ScoutShoppingReport.downloadWorkbook(sheets,name,meta),toast});
 loadPricingConfig();
 renderRecentSearches();
 applyFastMode(localStorage.getItem(FAST_MODE_KEY)==="1");
