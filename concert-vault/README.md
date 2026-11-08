@@ -1,6 +1,14 @@
-# Encore Concert Vault · v1.2
+# Encore Concert Vault · v1.3
 
 A free, private, mobile-first library for physical live-concert Blu-rays, DVDs and 4K UHD discs.
+
+## New in v1.3 — A–Z library browser and quick ownership check
+
+- A tappable **ALL / A–Z / #** alphabet bar now appears at the top of both the owned Collection and Wishlist. It filters on **artist name**; initial “The”, “A”, or “An” is ignored for sensible filing, and the list sorts by artist then title.
+- The **Quick Ownership Check** search box sits immediately above the alphabet. Enter a band or a concert title before buying a new disc to see all matches from **both** Owned and Wishlist records, with explicit status badges and disc formats.
+- Typing a search automatically resets the alphabet selection to **ALL**, so a previously selected letter never hides a relevant search result. Tapping a letter clears the text search for easy A–Z browsing. Format filtering remains available.
+- If there are no matching titles, Encore says **not found in this device's catalog** rather than falsely claiming the user does not own it.
+- These are **read-only viewing controls**; no records, photos, dates, ratings, or watch-rotation flags are modified.
 
 ## New in v1.2 — watch rotation and permanent viewing date
 
