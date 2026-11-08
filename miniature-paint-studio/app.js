@@ -28,12 +28,14 @@ const sample={
  schemeId:"renaissance",customColors:[],steps:[],journal:[],createdAt:now(),updatedAt:now()
 };
 function normalizeMini(item){
- const base={id:ID(),name:"Untitled miniature",game:"",type:"Character / Hero",status:"Unpainted",notes:"",paintingPlan:"",schemeId:"",customColors:[],steps:[],journal:[],createdAt:now(),updatedAt:now()};
+ const base={id:ID(),name:"Untitled miniature",game:"",type:"Character / Hero",status:"Unpainted",notes:"",paintingPlan:"",recipeDone:[],recipeChoices:{},schemeId:"",customColors:[],steps:[],journal:[],createdAt:now(),updatedAt:now()};
  const x=Object.assign(base,item||{});
  x.name=String(x.name||"Untitled miniature").slice(0,120);
  x.game=String(x.game||"").slice(0,120);
  x.notes=String(x.notes||"").slice(0,2000);
  x.paintingPlan=String(x.paintingPlan||"").slice(0,16000);
+ x.recipeDone=Array.isArray(x.recipeDone)?[...new Set(x.recipeDone.filter(v=>Number.isInteger(v)&&v>=0&&v<12))]:[];
+ x.recipeChoices=x.recipeChoices&&typeof x.recipeChoices==="object"&&!Array.isArray(x.recipeChoices)?Object.fromEntries(Object.entries(x.recipeChoices).filter(([k,v])=>/^[a-z-]{1,45}$/.test(k)&&typeof v==="string"&&v.length<130)):{};
  x.type=String(x.type||"Character / Hero").slice(0,70);
  x.status=STATUS.includes(x.status)?x.status:"Unpainted";
  x.steps=Array.isArray(x.steps)?x.steps.filter(v=>Number.isInteger(v)&&v>=0&&v<STAGES.length):[];
@@ -348,6 +350,87 @@ function renderProjects(){
  '<div class="section-head"><h2 class="section-title">'+entries.length+' Miniature'+(entries.length===1?"":"s")+'</h2><span class="small muted">Projects stored on this device</span></div>'+
  (entries.length?'<section class="collection">'+entries.map(miniCard).join("")+'</section>':'<div class="empty"><span class="icon">🖌️</span>No matching models. Try a different search or add another miniature.</div>');
 }
+// Suggested starting points only. The application does not interpret uploaded images.
+const WORKBENCH_GUIDES={
+ warrior:[
+  ["red-cloth","Burgundy sleeves and red accents","V70.985,V70.859,V70.957","Cagrax earthshade,V73.203","V70.829,V70.817","Lay two thin coats of red; leave the deep folds darker."],
+  ["ivory","Ivory sleeves / pale fabric","V72.034,V70.918,Cushabti bone","V73.200,Creikland fleshshade","V70.918,V74.015","Keep shading in creases; highlight the tops of folds."],
+  ["steel","Breastplate and both axe heads","V70.865,V72.054,V70.864","V73.201,Cagrax earthshade","V72.053,V72.052","Darken joints; put bright silver on only the sharp edges."],
+  ["leather","Cap, belts, boots and wood hafts","V72.040,V72.043,V70.871","Cagrax earthshade,V73.203","V70.819,V72.151","Highlight strap edges and wood grain rather than whole panels."],
+  ["trousers","Muted green-gray trousers","V70.866,V70.971,V70.894","V73.201,Cagrax earthshade","V70.971,V70.989","Use muted highlights around knees and upper fabric folds."],
+  ["terrain","Stone, grit and base","V72.050,V70.995,Castrogranite debris","V73.201,V73.203","V72.049,V70.989","Drybrush stone; keep the base rim simple and dark."]
+ ],
+ draugr:[
+  ["bone","Skull and exposed bone","V72.034,Cushabti bone,V70.918","V73.200,Cagrax earthshade","V70.918,V74.015","Shade eye sockets and joints; keep raised bones pale."],
+  ["metal","Sword and other metal","V72.054,V70.865,V70.864","V73.201,Cagrax earthshade","V72.053,V72.052","Stipple Rust on old fittings, avoiding the brightest edge."],
+  ["shield","Shield wood and metal rim","V72.043,V72.040,V70.871","Cagrax earthshade,V73.203","V70.819,V72.151","Pick out scratched grain lines individually."],
+  ["bindings","Leather and straps","V70.871,V72.040,V72.153","V73.203,Cagrax earthshade","V70.819,V72.043","Highlight the highest edges of the binding."],
+  ["cloth","Rags and wrappings (if present)","V70.971,V70.866,V74.010","V73.200,V73.201","V70.918,V70.989","Restrained cloth color keeps the bones as the focal point."],
+  ["terrain","Graveyard ground","V72.050,V70.995,Castrogranite debris","V73.201,V73.203","V72.049,V70.989","Drybrush rocks; leave dark earth between them."]
+ ],
+ other:[
+  ["main","Main cloth and large surfaces","V70.971,V72.043,V70.985","V73.203,Cagrax earthshade","V70.819,V70.918","Block in the dominant color first."],
+  ["skin","Faces, skin or bone (if present)","V72.034,V70.955,V70.918","V73.200,Creikland fleshshade","V70.918,V74.015","Use small controlled highlights to define shapes."],
+  ["equipment","Leather, weapons and equipment","V70.865,V72.054,V72.040","V73.201,Cagrax earthshade","V72.053,V70.819","Match the technique to each material."],
+  ["terrain","Ground, rocks and base","V72.050,V70.995,Cstirland mud","V73.201,V73.203","V72.049,V70.989","Use a light drybrush and tidy base rim."]
+ ]
+};
+function projectGuideType(p){
+ const value=(p.name+" "+p.game).toLowerCase();
+ return /draugr|skeleton|undead/.test(value)?"draugr":p.id==="nova-warrior"||/dual.?axe|two.?axe/.test(value)?"warrior":"other";
+}
+function ownedGuidePaint(codes){
+ for(const v of String(codes||"").split(",")){
+  const type=v[0],code=v.slice(1);
+  const match=state.paints.find(p=>p.quantity>0&&(type==="V"&&p.brand.toLowerCase()==="vallejo"&&p.number.trim()===code||
+   type==="C"&&p.brand.toLowerCase()==="citadel"&&p.name.trim().toLowerCase()===code));
+  if(match)return match;
+ }
+ return null;
+}
+function guidePaintName(p){
+ return p?esc(p.name)+(p.number?" · "+esc(p.number):"")+' <span class="small muted">('+esc(p.brand)+')</span>':'<span class="muted">No matching owned bottle</span>';
+}
+function approximatePaletteMatch(hex){
+ const rgb=x=>[1,3,5].map(i=>parseInt(x.slice(i,i+2),16));
+ const goal=rgb(hex),paints=state.paints.filter(p=>p.quantity>0);
+ if(!paints.length)return null;
+ return paints.map(p=>{const c=rgb(paintDisplaySwatch(p));return {p,d:(goal[0]-c[0])**2*2+(goal[1]-c[1])**2*4+(goal[2]-c[2])**2*3};}).sort((a,b)=>a.d-b.d)[0].p;
+}
+function renderMatchedPalette(p){
+ const palette=sourcePalette(p),guide=WORKBENCH_GUIDES[projectGuideType(p)];
+ const canonical=projectGuideType(p)==="warrior"&&palette.name==="Renaissance Adventurer";
+ const titles=canonical?["Burgundy","Worn leather","Steel","Ivory","Muted green"]:palette.colors.map((_,i)=>"Color "+(i+1));
+ return '<div class="rack-palette">'+palette.colors.map((hex,i)=>{
+  const match=canonical?ownedGuidePaint(guide[[0,3,2,1,4][i]][2]):approximatePaletteMatch(hex);
+  return '<div class="rack-palette-row"><span class="rack-palette-color" style="background:'+esc(hex)+'"></span><div class="rack-palette-text"><strong>'+esc(titles[i])+'</strong><span>'+(match?'<span class="mini-paint-dot" style="background:'+esc(paintDisplaySwatch(match))+'"></span> '+guidePaintName(match):'No owned match')+'</span></div></div>';
+ }).join("")+'</div><p class="section-sub">Closest owned-paint suggestions; colors are approximate, not automatically analyzed from your photos.</p>';
+}
+function renderProjectRecommendations(p){
+ const guide=WORKBENCH_GUIDES[projectGuideType(p)];
+ const owned=state.paints.filter(x=>x.quantity>0).slice().sort((a,b)=>a.name.localeCompare(b.name));
+ const cards=guide.map((item,i)=>{
+  const [key,part,baseCodes,shadeCodes,highlightCodes,tip]=item;
+  const selected=owned.find(x=>x.id===p.recipeChoices[key]);
+  const base=selected||ownedGuidePaint(baseCodes),shade=ownedGuidePaint(shadeCodes),highlight=ownedGuidePaint(highlightCodes);
+  return '<article class="workbench-part"><div class="workbench-part-head"><label class="workbench-check"><input type="checkbox" data-recipe-step="'+i+'" '+(p.recipeDone.includes(i)?"checked":"")+'><span>'+esc((i+1)+". "+part)+'</span></label>'+
+    (base?'<span class="workbench-color" style="background:'+esc(paintDisplaySwatch(base))+'"></span>':"")+'</div>'+
+    '<div class="workbench-paint-line"><strong>Base:</strong> '+guidePaintName(base)+(selected?' <span class="small">Your choice</span>':"")+'</div>'+
+    '<div class="workbench-paint-line"><strong>Shade:</strong> '+guidePaintName(shade)+'</div>'+
+    '<div class="workbench-paint-line"><strong>Highlight:</strong> '+guidePaintName(highlight)+'</div>'+
+    '<p class="workbench-tip">'+esc(tip)+'</p>'+
+    '<label class="field workbench-swap">SWAP BASE COLOR<select data-recipe-choice="'+esc(key)+'"><option value="">Use Scout suggestion</option>'+
+    owned.map(x=>'<option value="'+esc(x.id)+'" '+(selected&&x.id===selected.id?"selected":"")+'>'+esc(x.name+(x.number?" · "+x.number:""))+'</option>').join("")+'</select></label></article>';
+ }).join("");
+ return '<section class="panel workbench-guide" style="margin-top:20px"><div class="eyebrow">YOUR PAINT RACK · OPTIONAL IDEAS</div><h2>My Painting Workbench</h2>'+
+  '<p><strong>Clean Grimdark:</strong> muted materials, realistic wear, and one or two focal accents. These are starter suggestions, not rules or AI analysis of the photos.</p>'+
+  '<div class="detail-stat-row"><span>'+p.recipeDone.filter(x=>x<guide.length).length+'/'+guide.length+' material areas checked</span><span>'+owned.length+' owned paint entries</span></div>'+
+  (!owned.length?'<p class="mini-alert">This browser has no paints cataloged. Add your collection in Paint Rack to see specific bottle recommendations.</p>':"")+
+  '<div class="workbench-parts">'+cards+'</div><h3>Recommended painting order</h3>'+
+  '<p>1. Prep and prime. 2. Block in your biggest fabric colors. 3. Paint leather and metal. 4. Shade recesses. 5. Add controlled highlights and one focal accent. 6. Finish terrain and varnish. Adjust the order as you like.</p>'+
+  '<div class="actions"><button class="btn btn-outline btn-sm" data-inspire="'+esc(p.id)+'">✦ SEE PREVIEW & CUSTOM PLAN</button><button class="btn btn-soft btn-sm" data-navto="paints">◉ PAINT RACK</button></div></section>';
+}
+
 function renderMini(){
  const p=mini(activeMiniId);if(!p)return '<div class="empty">Project unavailable.</div>';
  const image='<div class="detail-photo" data-photo-key="'+esc(p.id)+'|before"><div style="font-size:62px">⚔️</div><span class="small muted">Your unpainted miniature photo goes here</span></div>';
@@ -355,9 +438,10 @@ function renderMini(){
  const journal=p.journal.slice().reverse().map(j=>'<div class="journal-entry"><strong>'+esc(shortDate(j.at))+'</strong><div>'+esc(j.text)+'</div></div>').join("");
  return '<div class="page-head"><div><button class="btn btn-soft btn-sm" data-navto="projects">← MY MINIATURES</button><h1>'+esc(p.name)+'</h1><p>'+esc(p.game||"Unassigned game")+' · '+esc(p.type)+'</p></div><button class="btn btn-outline" data-edit-mini="'+esc(p.id)+'">✎ EDIT</button></div>'+
  '<section class="detail-top"><div>'+image+'<div class="actions" style="margin-top:9px"><button class="btn btn-outline btn-block" data-photo="'+esc(p.id)+'|before">📷 '+(p.status==="Unpainted"?"ADD MINI PHOTO":"CHANGE MINI PHOTO")+'</button></div></div>'+
- '<div class="panel detail-info"><span class="tag warm">'+esc(p.status)+'</span><div><div class="kicker">CURRENT PAINT SCHEME</div><h2>'+esc(sourcePalette(p).name)+'</h2><p>'+esc(sourcePalette(p).note)+'</p></div><div class="swatches">'+paletteChips(sourcePalette(p).colors)+'</div><div class="detail-stat-row"><span>'+p.steps.length+'/'+STAGES.length+' painting steps</span><span>'+p.journal.length+' journal entries</span><span>Updated '+esc(shortDate(p.updatedAt))+'</span></div><div class="actions"><button class="btn btn-primary" data-inspire="'+esc(p.id)+'">✦ OPEN COLOR LAB</button><button class="btn btn-soft" data-photo="'+esc(p.id)+'|finished">📸 FINISHED PHOTO</button></div></div></section>'+
+ '<div class="panel detail-info"><span class="tag warm">'+esc(p.status)+'</span><div><div class="kicker">CURRENT PAINT SCHEME</div><h2>'+esc(sourcePalette(p).name)+'</h2><p>'+esc(sourcePalette(p).note)+'</p></div><div class="kicker" style="margin-top:8px">MATCHED TO MY PAINT RACK</div>'+renderMatchedPalette(p)+'<div class="detail-stat-row"><span>'+p.steps.length+'/'+STAGES.length+' painting steps</span><span>'+p.journal.length+' journal entries</span><span>Updated '+esc(shortDate(p.updatedAt))+'</span></div><div class="actions"><button class="btn btn-primary" data-inspire="'+esc(p.id)+'">✦ OPEN COLOR LAB</button><button class="btn btn-soft" data-photo="'+esc(p.id)+'|finished">📸 FINISHED PHOTO</button></div></div></section>'+
  '<div class="two-col" style="margin-top:20px"><section class="panel"><h2>Painting Checklist</h2><p>Mark each stage as you finish it, in whatever order works for you.</p><div class="steps-list">'+steps+'</div><div class="actions" style="margin-top:12px"><label class="field" style="flex:1">OVERALL STATUS<select id="miniStatus">'+STATUS.map(v=>'<option '+(v===p.status?"selected":"")+'>'+esc(v)+'</option>').join("")+'</select></label></div></section>'+
  '<section class="panel"><h2>Painting Journal</h2><p>Record techniques, mixtures, discoveries and happy accidents.</p><form id="journalForm"><label class="field">NEW NOTE<textarea id="journalText" required maxlength="3000" placeholder="Today I painted the axe heads with dark steel, then added edge highlights…"></textarea></label><button class="btn btn-primary" type="submit" style="margin-top:9px">+ SAVE JOURNAL ENTRY</button></form><div style="margin-top:12px">'+(journal||'<p>No journal entries yet. Your first brushstroke deserves a note.</p>')+'</div></section></div>'+
+ renderProjectRecommendations(p)+
  '<section class="panel" style="margin-top:16px"><div class="eyebrow">YOUR PAINTING GUIDE</div><h2>Saved Painting Plan</h2><p>Your brush-by-brush plan from Scout, tailored to this miniature and your Paint Rack.</p>'+(p.paintingPlan?'<div style="white-space:pre-wrap;line-height:1.65">'+esc(p.paintingPlan)+'</div>':'<p>No personalized painting plan saved yet. Open Art-to-Mini to copy a plan request that includes your owned paints.</p>')+'<div class="actions" style="margin-top:10px"><button class="btn btn-primary btn-sm" data-inspire="'+esc(p.id)+'">✦ CREATE / EDIT PAINTING PLAN</button></div></section>'+
  '<section class="panel" style="margin-top:16px"><h2>Miniature Notes</h2><p>'+esc(p.notes||"No notes yet.")+'</p><div class="actions"><button class="btn btn-outline btn-sm" data-edit-mini="'+esc(p.id)+'">EDIT DETAILS</button><button class="btn btn-soft btn-sm" data-open-lesson="leather">LEARN A TECHNIQUE</button></div></section>';
 }
@@ -873,6 +957,20 @@ function wire(){
   }
   if(el.id==="schemeChoice"){
    const p=mini(activeMiniId);if(!p)return;p.schemeId=el.value;p.customColors=[];p.updatedAt=now();save();render();notice("Color scheme saved.");return;
+  }
+  if("recipeStep" in el.dataset){
+   const p=mini(activeMiniId);if(!p)return;const i=Number(el.dataset.recipeStep);
+   if(!Number.isInteger(i)||i<0||i>=WORKBENCH_GUIDES[projectGuideType(p)].length)return;
+   p.recipeDone=el.checked?[...new Set([...p.recipeDone,i])].sort((a,b)=>a-b):p.recipeDone.filter(x=>x!==i);
+   p.updatedAt=now();save();render();return;
+  }
+  if("recipeChoice" in el.dataset){
+   const p=mini(activeMiniId);if(!p)return;const key=el.dataset.recipeChoice;
+   if(!WORKBENCH_GUIDES[projectGuideType(p)].some(x=>x[0]===key))return;
+   if(!p.recipeChoices)p.recipeChoices={};
+   if(el.value&&state.paints.some(x=>x.id===el.value&&x.quantity>0))p.recipeChoices[key]=el.value;
+   else delete p.recipeChoices[key];
+   p.updatedAt=now();save();render();notice("Your paint choice saved.");return;
   }
   if("stage" in el.dataset){
    const p=mini(activeMiniId);if(!p)return;const i=Number(el.dataset.stage);
