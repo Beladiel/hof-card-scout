@@ -5388,7 +5388,9 @@ function phase3aOpenPurchase(card,data,p){
   phase3aUpdateSourceDetail();
   if(shopReturnScreen==="cardShowScreen"&&window.ScoutCardShow){
     const locationName=ScoutCardShow.getShowName();
+    const visitDate=ScoutCardShow.getShowDate();
     if(locationName&&$("phase3aPlaceDetail"))$("phase3aPlaceDetail").value=locationName;
+    if(visitDate&&$("phase3aDate"))$("phase3aDate").value=visitDate;
   }
   box.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
