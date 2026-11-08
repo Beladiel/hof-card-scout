@@ -1490,7 +1490,7 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
     </section>
   </main>
 
-  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v6.3.1</div>
+  <div class="footer">Scout’s rule: asking price is not market value. ⚾ · v6.4.0</div>
 </div>
 <div class="data-modal-backdrop" id="dataMenuModal" hidden>
   <div class="data-modal" role="dialog" aria-modal="true" aria-labelledby="dataMenuTitle">
@@ -1526,6 +1526,7 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 <script src="photo-mission.js?v=2"></script>
 <script src="special-collection.js?v=1"></script>
 <script src="shopping-report.js"></script>
+<script src="card-show.js?v=1"></script>
 <script src="automation-budget.js"></script>
 <script src="automation-runner-ui.js"></script>
 <script src="push-notifications.js"></script>
@@ -1930,6 +1931,7 @@ function showScreen(id){
   if(focused&&/^(INPUT|TEXTAREA|SELECT)$/.test(focused.tagName))focused.blur();
   if(id==="huntScreen")renderHuntList();
   if(id==="forecastScreen")renderHallForecast();
+  if(window.ScoutCardShow)ScoutCardShow.refresh(id);
   window.scrollTo({top:0,behavior:window.matchMedia?.("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});
 }
 function toast(msg){
@@ -4857,6 +4859,7 @@ function openShop(prefill){
   $("shopNum").placeholder="482";
   const activeScreen=document.querySelector(".screen.active")?.id||"homeScreen";
   shopReturnScreen=activeScreen;
+  $("shopBack").textContent=activeScreen==="cardShowScreen"?"← Back to Card Show":"← Back";
   if(activeScreen!=="detailScreen")returnScreen=activeScreen;
   if(prefill){
     const variant=window.ScoutCollectionValue?ScoutCollectionValue.representativeVariant(prefill):{
@@ -5381,7 +5384,12 @@ function phase3aOpenPurchase(card,data,p){
   };
   $("phase3aCancelPurchase").onclick=()=>{box.hidden=true;phase3aSelectFlow("")};
   $("phase3aSource").onchange=phase3aUpdateSourceDetail;
+  if(shopReturnScreen==="cardShowScreen")$("phase3aSource").value="Card show";
   phase3aUpdateSourceDetail();
+  if(shopReturnScreen==="cardShowScreen"&&window.ScoutCardShow){
+    const locationName=ScoutCardShow.getShowName();
+    if(locationName&&$("phase3aPlaceDetail"))$("phase3aPlaceDetail").value=locationName;
+  }
   box.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
 function phase3aOpenTarget(card,p,targets){
@@ -6160,6 +6168,7 @@ $("monthlyBudget").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventD
 if(window.ScoutCardPhotos)ScoutCardPhotos.init({getConfig:pricingConfig,toast});
 if(window.ScoutPhotoMission)ScoutPhotoMission.init({players:()=>PLAYERS,connection:pricingConfig,navigate:showScreen,openPlayer:p=>openPlayer(p,"photoMissionScreen"),toast});
   if(window.ScoutSpecialCollection)ScoutSpecialCollection.init({read:currentEdits,save:saveSpecialCollectionCards,connection:pricingConfig,navigate:showScreen,toast});
+  if(window.ScoutCardShow)ScoutCardShow.init({players:()=>PLAYERS,navigate:showScreen,openCheck:(p,asking)=>{openShop(p);if(asking!=="")$("shopPrice").value=asking;},fingerprint:p=>window.ScoutCollectionValue?ScoutCollectionValue.fingerprintForPlayer(p):"",downloadWorkbook:(sheets,name,meta)=>ScoutShoppingReport.downloadWorkbook(sheets,name,meta),toast});
 loadPricingConfig();
 renderRecentSearches();
 applyFastMode(localStorage.getItem(FAST_MODE_KEY)==="1");
