@@ -35,6 +35,7 @@ function writeVisit(next){
   return state;
 }
 function getShowName(){return visit().name;}
+function getShowDate(){return visit().date;}
 function roster(){return (opts&&opts.players()||[]).filter(p=>p&&p.name);}
 function photoCache(){
   try{
@@ -299,7 +300,7 @@ function init(config){
   else{home.appendChild(showButton);home.appendChild(recordsButton);}
   main.insertAdjacentHTML("beforeend",[
     '<section class="screen" id="cardShowScreen"><button type="button" class="back" id="csBack">← Back to Home</button><div class="cs-wrap">',
-    '<div class="cs-hero"><div class="section-eyebrow">🎪 CARD SHOW MODE</div><h2 class="cs-title">Hunt Smarter at the Show</h2><p class="cs-sub">Your Hall targets, needs and already-owned cards—available offline. Live Deal Check opens the existing real sold-comps engine and needs internet. Saved maximums are personal budgets, not market valuations.</p></div>',
+    '<div class="cs-hero"><div class="section-eyebrow">🎪 CARD SHOW MODE</div><h2 class="cs-title">Hunt Smarter at the Show</h2><p class="cs-sub">Your Hall targets, needs and already-owned cards remain usable without signal once the app is open. Live Deal Check opens the existing real sold-comps engine and needs internet. Saved maximums are personal budgets, not market valuations.</p></div>',
     '<div class="cs-controls"><div class="cs-field"><label for="csShowName">SHOW / LOCATION</label><input id="csShowName" maxlength="90" placeholder="e.g., New Mexico Card Show"></div><div class="cs-field"><label for="csShowDate">VISIT DATE</label><input id="csShowDate" type="date"></div></div>',
     '<p class="cs-note" id="csMessage">Visit details stay on this device. Purchases saved through Card Scout are included in the normal Scout Cloud collection backup.</p>',
     '<div class="cs-actions"><button type="button" class="primary" id="csAny">🔎 CHECK ANY CARD</button><button type="button" class="ghost" id="csDocs">🛡 COLLECTION RECORDS</button></div>',
@@ -346,5 +347,5 @@ function init(config){
 return {init,open,openRecords,refresh:function(screen){
   if(screen==="cardShowScreen")renderShow();
   if(screen==="collectionRecordsScreen")renderDocs();
-},getShowName,helpers:{cash,currentValue,showRows,purchaseHaul,documentedRows,docsSummary,workbookSheets,csvText,prefill}};
+},getShowName,getShowDate,helpers:{cash,currentValue,showRows,purchaseHaul,documentedRows,docsSummary,workbookSheets,csvText,prefill}};
 });
