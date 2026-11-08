@@ -244,7 +244,8 @@ function renderInspiration(){
  const slots=[
  {slot:"before",name:"1 · YOUR MODEL",emoji:"⚔️",desc:"Photograph the unpainted model against a plain background."},
  {slot:"reference",name:"2 · ARTWORK / CHARACTER CARD",emoji:"🃏",desc:"Later, add the artwork from the board-game box or rulebook."},
- {slot:"concept",name:"3 · PAINTED CONCEPT",emoji:"🎨",desc:"Save an AI-painted preview created in ChatGPT or another tool."}
+ {slot:"concept",name:"3 · PAINTED CONCEPT",emoji:"🎨",desc:"Save an AI-painted preview created in ChatGPT or another tool."},
+ {slot:"finished",name:"4 · MY FINISHED MINI",emoji:"🏆",desc:"After your painting session, photograph your finished miniature."}
  ];
  return '<div class="page-head"><div><div class="eyebrow">IDEAS BEFORE THE FIRST BRUSHSTROKE</div><h1>Art-to-Mini Lab</h1><p>Use your actual unpainted miniature and original character artwork together to plan a painted look.</p></div></div>'+
  '<label class="field" style="max-width:450px;margin-bottom:18px">CHOOSE MINIATURE<select id="inspireMini">'+state.miniatures.map(m=>'<option value="'+esc(m.id)+'" '+(m.id===p.id?"selected":"")+'>'+esc(m.name)+' · '+esc(m.game||"Unassigned")+'</option>').join("")+'</select></label>'+
@@ -510,7 +511,7 @@ function wire(){
  });
  $("photoPicker").addEventListener("change",e=>handlePhotoChange(e.target.files?.[0]));
  $("restorePicker").addEventListener("change",e=>importBackup(e.target.files?.[0]));
- window.addEventListener("hashchange",()=>{render();window.scrollTo({top:0,behavior:"instant"});});
+ window.addEventListener("hashchange",()=>{render();window.scrollTo({top:0,behavior:"auto"});});
  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("modalBackdrop"))closeModal();});
 }
 async function start(){
