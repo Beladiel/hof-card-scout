@@ -25,8 +25,8 @@ test("App is fully local and independent of other hobby apps",()=>{
  assert.match(source,/encoreConcertVaultV1/);
  assert.doesNotMatch(source,/miniPaintStudioV1/);
  assert.match(index,/<title>Encore · Concert Vault<\/title>/);
- assert.match(index,/app\.js\?v=2/);
- assert.match(sw,/encore-shell-v2/);
+ assert.match(index,/app\.js\?v=3/);
+ assert.match(sw,/encore-shell-v3/);
  assert.match(css,/@media\(max-width:640px\)/);
  assert.equal(manifest.start_url,"./");
 });
@@ -118,7 +118,7 @@ test("Cover Helper UI is included in the actual disc collection",async()=>{
  assert.match(html,/COVER HELPER/);
  assert.match(a.page("covers"),/Still needs cover art/);
  assert.match(a.page("backup"),/DOWNLOAD COMPLETE BACKUP/);
- assert.match(index,/v1.1/);
+ assert.match(index,/v1.2/);
 });
 test("Stored untrusted concert names are escaped in missing-cover cards",async()=>{
  const seed={version:1,discs:[{id:"x1",artist:"<script>alert(1)</script>",title:"Art & Live",format:"DVD",status:"Owned"}]};
