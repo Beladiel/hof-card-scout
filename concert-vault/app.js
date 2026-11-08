@@ -3,7 +3,7 @@
 "use strict";
 const KEY="encoreConcertVaultV1",SAFETY="encoreConcertVaultSafetyV1",DB_NAME="encoreConcertCoversV1";
 const FMT=["Blu-ray","DVD","4K UHD","Other"],STATS=["Owned","Wishlist"],AUDIO=["Unknown","Stereo","Dolby Digital 5.1","DTS 5.1","DTS-HD Master Audio","Dolby TrueHD","Dolby Atmos","PCM 2.0","PCM 5.1","Other"];
-let state={version:1,discs:[]},db=null,view="collection",search="",formatFilter="All",editing=null,coverFor=null,pickId=null,storageProblem=false,recovered=false,urls=[];
+let state={version:1,discs:[]},db=null,view="collection",search="",formatFilter="All",editing=null,coverFor=null,pickId=null,storageProblem=false,recovered=false,urls=[],coverQueue=[],coverIds=new Set(),coverBytes=0,coverFilter="",coverBusy=false;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 const uuid=()=>typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID():"disc-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2);
@@ -55,24 +55,178 @@ function dataToBlob(raw){
  for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);return new Blob([bytes],{type:arr[0].slice(5).split(";")[0]});
 }
 function download(name,data,mime="application/json"){const url=URL.createObjectURL(new Blob([data],{type:mime}));const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}
-async function photoCompressed(file){
+async function photoCompressed(file,maxEdge=900,jpegQuality=.84){
  if(!file||!file.type.startsWith("image/"))throw Error("Choose a photo");
  if(file.size>25*1024*1024)throw Error("Choose a cover photo under 25 MB");
  const source=URL.createObjectURL(file);
  try{const img=new Image();img.src=source;await new Promise((yes,no)=>{if(img.complete&&img.naturalWidth)yes();else{img.onload=yes;img.onerror=()=>no(Error("Could not open photo"));}});
-  const scale=Math.min(1,900/Math.max(img.naturalWidth,img.naturalHeight)),canvas=document.createElement("canvas");
+  const scale=Math.min(1,maxEdge/Math.max(img.naturalWidth,img.naturalHeight)),canvas=document.createElement("canvas");
   canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
   canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);
-  const blob=await new Promise(yes=>canvas.toBlob(yes,"image/jpeg",.84));if(!blob)throw Error("Unable to compress photo");return blob;
+  const blob=await new Promise(yes=>canvas.toBlob(yes,"image/jpeg",jpegQuality));if(!blob)throw Error("Unable to compress photo");return blob;
  }finally{URL.revokeObjectURL(source);}
 }
 function counts(){return {owned:state.discs.filter(x=>x.status==="Owned").length,wishlist:state.discs.filter(x=>x.status==="Wishlist").length,favorites:state.discs.filter(x=>x.favorite&&x.status==="Owned").length,unwatched:state.discs.filter(x=>x.status==="Owned"&&!x.watched).length};}
+
+// IndexedDB is local to this app/device. Never upload a cover photo to GitHub or another service.
+function bytesLabel(value){
+ const n=Number(value)||0;
+ if(n<1024)return Math.round(n)+" B";
+ if(n<1024*1024)return (n/1024).toFixed(1)+" KB";
+ if(n<1024*1024*1024)return (n/(1024*1024)).toFixed(1)+" MB";
+ return (n/(1024*1024*1024)).toFixed(2)+" GB";
+}
+function listStoredCovers(){
+ return new Promise(resolve=>{
+  if(!db){resolve({ids:new Set(),bytes:0,available:false});return;}
+  let bytes=0;const ids=new Set();
+  try{
+   const tx=db.transaction("covers","readonly");
+   const cursor=tx.objectStore("covers").openCursor();
+   cursor.onsuccess=()=>{
+    const row=cursor.result;
+    if(!row)return;
+    if(row.value instanceof Blob){ids.add(String(row.key));bytes+=row.value.size;}
+    row.continue();
+   };
+   tx.oncomplete=()=>resolve({ids,bytes,available:true});
+   tx.onerror=()=>resolve({ids,bytes,available:false});
+   tx.onabort=()=>resolve({ids,bytes,available:false});
+  }catch(e){resolve({ids,bytes,available:false});}
+ });
+}
+async function refreshCoverStats(){
+ const found=await listStoredCovers();
+ if(found.available){coverIds=found.ids;coverBytes=found.bytes;}
+ if(view!=="covers")return;
+ const covered=state.discs.filter(d=>coverIds.has(d.id)).length;
+ const summary=$("coverStorage");
+ if(summary){
+  let note=found.available?
+   '<strong>'+covered+' of '+state.discs.length+' covers saved</strong> · '+bytesLabel(coverBytes)+' used by Encore cover images on this device.':
+   'Cover image storage is unavailable in this browser. Try opening the existing Home Screen app.';
+  summary.innerHTML=note;
+ }
+ const remaining=$("coverMissing");
+ if(remaining){
+  const missing=state.discs.filter(d=>!coverIds.has(d.id));
+  remaining.innerHTML=missing.length?
+   '<p>'+missing.length+' concert'+(missing.length===1?' is':'s are')+' still missing a cover.</p><div class="missing-tags">'+missing.slice(0,25).map(d=>'<span class="pill">'+esc(d.artist)+' · '+esc(d.title)+'</span>').join("")+'</div>'+(
+    missing.length>25?'<p>…and '+(missing.length-25)+' more.</p>':""):
+   '<p>Every cataloged concert now has a cover photo. Nice!</p>';
+ }
+ const budget=$("coverBudget");
+ if(budget){
+  budget.textContent="Checking browser-reported storage budget…";
+  try{
+   if(navigator.storage&&typeof navigator.storage.estimate==="function"){
+    const estimate=await navigator.storage.estimate();
+    if(estimate&&Number.isFinite(estimate.usage)&&Number.isFinite(estimate.quota)){
+     budget.textContent="Browser storage estimate: "+bytesLabel(estimate.usage)+" used of a "+bytesLabel(estimate.quota)+" quota. This includes other data for this site and is NOT a guarantee of free iPhone space.";
+    }else budget.textContent="This browser cannot report an available storage estimate.";
+   }else budget.textContent="Your browser does not provide a storage quota estimate. Cover usage above is measured directly.";
+  }catch{budget.textContent="Browser storage quota estimate unavailable. Your saved cover size is shown above.";}
+ }
+}
+function discLabel(d){return d.artist+" — "+d.title+" ("+d.format+")";}
+function coverOptions(selected){
+ const filtered=state.discs.slice().sort((a,b)=>a.artist.localeCompare(b.artist)||a.title.localeCompare(b.title))
+  .filter(d=>!coverFilter||discLabel(d).toLowerCase().includes(coverFilter.toLowerCase())||d.id===selected);
+ return '<option value="">Choose concert…</option>'+filtered.map(d=>
+  '<option value="'+esc(d.id)+'" '+(d.id===selected?'selected':'')+'>'+
+  esc(discLabel(d))+(coverIds.has(d.id)?' · HAS COVER':' · NO COVER')+'</option>').join("");
+}
+function coverHelperPage(){
+ return '<div class="section-head"><div><h2>Cover Helper</h2><p>Photograph cases and match them to your concert entries.</p></div></div>'+
+ '<div class="panel"><span class="eyebrow">PRIVATE · STORED LOCALLY</span><h2>Your cases, your collection</h2>'+
+ '<p>These photos are resized, compressed and stored in this app on your device — <strong>not on GitHub</strong>. Select multiple cover photos from Photos, or use your camera for one at a time. No paid services required.</p>'+
+ '<div class="actions"><button class="btn primary" data-action="cover-batch">📷 CHOOSE MULTIPLE PHOTOS</button><button class="btn" data-action="cover-camera">TAKE ONE PHOTO</button></div>'+
+ '<p class="meta">One image per concert entry. We will ask before replacing a saved cover. Matching is manual so your covers never get assigned to the wrong concert by AI.</p></div>'+
+ '<div class="panel"><h2>Local photo storage</h2><p id="coverStorage">Checking saved cover space…</p>'+
+ '<p class="meta" id="coverBudget">Checking browser storage estimate…</p>'+
+ '<p class="meta"><strong>Important:</strong> deleting the Home Screen app, clearing website data or changing devices can remove local photos. Backup & Import can save a full copy to Files or iCloud Drive.</p>'+
+ '<div class="actions"><button class="btn small" data-action="cover-refresh">↻ REFRESH STORAGE</button><button class="btn small" data-view="backup">BACKUP MY COLLECTION</button></div></div>'+
+ '<div class="panel"><div class="section-head" style="margin-top:0"><div><h2>Match your photos</h2><p>Pick the matching concert for each photo, then save.</p></div></div>'+
+ '<label class="field" style="max-width:450px;margin-bottom:14px">FILTER CONCERT TITLES<input type="search" id="coverFilter" placeholder="Search artist or concert title…" value="'+esc(coverFilter)+'"></label>'+
+ '<div id="coverQueue"></div></div>'+
+ '<div class="panel"><h2>Still needs cover art</h2><div id="coverMissing"><p>Checking your collection…</p></div></div>';
+}
+function drawCoverQueue(){
+ const host=$("coverQueue");if(!host)return;
+ if(!coverQueue.length){host.innerHTML='<div class="empty">No photos waiting to be matched. Select a few cover pictures above to begin.</div>';return;}
+ host.innerHTML='<div class="cover-queue">'+coverQueue.map(q=>
+  '<article class="cover-queue-item"><img src="'+esc(q.url)+'" alt="Photo waiting to be matched" loading="lazy">'+
+  '<div class="cover-queue-details"><div class="meta">'+esc(q.fileName)+' · '+bytesLabel(q.blob.size)+' after compression</div>'+
+  '<label class="field">MATCH TO CONCERT<select data-cover-target="'+esc(q.id)+'" '+(coverBusy?"disabled":"")+'>'+coverOptions(q.target)+'</select></label>'+
+  '<div class="actions"><button class="btn small primary" data-action="cover-save-one" data-id="'+esc(q.id)+'" '+(!q.target||coverBusy?"disabled":"")+'>SAVE TO CONCERT</button>'+
+  '<button class="btn small" data-action="cover-remove-one" data-id="'+esc(q.id)+'" '+(coverBusy?"disabled":"")+'>REMOVE</button></div></div></article>').join("")+'</div>'+
+ '<div class="cover-queue-footer"><span class="meta">'+coverQueue.filter(q=>q.target).length+' of '+coverQueue.length+' matched</span>'+
+ '<div class="actions"><button class="btn primary" data-action="cover-save-all" '+(coverBusy||!coverQueue.some(q=>q.target)?"disabled":"")+'>SAVE ALL MATCHED</button>'+
+ '<button class="btn" data-action="cover-clear" '+(coverBusy?"disabled":"")+'>CLEAR UNSAVED PHOTOS</button></div></div>';
+}
+async function addCoverFiles(files){
+ if(!files.length||coverBusy)return;
+ if(!db){toast("Local photo storage is not available on this device");return;}
+ const remaining=Math.max(0,24-coverQueue.length);
+ if(!remaining){toast("Save or clear this batch before selecting more photos (24 maximum).");return;}
+ const chosen=files.slice(0,remaining);
+ coverBusy=true;
+ let errors=0;let added=0;
+ try{
+  for(const file of chosen){
+   try{
+    const blob=await photoCompressed(file,720,.78);
+    const url=URL.createObjectURL(blob);
+    coverQueue.push({id:uuid(),fileName:cleanText(file.name||"Camera photo",120),blob,url,target:""});
+    added++;
+   }catch(e){errors++;console.warn("Skipping unusable cover photo",e);}
+  }
+ }finally{coverBusy=false;}
+ drawCoverQueue();
+ toast(added+" cover photo"+(added===1?"":"s")+" ready to match"+(errors?", "+errors+" skipped":"")+".");
+}
+function removeQueued(id){
+ const i=coverQueue.findIndex(q=>q.id===id);
+ if(i<0)return;
+ URL.revokeObjectURL(coverQueue[i].url);
+ coverQueue.splice(i,1);
+ drawCoverQueue();
+}
+function clearQueued(){
+ for(const q of coverQueue)URL.revokeObjectURL(q.url);
+ coverQueue=[];
+ drawCoverQueue();
+}
+async function saveQueued(ids){
+ if(coverBusy||storageProblem)return;
+ const chosen=coverQueue.filter(q=>ids.includes(q.id)&&q.target);
+ if(!chosen.length){toast("Choose a concert for each cover first.");return;}
+ if(!db){toast("Local image storage unavailable");return;}
+ const targets=chosen.map(q=>q.target);
+ if(new Set(targets).size!==targets.length){toast("Two photos are matched to the same concert. Select different entries.");return;}
+ if(targets.some(id=>!state.discs.some(d=>d.id===id))){toast("A selected concert is no longer in the catalog.");return;}
+ const overwritten=targets.filter(id=>coverIds.has(id));
+ if(overwritten.length&&!confirm("Replace "+overwritten.length+" existing cover"+(overwritten.length===1?"":"s")+" with the selected photos?"))return;
+ coverBusy=true;drawCoverQueue();
+ let done=0;
+ try{
+  for(const q of chosen){
+   await coverPut(q.target,q.blob);
+   const idx=coverQueue.findIndex(x=>x.id===q.id);
+   if(idx>=0){URL.revokeObjectURL(coverQueue[idx].url);coverQueue.splice(idx,1);}
+   done++;
+  }
+ }catch(e){toast("Some photos were not saved: "+(e.message||e));}
+ finally{coverBusy=false;drawCoverQueue();await refreshCoverStats();}
+ if(done)toast(done+" cover photo"+(done===1?"":"s")+" saved locally to concert entries.");
+}
+
 function discKey(d){return [d.artist,d.title,d.format].map(x=>x.toLowerCase().trim().replace(/\s+/g," ")).join("|");}
 function header(){const c=counts();return '<section class="hero"><span class="eyebrow">YOUR LIVE MUSIC LIBRARY</span><h2>The concert never ends.</h2><p>Catalog the concert DVDs, Blu-rays, and 4K discs on your shelves. Keep track of great performances, surround sound mixes, favorites, and the next show to play.</p><div class="actions"><button class="btn primary" data-action="add">+ ADD A CONCERT</button><button class="btn ghost" data-view="pick">♫ WHAT SHOULD I WATCH?</button></div></section><div class="stats"><div class="stat"><strong>'+c.owned+'</strong><span>Owned discs</span></div><div class="stat"><strong>'+c.wishlist+'</strong><span>Wishlist</span></div><div class="stat"><strong>'+c.favorites+'</strong><span>Favorites</span></div><div class="stat"><strong>'+c.unwatched+'</strong><span>Not watched yet</span></div></div>';}
 function discCard(d){return '<article class="disc"><div class="cover" data-cover="'+esc(d.id)+'"><span class="no-cover">♫</span><span class="format">'+esc(d.format)+'</span></div><div class="disc-info"><span class="artist">'+esc(d.artist)+'</span><h3>'+esc(d.title)+'</h3><div class="meta">'+esc(d.year||d.releaseYear||"Year unknown")+(d.venue?' · '+esc(d.venue):'')+'</div><div class="meta">'+esc(d.audio)+(d.watched?' · Watched':'')+'</div><div class="meta stars">'+(d.favorite?"★ Favorite · ":"")+(d.rating>0?"★".repeat(d.rating):"")+'</div><div class="actions"><button class="btn small" data-action="edit" data-id="'+esc(d.id)+'">DETAILS</button><button class="btn small" data-action="favorite" data-id="'+esc(d.id)+'">'+(d.favorite?"★":"☆")+'</button><button class="btn small" data-action="watched" data-id="'+esc(d.id)+'">'+(d.watched?"WATCHED ✓":"WATCHED?")+'</button></div></div></article>';}
 function collectionPage(wishlist=false){
  const discs=state.discs.filter(d=>(wishlist?d.status==="Wishlist":d.status==="Owned")&&[d.artist,d.title,d.venue,d.notes,d.audio].join(" ").toLowerCase().includes(search.toLowerCase())&&(formatFilter==="All"||d.format===formatFilter)).sort((a,b)=>a.artist.localeCompare(b.artist)||a.title.localeCompare(b.title));
- return '<div class="section-head"><div><h2>'+(wishlist?"Wish List":"Your Concert Collection")+'</h2><p>'+(wishlist?"Concerts you hope to own someday.":"Your discs, performances and memories — all in one place.")+'</p></div><button class="btn primary" data-action="add">+ ADD</button></div>'+
+ return '<div class="section-head"><div><h2>'+(wishlist?"Wish List":"Your Concert Collection")+'</h2><p>'+(wishlist?"Concerts you hope to own someday.":"Your discs, performances and memories — all in one place.")+'</p></div><div class="actions"><button class="btn" data-view="covers">📷 COVER HELPER</button><button class="btn primary" data-action="add">+ ADD</button></div></div>'+
  '<div class="tools"><input id="searchInput" type="search" aria-label="Search concerts" placeholder="Search artist, title, venue or audio…" value="'+esc(search)+'"><select id="formatFilter" aria-label="Filter format">'+opts(["All",...FMT],formatFilter)+'</select></div>'+
  (discs.length?'<div class="cards">'+discs.map(discCard).join("")+'</div>':'<div class="empty"><div style="font-size:35px">♫</div><p>'+(search||formatFilter!=="All"?"No matching concerts. Try another filter.":wishlist?"Your wish list is empty. Add a performance you would love to own.":"Your concert shelf is ready. Add your first Blu-ray or DVD.")+'</p><button class="btn primary" data-action="add">+ ADD CONCERT</button></div>');
 }
@@ -92,10 +246,11 @@ function backupPage(){
 }
 function details(){if(storageProblem)return '<div class="notice alert">Saved catalog data cannot be read. The app has not reset or overwritten it. Use a previous backup or the original Home Screen app where you saved your concerts.</div>';if(recovered)return '<div class="notice">Recovered a previous collection from a local safety copy. Download a full backup now.</div>';return "";}
 function render(){
- view=location.hash.replace(/^#/,"")||"collection";if(!["collection","wishlist","pick","backup"].includes(view))view="collection";
- $("view").innerHTML=details()+(view==="collection"?header()+collectionPage():view==="wishlist"?collectionPage(true):view==="pick"?pickPage():backupPage());
+ view=location.hash.replace(/^#/,"")||"collection";if(!["collection","wishlist","pick","backup","covers"].includes(view))view="collection";
+ $("view").innerHTML=details()+(view==="collection"?header()+collectionPage():view==="wishlist"?collectionPage(true):view==="pick"?pickPage():view==="covers"?coverHelperPage():backupPage());
  document.querySelectorAll("[data-nav]").forEach(x=>x.classList.toggle("active",x.dataset.nav===view));
  urls.forEach(x=>URL.revokeObjectURL(x));urls=[];hydrateCovers().catch(e=>console.warn("Cover hydration",e));
+ if(view==="covers"){drawCoverQueue();refreshCoverStats().then(()=>{if(view==="covers")drawCoverQueue();}).catch(e=>console.warn("Cover metrics",e));}
 }
 async function hydrateCovers(){const nodes=[...document.querySelectorAll("[data-cover]")];for(const node of nodes){const id=node.getAttribute("data-cover"),blob=await coverGet(id);if(!node.isConnected||!blob)continue;const url=URL.createObjectURL(blob);urls.push(url);const image=document.createElement("img");image.alt="Your cover photo";image.src=url;const placeholder=node.querySelector(".no-cover");if(placeholder)placeholder.replaceWith(image);}}
 function openModal(id){
@@ -170,6 +325,13 @@ function bind(){
   if(button.dataset.view){location.hash="#"+button.dataset.view;return;}
   const action=button.dataset.action,id=button.dataset.id;
   if(action==="add")openModal();
+  if(action==="cover-batch"){$("coverBatchPicker").value="";$("coverBatchPicker").click();}
+  if(action==="cover-camera"){$("coverCameraPicker").value="";$("coverCameraPicker").click();}
+  if(action==="cover-refresh")await refreshCoverStats();
+  if(action==="cover-clear"&&!coverBusy&&confirm("Discard "+coverQueue.length+" unsaved photos from this batch?"))clearQueued();
+  if(action==="cover-remove-one"&&!coverBusy)removeQueued(id);
+  if(action==="cover-save-one")await saveQueued([id]);
+  if(action==="cover-save-all")await saveQueued(coverQueue.filter(q=>q.target).map(q=>q.id));
   if(action==="edit")openModal(id);
   if(action==="close")closeModal();
   if(action==="cover"){coverFor=id;$("coverPicker").value="";$("coverPicker").click();}
@@ -185,10 +347,14 @@ function bind(){
  });
  document.addEventListener("change",async e=>{
   if(e.target.id==="formatFilter"){formatFilter=e.target.value;render();}
-  if(e.target.id==="coverPicker"){const file=e.target.files?.[0];if(!file||!coverFor)return;try{const blob=await photoCompressed(file);await coverPut(coverFor,blob);closeModal();render();toast("Cover saved");}catch(err){toast(err.message);}}
+  if("coverTarget" in e.target.dataset){const item=coverQueue.find(q=>q.id===e.target.dataset.coverTarget);if(item)item.target=e.target.value;drawCoverQueue();}
+  if(e.target.id==="coverBatchPicker")await addCoverFiles(Array.from(e.target.files||[]));
+  if(e.target.id==="coverCameraPicker")await addCoverFiles(Array.from(e.target.files||[]));
+  if(e.target.id==="coverPicker"){const file=e.target.files?.[0];if(!file||!coverFor)return;try{const blob=await photoCompressed(file);await coverPut(coverFor,blob);closeModal();render();toast("Cover saved locally");}catch(err){toast(err.message);}}
   if(e.target.id==="backupPicker")await backupImport(e.target.files?.[0]);
  });
  document.addEventListener("input",e=>{
+  if(e.target.id==="coverFilter"){coverFilter=e.target.value;drawCoverQueue();return;}
   if(e.target.id==="searchInput"){search=e.target.value;const pos=e.target.selectionStart;render();const node=$("searchInput");if(node){node.focus();node.setSelectionRange(pos,pos);}}
  });
  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
