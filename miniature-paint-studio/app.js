@@ -41,6 +41,66 @@ function normalizeMini(item){
  x.customColors=Array.isArray(x.customColors)?x.customColors.filter(c=>/^#[0-9a-f]{6}$/i.test(c)).slice(0,8):[];
  return x;
 }
+// Approximate display-only swatches; these are NOT official manufacturer color values.
+// Existing manually selected colors are always honored. Never mutate saved inventory on load.
+const PAINT_SWATCH_BY_NUMBER={
+ "vallejo|72.036":"#c78f61","vallejo|70.811":"#7061a4","vallejo|72.016":"#533567","vallejo|70.959":"#875a94",
+ "vallejo|74.014":"#c2bacf","vallejo|74.013":"#a9af8a","vallejo|74.011":"#644c70","vallejo|70.955":"#deac88",
+ "vallejo|72.099":"#efb07f","vallejo|74.009":"#2d6153","vallejo|74.010":"#91839e","vallejo|74.012":"#bdb69f",
+ "vallejo|74.016":"#ece6d6","vallejo|74.015":"#f1e4c7",
+ "vallejo|72.106":"#be2936","vallejo|72.010":"#d93432","vallejo|70.817":"#d64c3d","vallejo|70.829":"#c54754",
+ "vallejo|70.957":"#c82e32","vallejo|70.859":"#642b30","vallejo|70.985":"#74443e","vallejo|70.730":"#e6fa3f",
+ "vallejo|70.953":"#f4cf38","vallejo|70.819":"#ccb88d",
+ "vallejo|72.029":"#4b916a","vallejo|70.942":"#8bbc64","vallejo|72.030":"#4b9453","vallejo|72.033":"#84b54e",
+ "vallejo|70.968":"#489260","vallejo|72.028":"#286c56","vallejo|70.894":"#7b8257","vallejo|70.871":"#886042",
+ "vallejo|70.879":"#78704f","vallejo|72.153":"#5b4939",
+ "vallejo|72.022":"#3458b1","vallejo|70.808":"#318d91","vallejo|72.024":"#45a6a9","vallejo|70.844":"#57b5d1",
+ "vallejo|70.809":"#31549e","vallejo|72.018":"#3d4a77","vallejo|72.019":"#27375e",
+ "vallejo|72.008":"#f76d24","vallejo|72.006":"#ffcd2f","vallejo|72.147":"#245149","vallejo|72.043":"#9a623b",
+ "vallejo|70.930":"#295d9e","vallejo|72.050":"#95989e","vallejo|72.040":"#98613d","vallejo|72.151":"#b78c3b"
+};
+const PAINT_SWATCH_BY_NAME={
+ "citadel|nihilakh oxide":"#5db7b0",
+ "citadel|biel-tan green":"#416b40",
+ "citadel|armageddon dunes":"#bcac7d",
+ "citadel|reikland fleshshade":"#976247",
+ "citadel|astrogranite debris":"#777c83",
+ "citadel|stirland mud":"#554333",
+ "citadel|agrellan earth":"#c0ae95",
+ "citadel|ushabti bone":"#e4d5ae",
+ "citadel|blood for the blood god":"#9b1224",
+ "citadel|nurgle's rot":"#a6b34f",
+ "citadel|sycorax bronze":"#b18a58",
+ "citadel|agrax earthshade":"#694930",
+ "citadel|magos purple":"#b48daa"
+};
+function paintDisplaySwatch(p){
+ const entered=typeof p.color==="string"&&/^#[0-9a-f]{6}$/i.test(p.color)?p.color.toLowerCase():"";
+ if(entered&&entered!=="#8a7357"&&entered!=="#979ca0")return entered;
+ const brand=String(p.brand||"").trim().toLowerCase();
+ const number=String(p.number||"").trim().toLowerCase();
+ const name=String(p.name||"").trim().toLowerCase();
+ const known=PAINT_SWATCH_BY_NUMBER[brand+"|"+number]||PAINT_SWATCH_BY_NAME[brand+"|"+name];
+ if(known)return known;
+ // Fallback by descriptive color family for uncatalogued paints.
+ const family=[
+  [/(?:ivory|white|bone|pale|cream)/,"#e7dcc5"],
+  [/(?:black|charcoal)/,"#373b41"],
+  [/(?:silver|steel|iron|metal|grey|gray|granite)/,"#89939b"],
+  [/(?:gold|brass|bronze|ochre)/,"#b89553"],
+  [/(?:purple|violet|lavender|magenta)/,"#885d9b"],
+  [/(?:turquoise|teal|cyan|aqua)/,"#4b9c9d"],
+  [/(?:blue)/,"#496caa"],
+  [/(?:green|olive|moss)/,"#63906b"],
+  [/(?:orange|rust)/,"#ce7541"],
+  [/(?:yellow)/,"#d3bc4f"],
+  [/(?:red|scarlet|crimson|blood)/,"#b95155"],
+  [/(?:brown|leather|earth|mud|sand|tan)/,"#947651"],
+  [/(?:flesh|skin)/,"#bf9984"]
+ ];
+ return family.find(([pattern])=>pattern.test(name))?.[1]||"#959da5";
+}
+
 function normalizePaint(p){
  const x=Object.assign({id:ID(),brand:"Vallejo",range:"Game Color",name:"",number:"",color:"#8a7357",notes:"",quantity:1},p||{});
  x.name=String(x.name||"").slice(0,90);x.brand=String(x.brand||"Vallejo").slice(0,60);x.range=String(x.range||"").slice(0,60);
@@ -562,7 +622,7 @@ function matchingPaints(need){
  const words=need.join(" ").toLowerCase().match(/\b(?:brown|black|red|blue|green|ivory|white|yellow|orange|gray|grey|steel|silver|gold|tan|khaki|flesh|metal|beige|copper|wash|primer)\b/g)||[];
  const unique=[...new Set(words)];
  const found=state.paints.filter(p=>unique.some(w=>(p.name+" "+p.notes).toLowerCase().includes(w))).slice(0,8);
- return found.length?'<div style="display:flex;gap:6px;flex-wrap:wrap">'+found.map(p=>'<span class="recipe-chip"><span style="background:'+esc(p.color)+';width:14px;height:14px;border-radius:50%;border:1px solid #0002"></span>'+esc(p.name)+' · '+esc(p.number)+'</span>').join("")+'</div><p>Suggested by color words only; confirm the color on your model before using it.</p>':'<p>No obvious name-based match from your rack yet. Check similar colors by eye.</p>';
+ return found.length?'<div style="display:flex;gap:6px;flex-wrap:wrap">'+found.map(p=>'<span class="recipe-chip"><span style="background:'+esc(paintDisplaySwatch(p))+';width:14px;height:14px;border-radius:50%;border:1px solid #0002"></span>'+esc(p.name)+' · '+esc(p.number)+'</span>').join("")+'</div><p>Suggested by color words only; confirm the color on your model before using it.</p>':'<p>No obvious name-based match from your rack yet. Check similar colors by eye.</p>';
 }
 function importScoutPaintBatch(input){
  if(typeof input!=="string"||!input.trim())throw Error("Paste a Scout paint batch first.");
@@ -607,12 +667,12 @@ function importScoutPaintBatch(input){
 function renderPaints(){
  const paints=state.paints.filter(p=>[p.brand,p.range,p.name,p.number].join(" ").toLowerCase().includes(paintSearch.toLowerCase()));
  return '<div class="page-head"><div><div class="eyebrow">PAINT THE COLORS YOU OWN</div><h1>My Paint Rack</h1><p>Catalog your actual Vallejo and other paints so tutorials can suggest colors already on your desk.</p></div><button class="btn btn-primary" data-add-paint>+ ADD PAINT</button></div>'+
- '<div class="panel accent"><h2>'+state.paints.length+' bottles cataloged</h2><p>We know from your station photo that you primarily paint with Vallejo, but I have not guessed your exact paint names or numbers. Add bottles as you go. Your inventory stays private on this device.</p><div class="actions"><button class="btn btn-primary btn-sm" data-add-paint>+ ADD A VALLEJO BOTTLE</button></div></div>'+
+ '<div class="panel accent"><h2>'+state.paints.length+' bottles cataloged</h2><p>We know from your station photo that you primarily paint with Vallejo, but I have not guessed your exact paint names or numbers. Add bottles as you go. Your inventory stays private on this device. Bottle icons now use approximate swatches based on paint names or product numbers; edit any swatch to fine-tune it.</p><div class="actions"><button class="btn btn-primary btn-sm" data-add-paint>+ ADD A VALLEJO BOTTLE</button></div></div>'+
  '<section class="panel" style="margin:16px 0"><div class="eyebrow">FASTER PAINT INVENTORY</div><h2>📷 Import from Scout</h2><p>Photograph a few paint bottles and send the pictures in your existing Scout conversation. I will identify readable labels and give you a paint batch to copy. Paste it below to add those bottles without typing each one.</p>'+
  '<form id="scoutPaintBatchForm"><label class="field">PASTE PAINT BATCH FROM SCOUT<textarea id="scoutPaintBatch" rows="5" maxlength="35000" placeholder=\'Paste the JSON paint batch Scout prepared from your bottle photos here…\' required></textarea></label><button class="btn btn-primary" type="submit" style="margin-top:10px">◉ IMPORT PAINT BATCH</button></form>'+
  '<p class="section-sub">New bottles are merged into your existing rack. Repeated bottles are skipped, not counted twice. Existing quantities, paint names and notes are never overwritten. You will review the import count before saving. All inventory stays on this device.</p></section>'+
  '<div class="tools-row"><input id="paintSearch" class="search-input" type="search" placeholder="Search paint, range or number…" value="'+esc(paintSearch)+'"></div>'+
- (paints.length?'<div class="paint-list">'+paints.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>'<article class="paint-card"><div class="paint-dot" style="--paint-color:'+esc(p.color)+'"></div><div class="paint-info"><strong>'+esc(p.name)+'</strong><span>'+esc(p.brand)+' '+esc(p.range)+' · '+esc(p.number||"No product number")+'</span><span>Qty '+p.quantity+(p.notes?" · "+esc(p.notes):"")+'</span></div><div class="paint-controls"><button class="btn btn-outline btn-sm" data-edit-paint="'+esc(p.id)+'">EDIT</button></div></article>').join("")+'</div>':'<div class="empty"><span class="icon">🎨</span>No paints here yet. Start by adding just five favorite Vallejo bottles—or change your search.</div>');
+ (paints.length?'<div class="paint-list">'+paints.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>'<article class="paint-card"><div class="paint-dot" style="--paint-color:'+esc(paintDisplaySwatch(p))+'"></div><div class="paint-info"><strong>'+esc(p.name)+'</strong><span>'+esc(p.brand)+' '+esc(p.range)+' · '+esc(p.number||"No product number")+'</span><span>Qty '+p.quantity+(p.notes?" · "+esc(p.notes):"")+'</span></div><div class="paint-controls"><button class="btn btn-outline btn-sm" data-edit-paint="'+esc(p.id)+'">EDIT</button></div></article>').join("")+'</div>':'<div class="empty"><span class="icon">🎨</span>No paints here yet. Start by adding just five favorite Vallejo bottles—or change your search.</div>');
 }
 function renderBackup(){
  return '<div class="page-head"><div><div class="eyebrow">KEEP YOUR WORK SAFE</div><h1>Backup & Restore</h1><p>Your project data is stored only in this browser/device. There is no account or Scout Cloud synchronization in this first version.</p></div></div>'+
@@ -662,7 +722,7 @@ function editPaint(id){
  '<label class="field">BRAND<select name="brand">'+["Vallejo","Citadel","Army Painter","Reaper","Other"].map(x=>'<option '+(x===data.brand?"selected":"")+'>'+x+'</option>').join("")+'</select></label>'+
  '<label class="field">PAINT RANGE<select name="range">'+["Game Color","Model Color","Game Wash","Model Wash","Mecha Color","Metal Color","Primer","Other"].map(x=>'<option '+(x===data.range?"selected":"")+'>'+x+'</option>').join("")+'</select></label>'+
  '<label class="field">PRODUCT NUMBER<input name="number" maxlength="30" value="'+esc(data.number)+'" placeholder="70.xxx or 72.xxx"></label>'+
- '<label class="field">APPROXIMATE SWATCH<input name="color" type="color" value="'+esc(data.color)+'" style="height:46px;padding:4px"></label>'+
+ '<label class="field">APPROXIMATE SWATCH<input name="color" type="color" value="'+esc(paintDisplaySwatch(data))+'" style="height:46px;padding:4px"></label>'+
  '<label class="field">BOTTLES OWNED<input name="quantity" type="number" min="0" max="99" step="1" value="'+esc(data.quantity)+'"></label>'+
  '<label class="field wide">NOTES<input name="notes" value="'+esc(data.notes)+'" maxlength="500" placeholder="Favorite for boots, needs thinning…"></label></div>'+
  '<div class="modal-foot">'+(p?'<button class="btn btn-danger" type="button" id="deletePaint">REMOVE</button>':"")+'<button type="button" class="btn btn-outline" data-close>CANCEL</button><button class="btn btn-primary" type="submit">SAVE PAINT</button></div></form>');
