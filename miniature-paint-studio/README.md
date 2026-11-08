@@ -1,8 +1,17 @@
-# Miniature Paint Studio · v1.7
+# Miniature Paint Studio · v1.8
 
 Standalone, mobile-friendly, local-first hobby studio for miniature painters. Live URL (after GitHub Pages deploy):
 
 https://beladiel.github.io/hof-card-scout/miniature-paint-studio/
+
+## v1.8 — personalized project painting workbench
+
+- The **Miniature Project** screen now shows palette colors paired with named, numbered paints that are actually present in the user's local Paint Rack (rather than just hex-color swatches). For generic or custom palettes, matching uses approximate color distance; matches are estimates, not picture recognition.
+- **My Painting Workbench** offers optional material-by-material suggested basecoat, shade, highlight, short technique tip and painting order. For the dual-axe Nova Aetas warrior, default suggestions use the shared character-card palette and preserve its clean-grimdark preferences. Draugr has its own skeleton/shield/metal/terrain materials; unfamiliar projects use a more generic guide.
+- Every named paint shown is drawn exclusively from the user's owned rack, quantity > 0. If none is available, the UI says so rather than inventing ownership.
+- Users can swap each material's basecoat to any owned paint, and check off completed material areas. These choices are stored per miniature in **recipeChoices** and **recipeDone**, included in normal backups, and preserved on every update.
+- The legacy generic painting stages, journal, full Scout painting plan, reference-image slots and locally stored photos are retained. This feature requires no AI API and does not auto-analyze image pixels.
+- All changes preserve the existing localStorage and IndexedDB keys. **Continue using the same existing Home Screen icon**; do not uninstall to get this release.
 
 ## v1.7 — matching paint swatches
 
