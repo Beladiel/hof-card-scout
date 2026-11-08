@@ -244,18 +244,138 @@ function renderInspiration(){
  const slots=[
  {slot:"before",name:"1 · YOUR MODEL",emoji:"⚔️",desc:"Photograph the unpainted model against a plain background."},
  {slot:"reference",name:"2 · ARTWORK / CHARACTER CARD",emoji:"🃏",desc:"Later, add the artwork from the board-game box or rulebook."},
- {slot:"concept",name:"3 · PAINTED CONCEPT",emoji:"🎨",desc:"Save an AI-painted preview created in ChatGPT or another tool."},
+ {slot:"concept",name:"3 · PAINTED CONCEPT",emoji:"🎨",desc:"Your new in-app AI-painted preview appears here automatically."},
  {slot:"finished",name:"4 · MY FINISHED MINI",emoji:"🏆",desc:"After your painting session, photograph your finished miniature."}
  ];
- return '<div class="page-head"><div><div class="eyebrow">IDEAS BEFORE THE FIRST BRUSHSTROKE</div><h1>Art-to-Mini Lab</h1><p>Use your actual unpainted miniature and original character artwork together to plan a painted look.</p></div></div>'+
+ return '<div class="page-head"><div><div class="eyebrow">IDEAS BEFORE THE FIRST BRUSHSTROKE</div><h1>Art-to-Mini Lab</h1><p>Upload just your unpainted miniature to generate a painted concept. Add artwork only when you want an exact reference.</p></div></div>'+
  '<label class="field" style="max-width:450px;margin-bottom:18px">CHOOSE MINIATURE<select id="inspireMini">'+state.miniatures.map(m=>'<option value="'+esc(m.id)+'" '+(m.id===p.id?"selected":"")+'>'+esc(m.name)+' · '+esc(m.game||"Unassigned")+'</option>').join("")+'</select></label>'+
  '<div class="art-grid">'+slots.map(s=>'<div class="art-slot"><div class="art-image" data-photo-key="'+esc(p.id)+'|'+s.slot+'"><span class="art-emoji">'+s.emoji+'</span></div><div class="art-bottom"><strong>'+esc(s.name)+'</strong><p>'+esc(s.desc)+'</p><div class="art-actions"><button class="btn btn-primary btn-sm" data-photo="'+esc(p.id)+'|'+s.slot+'">📷 ADD / REPLACE</button><button class="btn btn-soft btn-sm" data-remove-photo="'+esc(p.id)+'|'+s.slot+'">REMOVE</button></div></div></div>').join("")+'</div>'+
- '<div class="mini-alert"><strong>AI preview status:</strong> The app can save your model photo, reference artwork, color palettes and a generated concept. Direct AI image generation is not yet connected. To make a faithful mockup now, upload both pictures to your ChatGPT conversation and use the copyable prompt below.</div>'+
+ '<section class="panel ai-preview-panel" style="margin-top:16px"><div class="eyebrow">FREE · IN-APP IMAGE-TO-IMAGE AI</div><h2>Paint My Mini — AI Preview</h2><p>Upload just your unpainted miniature above, choose a style, and generate a painted concept here. <strong>No artwork card required.</strong></p><div class="form-grid"><label class="field">PAINTING LOOK<select id="aiStyle"><option value="surprise">🎲 Surprise Me!</option><option value="renaissance">Renaissance Adventurer</option><option value="fantasy">Dark Fantasy</option><option value="heroic">Bright Heroic</option><option value="realistic">Realistic &amp; Weathered</option><option value="custom">My Own Idea</option></select></label><label class="field wide">OPTIONAL DETAILS<textarea id="aiExtra" maxlength="400" rows="2" placeholder="For example: emerald cloak, leather boots, bronze armor, glowing magical sword"></textarea></label></div><div class="actions"><button class="btn btn-primary" id="generatePaintPreview">🎨 GENERATE FREE PAINTED PREVIEW</button></div><p class="ai-status" id="aiStatus" role="status">This uses free, volunteer-powered AI Horde image-to-image generation. Your model photo is sent to volunteer machines; do not use private photos. Anonymous jobs may be slow or unavailable, and results may change sculpt details.</p><div id="aiResult" class="ai-result" aria-live="polite"></div></section>'+
  '<div class="two-col"><section class="panel"><div class="kicker">ARTWORK COLORS / PAINT PALETTE</div><h2>'+esc(palette.name)+'</h2><p>'+esc(palette.note)+'</p><div class="swatches">'+paletteChips(palette.colors)+'</div>'+
  '<div class="actions"><button class="btn btn-primary btn-sm" id="extractColors">◉ EXTRACT ARTWORK COLORS</button><button class="btn btn-outline btn-sm" id="resetPalette">RESET TO PRESET</button></div><hr class="divider"><label class="field">OR TRY A HAND-PICKED PALETTE<select id="schemeChoice">'+SCHEMES.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===p.schemeId?"selected":"")+'>'+esc(x.name)+'</option>').join("")+'</select></label></section>'+
  '<section class="panel warm"><div class="kicker">THE FIRST PAINTING PLAN</div><h2>Plan a brush session</h2><p>Build the colors on the table before starting your mini.</p><div class="info-list"><div class="info-line"><strong>Start with your dominant fabric color</strong><p>Use the broadest surfaces as your base color anchor. Darken creases, then catch the upward-facing ridges.</p></div><div class="info-line"><strong>Leather and blades next</strong><p>Practice worn leather on boots and handles, then dark-to-bright metallics on the weapons.</p></div></div><div class="actions" style="margin-top:10px"><button class="btn btn-primary btn-sm" data-open-lesson="leather">LEATHER LESSON</button><button class="btn btn-outline btn-sm" data-open-lesson="steel">STEEL LESSON</button></div></section></div>'+
- '<section class="panel" style="margin-top:16px"><div class="eyebrow">COPY INTO CHATGPT</div><h2>My Art-to-Mini Preview Request</h2><p>Copy this prompt, then upload your unpainted-miniature photo and character art to our conversation. Your model is the primary shape reference; the card is the color reference.</p><textarea id="previewPrompt" readonly>'+esc(previewPrompt(p))+'</textarea><div class="actions" style="margin-top:10px"><button class="btn btn-primary" id="copyPreviewPrompt">📋 COPY PREVIEW PROMPT</button><button class="btn btn-outline" data-open-mini="'+esc(p.id)+'">BACK TO PROJECT</button></div></section>';
+ '<section class="panel" style="margin-top:16px"><div class="eyebrow">OPTIONAL PROMPT EXPORT</div><h2>Advanced Painting Prompt</h2><p>Use the free generator above for in-app previews. You can also copy this prompt for other image tools if you wish.</p><textarea id="previewPrompt" readonly>'+esc(previewPrompt(p))+'</textarea><div class="actions" style="margin-top:10px"><button class="btn btn-primary" id="copyPreviewPrompt">📋 COPY PREVIEW PROMPT</button><button class="btn btn-outline" data-open-mini="'+esc(p.id)+'">BACK TO PROJECT</button></div></section>';
 }
+
+let aiPreviewRunning=false;
+let aiPreviewAbort=null;
+function aiStatus(message){
+ const el=$("aiStatus");if(el)el.textContent=message;
+}
+function aiPreviewPrompt(p,style,extra){
+ const choices={
+  surprise:["burgundy travel cloak, worn brown leather, aged polished steel, antique gold fittings, warm natural skin, rich earthy tones","blue and ivory clothing, bronze trims, weathered leather, realistic steel, subtle gem details","forest green fabric, dark brown leather, hammered iron, warm brass and realistic skin","muted plum and ochre cloth, aged copper, dark leather and realistic steel"],
+  renaissance:["muted Renaissance burgundy and ochre cloth, antique bronze, worn leather boots, realistic steel"],
+  fantasy:["dark fantasy blackened iron armor, shadowed plum fabric, deep crimson cloth, dark leather, selective arcane turquoise highlights"],
+  heroic:["vivid royal blue and crimson, bright gold details, polished silver metal, crisp high-contrast edge highlights"],
+  realistic:["natural weathered browns and olive fabric, rusted iron, subtle dirt and leather wear, muted realistic shades"],
+  custom:["thoughtfully chosen, coherent fantasy miniature color palette"]
+ };
+ const options=choices[style]||choices.surprise;
+ const colors=options[style==="surprise"?Math.floor(Math.random()*options.length):0];
+ const extras=String(extra||"").slice(0,400).trim();
+ const description="A highly detailed tabletop gaming miniature, painted by a skillful human hobbyist with layered Vallejo-style acrylic paints, standing on the EXACT SAME small gaming base, photographed as a physical collectible plastic miniature on a neutral background. Carefully repaint the exact figure in the source photograph. Preserve the sculpt, pose, silhouette, number of arms, weapons, armor, clothing and the original base. Real physical miniature with visible fine brushwork, precise basecoats, shaded recesses, tasteful highlights, realistic painted textures, macro studio photograph. Color scheme: "+colors+". "+(extras?"Extra instructions: "+extras+". ":"")+"The source image is an unpainted real tabletop miniature: convert its gray surfaces to a believable finished hand-painted miniature, not a human-size fantasy character.";
+ const negative="painting on canvas, illustration, digital character concept art, new weapon, changed pose, extra limbs, extra fingers, duplicate weapons, different model, human-size person, distorted anatomy, excessive glow, blurry, text, watermark, logo, cropped miniature";
+ return description+"###"+negative;
+}
+async function makeHordeSource(blob){
+ const src=URL.createObjectURL(blob);
+ try{
+  const img=new Image();img.src=src;
+  await new Promise((resolve,reject)=>{if(img.complete&&img.naturalWidth)return resolve();img.onload=resolve;img.onerror=()=>reject(Error("Could not read this miniature photo."));});
+  const canvas=document.createElement("canvas");canvas.width=512;canvas.height=512;
+  const ctx=canvas.getContext("2d");ctx.fillStyle="#e9e7e2";ctx.fillRect(0,0,512,512);
+  const ratio=Math.min(480/img.naturalWidth,480/img.naturalHeight);
+  const w=img.naturalWidth*ratio,h=img.naturalHeight*ratio;
+  ctx.drawImage(img,(512-w)/2,(512-h)/2,w,h);
+  return canvas.toDataURL("image/jpeg",.86).split(",")[1];
+ }finally{URL.revokeObjectURL(src);}
+}
+async function hordeFetch(path,options){
+ const response=await fetch("https://aihorde.net/api/v2"+path,options);
+ let data={};try{data=await response.json();}catch{}
+ if(!response.ok)throw Error(data.message||data.error||("AI Horde request failed (HTTP "+response.status+")."));
+ return data;
+}
+async function hordeResultBlob(result){
+ if(typeof result!=="string"||!result)throw Error("AI returned no image.");
+ if(/^https:\/\//i.test(result)){
+  const response=await fetch(result);
+  if(!response.ok)throw Error("Generated image could not be downloaded.");
+  const blob=await response.blob();
+  if(!blob.type.startsWith("image/"))throw Error("The returned file was not an image.");
+  return blob;
+ }
+ if(result.startsWith("data:image/"))return dataUrlToBlob(result);
+ return dataUrlToBlob("data:image/webp;base64,"+result);
+}
+async function generatePaintPreview(){
+ const p=mini(activeMiniId);if(!p)return;
+ if(aiPreviewRunning){notice("A preview is already generating.");return;}
+ const blob=await photoGet(p.id,"before");
+ if(!blob){notice("First add a photo in the YOUR MODEL slot.");aiStatus("Add your unpainted miniature photograph first.");return;}
+ const style=$("aiStyle")?.value||"surprise",extra=$("aiExtra")?.value||"";
+ const button=$("generatePaintPreview");
+ aiPreviewRunning=true;aiPreviewAbort=new AbortController();
+ if(button){button.disabled=true;button.textContent="🎨 GENERATING…";}
+ try{
+  aiStatus("Preparing your miniature photo and sending it securely over HTTPS to volunteer AI workers…");
+  const source=await makeHordeSource(blob);
+  const job=await hordeFetch("/generate/async",{
+   method:"POST",
+   headers:{"Content-Type":"application/json","apikey":"0000000000","Client-Agent":"MiniaturePaintStudio:1.1:github.com/Beladiel/hof-card-scout"},
+   signal:aiPreviewAbort.signal,
+   body:JSON.stringify({
+    prompt:aiPreviewPrompt(p,style,extra),source_image:source,source_processing:"img2img",
+    params:{width:512,height:512,n:1,steps:22,cfg_scale:7,sampler_name:"k_euler_a",denoising_strength:0.62,karras:true},
+    nsfw:false,censor_nsfw:true,allow_downgrade:true,r2:true,shared:true
+   })
+  });
+  if(!job.id)throw Error("No generation job was returned. Please try again.");
+  aiStatus("Your free preview is queued. Anonymous requests have lower priority; leave this page open.");
+  let status=null;
+  for(let attempt=0;attempt<100;attempt++){
+   await new Promise(resolve=>setTimeout(resolve,6000));
+   const check=await hordeFetch("/generate/check/"+encodeURIComponent(job.id),{signal:aiPreviewAbort.signal});
+   if(check.faulted)throw Error("The AI worker could not complete this image. Try again.");
+   if(check.done){
+    status=await hordeFetch("/generate/status/"+encodeURIComponent(job.id),{signal:aiPreviewAbort.signal});
+    break;
+   }
+   const wait=Number.isFinite(check.wait_time)?(" Rough estimate: "+Math.ceil(check.wait_time/60)+" min."):"";
+   aiStatus("Free generation in progress… "+(check.processing? "A worker is painting your mini.":"Waiting for an available volunteer worker.")+wait);
+  }
+  if(!status)throw Error("No worker finished within 10 minutes. Please try again later.");
+  const generation=status.generations?.[0];
+  if(!generation||generation.censored||!generation.img)throw Error("The worker returned no usable image. Please try another style.");
+  let saved=false;
+  try{
+   const painted=await hordeResultBlob(generation.img);
+   await photoSet(p.id,"concept",painted);
+   p.updatedAt=now();save();saved=true;
+  }catch(err){
+   if(!/^https:\/\//i.test(generation.img))throw err;
+   const result=$("aiResult");
+   if(result){
+    result.innerHTML="";
+    const im=document.createElement("img");im.src=generation.img;im.alt="AI-painted miniature preview";
+    im.style.cssText="max-width:100%;border-radius:12px;display:block;margin:10px auto;";
+    const note=document.createElement("p");note.textContent="Your preview is ready, but automatic saving was blocked by the image host. Long-press the image to save it, then add it to PAINTED CONCEPT.";
+    result.append(im,note);
+   }
+  }
+  if(saved){aiStatus("Your painted preview is ready and saved to PAINTED CONCEPT on this device.");render();notice("AI-painted mini preview saved!");}
+  else aiStatus("Generated successfully. Save the image manually to keep it.");
+ }catch(err){
+  const detail=err instanceof TypeError?"Could not connect to AI Horde from this browser (network or cross-site access).":(err.message||String(err));
+  aiStatus("Preview failed: "+detail+" This free community service may be busy; try again later.");
+  notice("AI preview unavailable. See message in Art-to-Mini.");
+ }finally{
+  aiPreviewRunning=false;aiPreviewAbort=null;
+  const fresh=$("generatePaintPreview");if(fresh){fresh.disabled=false;fresh.textContent="🎨 GENERATE FREE PAINTED PREVIEW";}
+ }
+}
+
 function previewPrompt(p){
  return "Using my attached photos, create a realistic studio photograph of my ACTUAL "+p.name+" miniature from "+(p.game||"a tabletop game")+" painted by hand. Preserve the physical sculpt's pose, proportions, weapons, costume, base, and all visible details. Use the second image (character artwork) for the character's colors and materials, translating impossible art details into paintable miniature effects. Use achievable Vallejo-style acrylic techniques such as layered basecoats, washes, highlights and edge accents. Keep the same model, not a redesigned character. Plain background, macro miniature photography. Current palette direction: "+sourcePalette(p).name+" — "+sourcePalette(p).note+".";
 }
@@ -463,11 +583,12 @@ function wire(){
   if(data.removePhoto){const [id,slot]=data.removePhoto.split("|");await removePhoto(id,slot);return;}
   if(btn.id==="exportBackup"){await exportBackup();return;}
   if(btn.id==="importBackup"){$("restorePicker").value="";$("restorePicker").click();return;}
+  if(btn.id==="generatePaintPreview"){await generatePaintPreview();return;}
   if(btn.id==="extractColors"){await extractArtColors(activeMiniId);return;}
   if(btn.id==="resetPalette"){const p=mini(activeMiniId);if(p){p.customColors=[];save();render();notice("Using the selected preset again.");}return;}
   if(btn.id==="copyPreviewPrompt"){
    const text=$("previewPrompt")?.value||"";
-   try{await navigator.clipboard.writeText(text);notice("Prompt copied. Add your two photos to ChatGPT.");}
+   try{await navigator.clipboard.writeText(text);notice("Prompt copied. Use this prompt in your preferred image tool.");}
    catch{$("previewPrompt").select();notice("Select and copy the prompt from the text box.");}
    return;
   }
