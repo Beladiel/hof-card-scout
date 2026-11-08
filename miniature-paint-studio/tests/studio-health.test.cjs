@@ -61,10 +61,10 @@ test("Photo storage, export, import and privacy boundaries are explicit",()=>{
  assert.match(src,/await photoClear\(\)/);
  assert.match(src,/photos\[photoKey\(p.id,slot\)\]=await fileToDataUrl\(blob\)/);
  assert.match(src,/AI Horde/i);
- assert.match(html,/academy\.js\?v=3/);
- assert.match(html,/app\.js\?v=3/);
- assert.match(html,/styles\.css\?v=3/);
- assert.match(sw,/mini-paint-studio-shell-v3/);
+ assert.match(html,/academy\.js\?v=4/);
+ assert.match(html,/app\.js\?v=4/);
+ assert.match(html,/styles\.css\?v=4/);
+ assert.match(sw,/mini-paint-studio-shell-v4/);
  assert.equal(manifest.start_url,"./");
  assert.ok(css.includes("@media(max-width:550px)"));
 });
@@ -92,15 +92,23 @@ test("Free in-app AI image-to-image is wired with clear privacy boundaries",asyn
  assert.match(inspiration,/No artwork card required/);
 });
 
-test("Paint with Scout offers a free manual photo share and import workflow",async()=>{
+test("Paint with Scout copies a ready-to-paste prompt into the same conversation",async()=>{
  const app=openStudio();await app.ready();
- const html=app.page("inspiration/nova-warrior");
- assert.match(html,/Paint with Scout/);
- assert.match(html,/copyScoutRequest/);
- assert.match(html,/shareScoutMini/);
- assert.match(html,/importScoutPreview/);
- assert.match(html,/No separate AI API fees/);
+ const page=app.page("inspiration/nova-warrior");
+ assert.match(page,/Paint with Scout/);
+ assert.match(page,/copyScoutRequest/);
+ assert.match(page,/scoutPromptText/);
+ assert.match(page,/Save Original Photo/);
+ assert.match(page,/Return to our existing chat/);
+ assert.match(page,/importScoutPreview/);
+ assert.match(page,/ADD SAVED PAINTED PREVIEW/);
+ assert.doesNotMatch(page,/openScoutChat/);
+ assert.doesNotMatch(page,/shareScoutMini/);
+ assert.doesNotMatch(page,/href="https:\/\/chatgpt\.com/);
  assert.match(src,/function scoutPaintPrompt/);
- assert.match(src,/await navigator\.share\(/);
+ assert.match(src,/function updateScoutPrompt/);
+ assert.match(src,/if\(el\.id==="scoutStyle"\)/);
+ assert.match(src,/if\(e\.target\.id==="scoutNotes"\)/);
  assert.ok(src.includes('photoTarget=p.id+"|concept"'));
+ assert.doesNotMatch(src,/window\.open\("https:\/\/chatgpt\.com\//);
 });
