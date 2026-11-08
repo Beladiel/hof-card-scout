@@ -2,6 +2,7 @@
 (function(){
 "use strict";
 const APP_KEY="miniPaintStudioV1";
+const SAFETY_KEY="miniPaintStudioV1SafetyCopy";
 const DB_NAME="miniPaintStudioPhotosV1";
 const PHOTO_SLOTS=["before","reference","concept","finished"];
 const STATUS=["Unpainted","Primed","Painting","Finished"];
@@ -19,6 +20,7 @@ const esc=value=>String(value==null?"":value).replace(/[&<>"']/g,c=>({"&":"&amp;
 const now=()=>new Date().toISOString();
 const shortDate=value=>{const d=new Date(value);return isNaN(d.getTime())?"Unknown":d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});};
 const ID=()=>typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID():"m"+Date.now().toString(36)+Math.random().toString(36).slice(2);
+let storageProblem=false,storageRecovered=false;
 let state={version:1,miniatures:[],paints:[],lessonProgress:{}},db=null,route="home",activeMiniId="",activeLessonId="",photoTarget=null,photoUrls=[],renderSerial=0,toastTimer=0,projectFilter="all",projectSearch="",paintSearch="";
 const sample={
  id:"nova-warrior",name:"Dual-Axe Warrior",game:"Nova Aetas Renaissance",type:"Character / Hero",status:"Unpainted",
@@ -45,19 +47,77 @@ function normalizePaint(p){
  x.number=String(x.number||"").slice(0,30);x.notes=String(x.notes||"").slice(0,500);x.quantity=Math.max(0,Math.min(99,Number(x.quantity)||0));
  x.color=/^#[0-9a-f]{6}$/i.test(x.color)?x.color:"#8a7357";return x;
 }
+function parseSavedWorkspace(raw){
+ if(typeof raw!=="string"||!raw.trim())return null;
+ const parsed=JSON.parse(raw);
+ if(!parsed||!Array.isArray(parsed.miniatures)||!Array.isArray(parsed.paints))return null;
+ return {version:1,miniatures:parsed.miniatures.map(normalizeMini),paints:parsed.paints.map(normalizePaint),
+  lessonProgress:parsed.lessonProgress&&typeof parsed.lessonProgress==="object"?parsed.lessonProgress:{}};
+}
 function load(){
+ let primary=null,safety=null;
  try{
-  const parsed=JSON.parse(localStorage.getItem(APP_KEY)||"null");
-  if(parsed&&Array.isArray(parsed.miniatures)){
-   state={version:1,miniatures:parsed.miniatures.map(normalizeMini),paints:Array.isArray(parsed.paints)?parsed.paints.map(normalizePaint):[],lessonProgress:parsed.lessonProgress&&typeof parsed.lessonProgress==="object"?parsed.lessonProgress:{}};
+  primary=localStorage.getItem(APP_KEY);
+  safety=localStorage.getItem(SAFETY_KEY);
+ }catch(e){
+  storageProblem=true;
+  console.warn("Studio storage cannot be read. No existing data was overwritten.",e);
+  return;
+ }
+ try{
+  const loaded=parseSavedWorkspace(primary);
+  if(loaded){
+   state=loaded;
+   try{localStorage.setItem(SAFETY_KEY,primary);}catch(e){console.warn("Could not refresh local safety copy",e);}
    return;
   }
- }catch(e){console.warn("Studio data load",e);}
- state.miniatures=[normalizeMini(sample)];save();
+ }catch(e){console.warn("Primary project data cannot be read; checking safety copy",e);}
+ try{
+  const recovered=parseSavedWorkspace(safety);
+  if(recovered){
+   state=recovered;storageRecovered=true;
+   try{localStorage.setItem(APP_KEY,JSON.stringify(state));}
+   catch(e){console.warn("Project recovered in memory; could not write primary storage",e);}
+   return;
+  }
+ }catch(e){console.warn("Safety copy cannot be read",e);}
+ if(primary!==null||safety!==null){
+  storageProblem=true;
+  console.warn("Saved data is present but unreadable. Automatic sample reset is disabled to protect it.");
+  return;
+ }
+ // A new storage context (Safari, home-screen PWA, embedded browser) starts here.
+ state.miniatures=[normalizeMini(sample)];
+ save();
 }
 function save(){
- try{localStorage.setItem(APP_KEY,JSON.stringify(state));return true;}
- catch(err){notice("Device storage is full. Export a backup and free space.");console.warn("Studio save",err);return false;}
+ if(storageProblem){
+  notice("Saved project data needs recovery; changes are blocked to avoid overwriting it.");
+  return false;
+ }
+ try{
+  const serialized=JSON.stringify(state);
+  localStorage.setItem(APP_KEY,serialized);
+  try{localStorage.setItem(SAFETY_KEY,serialized);}
+  catch(e){console.warn("Could not update local safety copy",e);}
+  return true;
+ }catch(err){
+  notice("Device storage is full or unavailable. Export a backup before making more changes.");
+  console.warn("Studio save",err);return false;
+ }
+}
+function storageBanner(){
+ if(storageProblem){
+  return '<div class="mini-alert"><strong>Saved data needs recovery.</strong> We detected unreadable or inaccessible browser storage. To protect the original data, Studio did NOT replace it with the starter miniature and is blocking new saves. If you have a Studio backup, use Backup & Restore. If you previously used another Safari tab or Home Screen app, open that original one first. <button class="btn btn-outline btn-sm" data-navto="backup">BACKUP & RESTORE</button></div>';
+ }
+ if(storageRecovered){
+  return '<div class="mini-alert"><strong>Your collection was recovered from an on-device safety copy.</strong> Please use Backup & Restore to download a complete backup, including photos. <button class="btn btn-outline btn-sm" data-navto="backup">BACK UP NOW</button></div>';
+ }
+ const starterOnly=state.miniatures.length===1&&state.miniatures[0].id==="nova-warrior"&&state.paints.length===0;
+ if(starterOnly){
+  return '<div class="mini-alert"><strong>Missing a miniature, like your Draugr?</strong> This browser currently shows only the starter project. Safari, the Home Screen app and in-app browsers may hold separate local collections. Open the original location where you added your mini and export a complete backup before entering anything again. Opening new release links does not transfer local data. <button class="btn btn-outline btn-sm" data-navto="backup">BACKUP & RESTORE</button></div>';
+ }
+ return '';
 }
 function notice(msg){
  const box=$("toast");if(!box)return;
@@ -178,7 +238,7 @@ function render(){
  parseRoute();renderSerial++;const serial=renderSerial;revokePhotoUrls();
  document.querySelectorAll("[data-nav]").forEach(el=>el.classList.toggle("active",el.dataset.nav===(route==="mini"?"projects":route==="lesson"?"academy":route)));
  const views={home:renderHome,projects:renderProjects,mini:renderMini,inspiration:renderInspiration,academy:renderAcademy,lesson:renderLesson,paints:renderPaints,backup:renderBackup};
- $("view").innerHTML=views[route]();
+ $("view").innerHTML=storageBanner()+views[route]();
  hydratePhotos(serial).catch(e=>console.warn("Photo display",e));
 }
 function pct(n,d){return d?Math.round(100*n/d):0;}
@@ -198,6 +258,7 @@ function renderHome(){
  const games=[...new Set(state.miniatures.map(m=>m.game).filter(Boolean))];
  return '<section class="hero"><div class="eyebrow">YOUR CREATIVE WORKBENCH</div><h1>From gray plastic<br>to tiny masterpieces.</h1><p>Organize your board-game miniatures, test color schemes, learn techniques, and save every brushstroke of progress. Built for your Vallejo painting station.</p><div class="actions"><button class="btn btn-light" data-navto="projects">⚔ MY MINIATURES</button><button class="btn btn-outline" data-navto="inspiration">✦ ART-TO-MINI LAB</button></div><div class="hero-stamp">⚔</div></section>'+
  '<div class="stats-grid"><div class="stat"><div class="stat-number">'+total+'</div><div class="stat-label">Miniatures</div></div><div class="stat"><div class="stat-number">'+finished+'</div><div class="stat-label">Finished</div></div><div class="stat"><div class="stat-number">'+active+'</div><div class="stat-label">In Progress</div></div><div class="stat"><div class="stat-number">'+state.paints.length+'</div><div class="stat-label">Paints Cataloged</div></div></div>'+
+ '<div class="actions"><button class="btn btn-outline btn-sm" id="exportBackup">↓ BACK UP MY PROJECTS AND PHOTOS</button></div>'+
  '<div class="section-head"><div><h2 class="section-title">At the Workbench</h2><p class="section-sub">Pick up where you left off.</p></div><button class="btn btn-outline btn-sm" data-add-mini>+ ADD MINI</button></div>'+
  (next?'<div class="two-col"><article class="panel accent"><div class="eyebrow">YOUR NEXT MODEL</div><h2>'+esc(next.name)+'</h2><p>'+esc(next.game||"Unassigned game")+' · '+esc(next.status)+' · '+next.steps.length+'/'+STAGES.length+' painting stages</p><div class="step-progress"><span style="width:'+pct(next.steps.length,STAGES.length)+'%"></span></div><div class="actions" style="margin-top:17px"><button class="btn btn-primary" data-open-mini="'+esc(next.id)+'">OPEN PROJECT</button><button class="btn btn-outline" data-inspire="'+esc(next.id)+'">PREVIEW COLORS</button></div></article>'+
  '<article class="panel warm"><div class="eyebrow">PAINTING ACADEMY</div><h2>Start with worn leather</h2><p>Perfect practice for belts, boots, and weapon grips on your Nova Aetas adventurer.</p><button class="btn btn-primary btn-sm" data-open-lesson="leather">LEARN LEATHER →</button></article></div>':
@@ -692,7 +753,11 @@ async function importBackup(file){
   for(const [key,blob] of photoEntries){
    const cut=key.lastIndexOf(":");await photoSet(key.slice(0,cut),key.slice(cut+1),blob);
   }
-  state=prepared;save();activeMiniId=state.miniatures[0]?.id||"";routeTo("home");render();notice("Backup restored successfully.");
+  state=prepared;
+  const wasBlocked=storageProblem;
+  storageProblem=false;storageRecovered=false;
+  if(!save()){storageProblem=wasBlocked;throw Error("Restored data could not be saved. Check browser storage.");}
+  activeMiniId=state.miniatures[0]?.id||"";routeTo("home");render();notice("Backup restored successfully.");
  }catch(e){notice("Restore failed: "+(e.message||e));}
 }
 function wire(){
