@@ -48,7 +48,7 @@ function render(){
   $("pmMilestone").textContent=!r.length?"Your Hall cards will appear here once owned.":
     c.yes===r.length?"🏆 Every eligible Hall card is photographed!":
     verified===0?"Run your first cloud check to count the photos you've already uploaded.":
-    "Next photo milestone: "+next+" · "+Math.max(0,next-c.yes)+" photos to go!";
+    "Next photo milestone: "+next+" · "+Math.max(0,next-c.yes)+" photo"+(next-c.yes===1?"":"s")+" to go!";
   $("pmSummary").textContent=(c.unknown?c.unknown+" card(s) not verified. ":"")+
     (s.lastScan?"Last complete check: "+new Date(s.lastScan).toLocaleDateString()+". ":"")+
     "Cards in transit are excluded. Special Collection stays separate.";
@@ -80,7 +80,7 @@ async function scan(){
   const roster=players();
   if(!roster.length){notify("No arrived Hall cards to scan yet.");return;}
   running=true;controller=new AbortController();const signal=controller.signal;
-  let cursor=0,done=0,failed=0;
+  let cursor=0,done=0,failed=0,authFailure=false;
   const state=load();
   notify("Checking cloud photos: 0 of "+roster.length);render();
   async function worker(){
@@ -92,6 +92,7 @@ async function scan(){
         });
         if(res.body)res.body.cancel().catch(()=>{});
         if(res.ok||res.status===404)state.photos[p.name]={hasPhoto:res.ok,checkedAt:new Date().toISOString()};
+        else if(res.status===401||res.status===403){authFailure=true;failed++;controller.abort();return;}
         else failed++;
       }catch(err){if(signal.aborted)return;failed++;}
       done++;
@@ -104,7 +105,8 @@ async function scan(){
     await Promise.all(Array.from({length:Math.min(3,roster.length)},()=>worker()));
     if(!signal.aborted&&failed===0)state.lastScan=new Date().toISOString();
     save(state);
-    notify(signal.aborted?"Check stopped. Results already verified are saved.":"Check finished: "+done+" checked"+(failed?", "+failed+" unavailable":".")+" Tap a card to open its photo controls.");
+    notify(authFailure?"Scout Cloud rejected the connection key. Check the Scout Connection settings; no card data was changed.":
+      signal.aborted?"Check stopped. Results already verified are saved.":"Check finished: "+done+" checked"+(failed?", "+failed+" unavailable":".")+" Tap a card to open its photo controls.");
   }finally{running=false;controller=null;render();}
 }
 function onPhotoChanged(event){
@@ -154,7 +156,7 @@ function init(config){
   $("pmList").addEventListener("click",e=>{
     const btn=e.target.closest("[data-pm-name]");if(!btn)return;
     const p=players().find(x=>x.name===btn.dataset.pmName);
-    if(p)opts.openPlayer(p);
+    if(p){if(controller)controller.abort();opts.openPlayer(p);}
   });
   document.addEventListener("scout:card-photo-changed",onPhotoChanged);
   render();
