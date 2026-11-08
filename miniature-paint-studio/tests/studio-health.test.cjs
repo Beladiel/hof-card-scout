@@ -61,10 +61,10 @@ test("Photo storage, export, import and privacy boundaries are explicit",()=>{
  assert.match(src,/await photoClear\(\)/);
  assert.match(src,/photos\[photoKey\(p.id,slot\)\]=await fileToDataUrl\(blob\)/);
  assert.match(src,/AI Horde/i);
- assert.match(html,/academy\.js\?v=7/);
- assert.match(html,/app\.js\?v=7/);
- assert.match(html,/styles\.css\?v=7/);
- assert.match(sw,/mini-paint-studio-shell-v7/);
+ assert.match(html,/academy\.js\?v=8/);
+ assert.match(html,/app\.js\?v=8/);
+ assert.match(html,/styles\.css\?v=8/);
+ assert.match(sw,/mini-paint-studio-shell-v8/);
  assert.equal(manifest.start_url,"./");
  assert.ok(css.includes("@media(max-width:550px)"));
 });
@@ -207,4 +207,27 @@ test("Browser workspace with just starter project warns users not to recreate lo
  const app=openStudio();await app.ready();
  assert.match(app.page("home"),/Missing a miniature, like your Draugr/);
  assert.match(app.page("backup"),/BACKUP & RESTORE/);
+});
+
+test("Paint Rack swatches match owned paint colors without changing user records",async()=>{
+ const data={version:1,miniatures:[{id:"draugr",name:"Draugr",game:"Trudvang",type:"Monster",status:"Painting",journal:[],steps:[]}],paints:[
+  {id:"p1",brand:"Citadel",range:"Layer",name:"Ushabti Bone",number:"",color:"#8a7357",quantity:1},
+  {id:"p2",brand:"Vallejo",range:"Game Color",name:"Royal Purple",number:"72.016",color:"#8a7357",quantity:1},
+  {id:"p3",brand:"Vallejo",range:"Game Color",name:"Night Blue",number:"72.019",color:"#8a7357",quantity:1},
+  {id:"p4",brand:"Vallejo",range:"Game Color",name:"Custom Blue",number:"",color:"#123456",quantity:1},
+  {id:"p5",brand:"Citadel",range:"Shade",name:"Agrax Earthshade",number:"",quantity:1},
+  {id:"p6",brand:"Other",range:"Other",name:"Mystery 01",number:"",color:"#8a7357",quantity:1}
+ ],lessonProgress:{}};
+ const app=openStudio({miniPaintStudioV1:JSON.stringify(data)});
+ await app.ready();
+ const page=app.page("paints");
+ for(const value of ["#e4d5ae","#533567","#27375e","#123456","#694930","#959da5"]){
+  assert.ok(page.includes("--paint-color:"+value),"Missing swatch "+value);
+ }
+ assert.ok(!page.includes("--paint-color:#8a7357"),"Old default brown should not be shown");
+ const persisted=JSON.parse(app.storage.get("miniPaintStudioV1"));
+ assert.equal(persisted.paints.find(x=>x.id==="p1").color,"#8a7357","Should not mutate the original user's swatch");
+ assert.equal(persisted.paints.find(x=>x.id==="p4").color,"#123456","Manual swatches remain unchanged");
+ assert.equal(persisted.miniatures[0].name,"Draugr","Project must survive update");
+ assert.match(src,/Fantasy-Pro","Extra Opaque","Shade","Layer","Technical","Texture","Contrast/);
 });
