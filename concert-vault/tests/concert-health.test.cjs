@@ -244,7 +244,7 @@ test("Purchase lookup checks both Owned and Wishlist even after a letter filter"
  a.listeners.input({target:{id:"searchInput",value:"Unknown Artist",selectionStart:14}});
  page=a.elements.view.innerHTML;
  assert.match(page,/Not found in <strong>this device’s Encore catalog<\/strong>/);
- assert.doesNotMatch(page,/you don.t own/i);
+ assert.match(page,/doesn’t prove you don’t own it/);
  const restored=JSON.parse(a.records.get("encoreConcertVaultV1")).discs;
  assert.equal(restored.length,4);
  assert.equal(restored.find(d=>d.id==="q").lastWatched,"2026-11-08");
