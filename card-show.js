@@ -10,7 +10,7 @@
 const VISIT_KEY="scoutCardShowVisitV1";
 const PHOTO_KEY="scoutPhotoMissionInventoryV1";
 const $=id=>document.getElementById(id);
-let opts=null,ready=false,filter="hunt",showLimit=30,docsLimit=30,onlyMissing=false;
+let opts=null,ready=false,filter="hunt",showLimit=30,docsLimit=30,onlyMissing=false,recordsOrigin="homeScreen";
 
 function clean(v){return String(v==null?"":v).trim();}
 function esc(v){return clean(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
@@ -224,7 +224,8 @@ function renderDocs(){
   $("crMissingFilter").checked=onlyMissing;
   $("crListCount").textContent=visible.length+" record"+(visible.length===1?"":"s");
   $("crList").innerHTML=visible.length?visible.slice(0,docsLimit).map(r=>{
-    const parts=[cardIdentity(r),r.grader+(r.grade?" "+r.grade:""),"Paid: "+money(r.pricePaid),"Last tracked estimate: "+money(r.estimatedValue),r.incoming?"In transit":""].filter(Boolean);
+    const recordedCard=[r.year,r.set,r.number?"#"+r.number:""].filter(Boolean).join(" ")||"Details not entered";
+    const parts=[recordedCard,r.grader+(r.grade?" "+r.grade:""),"Paid: "+money(r.pricePaid),"Last tracked estimate: "+money(r.estimatedValue),r.incoming?"In transit":""].filter(Boolean);
     return '<article class="cs-doc-row"><strong>'+esc(r.player)+'</strong><div class="cs-detail">'+parts.map(esc).join(" · ")+'</div>'+
       (r.issues.length?'<div class="cs-doc-issue">'+esc(r.issues.join(" · "))+'</div>':'<div class="cs-note">Documentation checks complete</div>')+'</article>';
   }).join(""):'<div class="cs-empty">No records in this view.</div>';
@@ -279,6 +280,7 @@ function open(){
   renderShow();
 }
 function openRecords(){
+  recordsOrigin=document.querySelector(".screen.active")?.id==="cardShowScreen"?"cardShowScreen":"homeScreen";
   docsLimit=30;onlyMissing=false;$("crSearch").value="";
   opts.navigate("collectionRecordsScreen");renderDocs();
 }
@@ -317,7 +319,7 @@ function init(config){
   showButton.addEventListener("click",open);
   recordsButton.addEventListener("click",openRecords);
   $("csBack").addEventListener("click",()=>opts.navigate("homeScreen"));
-  $("crBack").addEventListener("click",()=>opts.navigate("homeScreen"));
+  $("crBack").addEventListener("click",()=>opts.navigate(recordsOrigin));
   $("csDocs").addEventListener("click",openRecords);
   $("csAny").addEventListener("click",()=>check(null,""));
   $("csShowName").addEventListener("change",()=>{writeVisit({name:$("csShowName").value,date:$("csShowDate").value});renderShow();showNotice("Visit details saved on this device. The live pricing check still requires internet.");});
