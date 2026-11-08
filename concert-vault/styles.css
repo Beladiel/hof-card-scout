@@ -17,3 +17,11 @@
 #coverBudget{line-height:1.6}
 @media(max-width:900px){.cover-queue{grid-template-columns:1fr}}
 @media(max-width:420px){.cover-queue-item{gap:9px;padding:9px}.cover-queue-item img{width:91px;height:128px}.cover-queue-details{gap:6px}.cover-queue-details select{font-size:12px}.cover-queue-item .actions{gap:5px}.cover-queue-item .actions .btn{padding:6px;font-size:10px;min-height:33px}}
+
+/* v1.2: Concert Night watched-rotation summary and reset */
+.watch-cycle-stats{display:flex;gap:10px;flex-wrap:wrap;margin:15px 0}
+.watch-cycle-stats span{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:#d6d6d5;background:#262e38;border:1px solid #3e4b52;padding:9px 12px;border-radius:9px}
+.watch-cycle-stats strong{font-size:19px;color:var(--gold)}
+.watch-reset{border-color:#504638;background:linear-gradient(125deg,#221f22,#1b2530)}
+.watch-reset h2{font-size:22px}
+.watch-reset .btn{border-color:#907555}
