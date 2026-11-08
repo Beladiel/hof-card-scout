@@ -244,12 +244,18 @@ function renderInspiration(){
  const slots=[
  {slot:"before",name:"1 · YOUR MODEL",emoji:"⚔️",desc:"Photograph the unpainted model against a plain background."},
  {slot:"reference",name:"2 · ARTWORK / CHARACTER CARD",emoji:"🃏",desc:"Later, add the artwork from the board-game box or rulebook."},
- {slot:"concept",name:"3 · PAINTED CONCEPT",emoji:"🎨",desc:"Your new in-app AI-painted preview appears here automatically."},
+ {slot:"concept",name:"3 · PAINTED CONCEPT",emoji:"🎨",desc:"Save your painted preview from Scout here, or let the free generator fill it."},
  {slot:"finished",name:"4 · MY FINISHED MINI",emoji:"🏆",desc:"After your painting session, photograph your finished miniature."}
  ];
  return '<div class="page-head"><div><div class="eyebrow">IDEAS BEFORE THE FIRST BRUSHSTROKE</div><h1>Art-to-Mini Lab</h1><p>Upload just your unpainted miniature to generate a painted concept. Add artwork only when you want an exact reference.</p></div></div>'+
  '<label class="field" style="max-width:450px;margin-bottom:18px">CHOOSE MINIATURE<select id="inspireMini">'+state.miniatures.map(m=>'<option value="'+esc(m.id)+'" '+(m.id===p.id?"selected":"")+'>'+esc(m.name)+' · '+esc(m.game||"Unassigned")+'</option>').join("")+'</select></label>'+
  '<div class="art-grid">'+slots.map(s=>'<div class="art-slot"><div class="art-image" data-photo-key="'+esc(p.id)+'|'+s.slot+'"><span class="art-emoji">'+s.emoji+'</span></div><div class="art-bottom"><strong>'+esc(s.name)+'</strong><p>'+esc(s.desc)+'</p><div class="art-actions"><button class="btn btn-primary btn-sm" data-photo="'+esc(p.id)+'|'+s.slot+'">📷 ADD / REPLACE</button><button class="btn btn-soft btn-sm" data-remove-photo="'+esc(p.id)+'|'+s.slot+'">REMOVE</button></div></div></div>').join("")+'</div>'+
+ '<section class="panel scout-workflow" style="margin-top:16px"><div class="eyebrow">RECOMMENDED · FREE · BETTER SCULPT FIDELITY</div><h2>🎨 Paint with Scout</h2><p>Use ChatGPT to paint your <strong>actual miniature photo</strong>, then bring the resulting image straight back into this project. No separate AI API fees. Your regular ChatGPT image limits still apply.</p>'+
+ '<div class="form-grid"><label class="field">CHOOSE PAINT STYLE<select id="scoutStyle"><option value="surprise">🎲 Scout, Surprise Me!</option><option value="grimdark">Grimdark / Ancient Undead</option><option value="frozen">Frozen Draugr</option><option value="classic">Classic Fantasy</option><option value="heroic">Bright Heroic</option><option value="weathered">Realistic & Weathered</option><option value="custom">Custom Colors</option></select></label><label class="field wide">OPTIONAL COLOR IDEAS<textarea id="scoutNotes" rows="2" maxlength="400" placeholder="e.g. dirty bone skeleton, rusted sword, aged wooden shield"></textarea></label></div>'+
+ '<div class="actions"><button class="btn btn-primary" id="copyScoutRequest">📋 1 · COPY REQUEST</button><button class="btn btn-outline" id="shareScoutMini">📤 2 · SHARE MODEL PHOTO</button><button class="btn btn-outline" id="openScoutChat">↗ OPEN CHATGPT</button></div>'+
+ '<p class="section-sub">Share the unpainted photo to ChatGPT if your iPhone offers it in the Share menu, or attach the photo in ChatGPT yourself. Paste your copied request, then save the generated image to Photos.</p>'+
+ '<div class="actions"><button class="btn btn-primary" id="importScoutPreview">📷 3 · ADD SCOUT PREVIEW TO THIS PROJECT</button><button class="btn btn-soft" id="downloadMiniPhoto">↓ SAVE MODEL PHOTO</button></div>'+
+ '<p class="section-sub">Your images remain in this device’s Studio unless you choose to share them. The ChatGPT app cannot automatically read the Studio’s locally saved images. The free community generator is still available below if you prefer to stay in the Studio.</p></section>'+
  '<section class="panel ai-preview-panel" style="margin-top:16px"><div class="eyebrow">FREE · IN-APP IMAGE-TO-IMAGE AI</div><h2>Paint My Mini — AI Preview</h2><p>Upload just your unpainted miniature above, choose a style, and generate a painted concept here. <strong>No artwork card required.</strong></p><div class="form-grid"><label class="field">PAINTING LOOK<select id="aiStyle"><option value="surprise">🎲 Surprise Me!</option><option value="renaissance">Renaissance Adventurer</option><option value="fantasy">Dark Fantasy</option><option value="heroic">Bright Heroic</option><option value="realistic">Realistic &amp; Weathered</option><option value="custom">My Own Idea</option></select></label><label class="field wide">OPTIONAL DETAILS<textarea id="aiExtra" maxlength="400" rows="2" placeholder="For example: emerald cloak, leather boots, bronze armor, glowing magical sword"></textarea></label></div><div class="actions"><button class="btn btn-primary" id="generatePaintPreview">🎨 GENERATE FREE PAINTED PREVIEW</button></div><p class="ai-status" id="aiStatus" role="status">This uses free, volunteer-powered AI Horde image-to-image generation. Your model photo is sent to volunteer machines; do not use private photos. Anonymous jobs may be slow or unavailable, and results may change sculpt details.</p><div id="aiResult" class="ai-result" aria-live="polite"></div></section>'+
  '<div class="two-col"><section class="panel"><div class="kicker">ARTWORK COLORS / PAINT PALETTE</div><h2>'+esc(palette.name)+'</h2><p>'+esc(palette.note)+'</p><div class="swatches">'+paletteChips(palette.colors)+'</div>'+
  '<div class="actions"><button class="btn btn-primary btn-sm" id="extractColors">◉ EXTRACT ARTWORK COLORS</button><button class="btn btn-outline btn-sm" id="resetPalette">RESET TO PRESET</button></div><hr class="divider"><label class="field">OR TRY A HAND-PICKED PALETTE<select id="schemeChoice">'+SCHEMES.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===p.schemeId?"selected":"")+'>'+esc(x.name)+'</option>').join("")+'</select></label></section>'+
@@ -374,6 +380,69 @@ async function generatePaintPreview(){
   aiPreviewRunning=false;aiPreviewAbort=null;
   const fresh=$("generatePaintPreview");if(fresh){fresh.disabled=false;fresh.textContent="🎨 GENERATE FREE PAINTED PREVIEW";}
  }
+}
+
+
+function scoutPaintPrompt(p,style,notes){
+ const schemes={
+  surprise:"Choose an appealing, practical fantasy-miniature color scheme that suits the sculpt, with realistic aging and clear readable contrast. Surprise me.",
+  grimdark:"Grimdark and ancient undead: dirty ivory bones where present, blackened iron, rust, worn leather, aged wood and muted cloth.",
+  frozen:"Frozen Nordic draugr: cold blue-gray shadows, pale aged bone if skeletal, frosted steel, weathered leather and winter-worn materials.",
+  classic:"Classic fantasy: warm bone or skin if present, rich fabrics, steel blades, natural wood and brown leather with controlled highlights.",
+  heroic:"Bright heroic fantasy: strong readable colors, clean metal and crisp highlights, while keeping every original sculpted detail.",
+  weathered:"Realistic and weathered: subdued earthy palette, stains, rust, worn metal, natural cloth and convincingly aged equipment.",
+  custom:"Use the custom color choices below and keep them achievable with miniature paints."
+ };
+ const description=String(notes||"").trim().slice(0,400);
+ return "Scout, paint preview — "+p.name+(p.game?" from "+p.game:"")+". I am attaching a real photograph of MY ACTUAL unpainted tabletop miniature. Generate ONE realistic macro photograph of this SAME sculpt after being hand-painted, using the uploaded miniature photograph as the primary and strict geometry reference. Preserve EXACTLY the original miniature’s stance, anatomy (including whether it is a skeleton), head, number and shapes of limbs, weapons, shield, armor pieces, sculpted costume, proportions, orientation and existing gaming base. Do NOT invent a different figure, replace the weapon or shield, add new costume details, alter the pose, redesign the miniature or turn it into a life-size person or digital illustration. Keep the viewpoint similar so I can compare before and after. Paint style: "+(schemes[style]||schemes.surprise)+(description?" Additional preferences: "+description+".":"")+" Show believable Vallejo-style hand-painted acrylic results with neat basecoats, dark washes, layered highlights, drybrushing and restrained weathering. If anything in the photo is unclear, preserve its shape rather than inventing details. I want paint inspiration, not a new character design.";
+}
+async function copyScoutRequest(){
+ const p=mini(activeMiniId);if(!p)return;
+ const prompt=scoutPaintPrompt(p,$("scoutStyle")?.value||"surprise",$("scoutNotes")?.value||"");
+ try{
+  await navigator.clipboard.writeText(prompt);
+  notice("Scout request copied! Share your photo, then paste the request in ChatGPT.");
+ }catch{
+  const ta=document.createElement("textarea");ta.value=prompt;ta.setAttribute("readonly","");ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();
+  const copied=typeof document.execCommand==="function"&&document.execCommand("copy");ta.remove();
+  notice(copied?"Scout request copied! Paste it with your photo in ChatGPT.":"Clipboard access blocked. Try opening ChatGPT and saying: Scout, paint preview.");
+ }
+}
+async function shareScoutMini(){
+ const p=mini(activeMiniId);if(!p)return;
+ const blob=await photoGet(p.id,"before");
+ if(!blob){notice("First add your original miniature in YOUR MODEL.");return;}
+ const filename=(p.name||"miniature").replace(/[^a-z0-9-_]+/gi,"-").slice(0,45)+"-unpainted.jpg";
+ const file=new File([blob],filename,{type:blob.type||"image/jpeg"});
+ const prompt=scoutPaintPrompt(p,$("scoutStyle")?.value||"surprise",$("scoutNotes")?.value||"");
+ if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
+  try{
+   await navigator.share({title:"Paint my miniature with Scout",text:prompt,files:[file]});
+   notice("Photo shared. In ChatGPT, send the image and your painting request.");
+   return;
+  }catch(e){
+   if(e.name==="AbortError"){notice("Sharing cancelled; your photo is still in Studio.");return;}
+   console.warn("Photo sharing unavailable",e);
+  }
+ }
+ downloadMiniPhoto();
+ notice("Direct sharing is unavailable. Save the photo, open ChatGPT and attach it there.");
+}
+async function downloadMiniPhoto(){
+ const p=mini(activeMiniId);if(!p)return;
+ const blob=await photoGet(p.id,"before");
+ if(!blob){notice("First upload your miniature in YOUR MODEL.");return;}
+ const name=(p.name||"miniature").replace(/[^a-z0-9-_]+/gi,"-").slice(0,45)+"-unpainted.jpg";
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),10000);
+ notice("Original model photo saved to your device downloads.");
+}
+function importScoutPreview(){
+ const p=mini(activeMiniId);if(!p)return;
+ photoTarget=p.id+"|concept";
+ $("photoPicker").value="";
+ $("photoPicker").click();
 }
 
 function previewPrompt(p){
@@ -583,6 +652,11 @@ function wire(){
   if(data.removePhoto){const [id,slot]=data.removePhoto.split("|");await removePhoto(id,slot);return;}
   if(btn.id==="exportBackup"){await exportBackup();return;}
   if(btn.id==="importBackup"){$("restorePicker").value="";$("restorePicker").click();return;}
+  if(btn.id==="copyScoutRequest"){await copyScoutRequest();return;}
+  if(btn.id==="shareScoutMini"){await shareScoutMini();return;}
+  if(btn.id==="downloadMiniPhoto"){await downloadMiniPhoto();return;}
+  if(btn.id==="openScoutChat"){window.open("https://chatgpt.com/","_blank","noopener,noreferrer");return;}
+  if(btn.id==="importScoutPreview"){importScoutPreview();return;}
   if(btn.id==="generatePaintPreview"){await generatePaintPreview();return;}
   if(btn.id==="extractColors"){await extractArtColors(activeMiniId);return;}
   if(btn.id==="resetPalette"){const p=mini(activeMiniId);if(p){p.customColors=[];save();render();notice("Using the selected preset again.");}return;}
