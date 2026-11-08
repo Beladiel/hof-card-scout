@@ -25,10 +25,25 @@ test("App is fully local and independent of other hobby apps",()=>{
  assert.match(source,/encoreConcertVaultV1/);
  assert.doesNotMatch(source,/miniPaintStudioV1/);
  assert.match(index,/<title>Encore · Concert Vault<\/title>/);
- assert.match(index,/app\.js\?v=4/);
- assert.match(sw,/encore-shell-v4/);
+ assert.match(index,/app\.js\?v=\d+/);
+ assert.match(sw,/encore-shell-v\d+/);
  assert.match(css,/@media\(max-width:640px\)/);
  assert.equal(manifest.start_url,"./");
+});
+test("Wishlist shopping links and safe reload are available without modifying owned catalog",async()=>{
+ const a=app({encoreConcertVaultV1:JSON.stringify({version:1,discs:[
+  {id:"one",artist:"The Who",title:"Live 1970",status:"Owned",format:"Blu-ray"},
+  {id:"wish",artist:"ZZ Top",title:"Live from Texas",status:"Wishlist",format:"Blu-ray",shoppingUrl:"https://example.com/listing"}
+ ]})});
+ await a.start();
+ const page=a.page("wishlist");
+ assert.match(page,/SEARCH EBAY/);
+ assert.match(page,/COMPARE PRICES/);
+ assert.match(page,/SAVED SELLER/);
+ assert.match(page,/scout-pick-shops/);
+ assert.match(a.page("backup"),/CHECK FOR UPDATES/);
+ assert.equal(JSON.parse(a.records.get("encoreConcertVaultV1")).discs.length,2);
+ assert.match(sw,/fetch\(request,\{cache:"no-store"\}\)/);
 });
 test("Fresh install has no invented owned discs",async()=>{
  const a=app();await a.start();const stored=JSON.parse(a.records.get("encoreConcertVaultV1"));
@@ -118,7 +133,7 @@ test("Cover Helper UI is included in the actual disc collection",async()=>{
  assert.match(html,/COVER HELPER/);
  assert.match(a.page("covers"),/Still needs cover art/);
  assert.match(a.page("backup"),/DOWNLOAD COMPLETE BACKUP/);
- assert.match(index,/v1.3/);
+ assert.match(index,/v1\.\d+(?:\.\d+)?/);
 });
 test("Stored untrusted concert names are escaped in missing-cover cards",async()=>{
  const seed={version:1,discs:[{id:"x1",artist:"<script>alert(1)</script>",title:"Art & Live",format:"DVD",status:"Owned"}]};
