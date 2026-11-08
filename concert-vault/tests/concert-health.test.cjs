@@ -11,7 +11,7 @@ const sw=fs.readFileSync(path.join(root,"sw.js"),"utf8");
 const manifest=JSON.parse(fs.readFileSync(path.join(root,"manifest.webmanifest"),"utf8"));
 function app(initial={},instrument=false){
  const records=new Map(Object.entries(initial)),listeners={},elements={};
- const node=name=>elements[name]||(elements[name]={innerHTML:"",textContent:"",classList:{add(){},remove(){},toggle(){}},addEventListener(){},querySelector(){return null;}});
+ const node=name=>elements[name]||(elements[name]={innerHTML:"",textContent:"",classList:{add(){},remove(){},toggle(){}},addEventListener(){},querySelector(){return null;},focus(){},setSelectionRange(){}});
  const document={readyState:"loading",getElementById:node,querySelectorAll(){return [];},addEventListener(name,fn){listeners[name]=fn;}};
  const window={addEventListener(name,fn){listeners["w:"+name]=fn;}};
  const location={hash:"#collection"};
@@ -25,8 +25,8 @@ test("App is fully local and independent of other hobby apps",()=>{
  assert.match(source,/encoreConcertVaultV1/);
  assert.doesNotMatch(source,/miniPaintStudioV1/);
  assert.match(index,/<title>Encore · Concert Vault<\/title>/);
- assert.match(index,/app\.js\?v=3/);
- assert.match(sw,/encore-shell-v3/);
+ assert.match(index,/app\.js\?v=4/);
+ assert.match(sw,/encore-shell-v4/);
  assert.match(css,/@media\(max-width:640px\)/);
  assert.equal(manifest.start_url,"./");
 });
@@ -118,7 +118,7 @@ test("Cover Helper UI is included in the actual disc collection",async()=>{
  assert.match(html,/COVER HELPER/);
  assert.match(a.page("covers"),/Still needs cover art/);
  assert.match(a.page("backup"),/DOWNLOAD COMPLETE BACKUP/);
- assert.match(index,/v1.2/);
+ assert.match(index,/v1.3/);
 });
 test("Stored untrusted concert names are escaped in missing-cover cards",async()=>{
  const seed={version:1,discs:[{id:"x1",artist:"<script>alert(1)</script>",title:"Art & Live",format:"DVD",status:"Owned"}]};
@@ -185,4 +185,86 @@ test("Existing entries without dates load safely; editor exposes editable histor
  assert.match(a.elements.modalRoot.innerHTML,/name="lastWatched" type="date"/);
  assert.match(a.elements.modalRoot.innerHTML,/WATCHED THIS ROUND/);
  assert.equal(JSON.parse(a.records.get("encoreConcertVaultV1")).discs[0].watched,true);
+});
+
+test("Alphabet browser sorts and filters by artist, ignoring leading The",async()=>{
+ const seed={version:1,discs:[
+  {id:"q",artist:"Queen",title:"Rock Montreal",format:"Blu-ray",status:"Owned"},
+  {id:"w",artist:"The Who",title:"Isle of Wight",format:"Blu-ray",status:"Owned"},
+  {id:"b",artist:"Blue Öyster Cult",title:"A Long Day's Night",format:"DVD",status:"Owned"},
+  {id:"a",artist:"AC/DC",title:"Live at Donington",format:"Blu-ray",status:"Owned"},
+  {id:"p",artist:"P!nk",title:"Live in Melbourne",format:"Blu-ray",status:"Owned"},
+  {id:"n",artist:"311",title:"Live",format:"DVD",status:"Owned"}
+ ]};
+ const a=app({encoreConcertVaultV1:JSON.stringify(seed)});await a.start();
+ let page=a.page("collection");
+ assert.match(page,/aria-label="Jump to artist letter"/);
+ assert.match(page,/data-letter="W"/);
+ assert.match(page,/data-letter="#"/);
+ assert.ok(page.indexOf("AC/DC")<page.indexOf("Blue Öyster Cult"));
+ assert.ok(page.indexOf("Blue Öyster Cult")<page.indexOf("P!nk"));
+ assert.ok(page.indexOf("Queen")<page.indexOf("The Who"));
+ await a.listeners.click({target:{closest(){return {dataset:{letter:"W"}};}}});
+ page=a.elements.view.innerHTML;
+ assert.match(page,/The Who/);
+ assert.doesNotMatch(page,/Queen/);
+ assert.doesNotMatch(page,/Blue Öyster Cult/);
+ assert.match(page,/data-letter="W" aria-pressed="true"/);
+ await a.listeners.click({target:{closest(){return {dataset:{letter:"#"}};}}});
+ page=a.elements.view.innerHTML;
+ assert.match(page,/311/);
+ assert.doesNotMatch(page,/The Who/);
+ await a.listeners.click({target:{closest(){return {dataset:{letter:"All"}};}}});
+ page=a.elements.view.innerHTML;
+ assert.match(page,/Queen/);
+ assert.match(page,/The Who/);
+ assert.equal(JSON.parse(a.records.get("encoreConcertVaultV1")).discs.length,6);
+});
+test("Purchase lookup checks both Owned and Wishlist even after a letter filter",async()=>{
+ const seed={version:1,discs:[
+  {id:"q",artist:"Queen",title:"Rock Montreal",format:"Blu-ray",status:"Owned",favorite:true,lastWatched:"2026-11-08"},
+  {id:"qw",artist:"Queen",title:"Live at Wembley",format:"DVD",status:"Wishlist"},
+  {id:"s",artist:"Scorpions",title:"Live in Munich",format:"DVD",status:"Owned"},
+  {id:"p",artist:"Pearl Jam",title:"Live",format:"Blu-ray",status:"Owned",notes:"Queen tribute concert"}
+ ]};
+ const a=app({encoreConcertVaultV1:JSON.stringify(seed)});await a.start();
+ await a.listeners.click({target:{closest(){return {dataset:{letter:"S"}};}}});
+ assert.doesNotMatch(a.elements.view.innerHTML,/Rock Montreal/);
+ a.listeners.input({target:{id:"searchInput",value:"Queen",selectionStart:5}});
+ let page=a.elements.view.innerHTML;
+ assert.match(page,/Ownership check/);
+ assert.match(page,/1 owned · 1 on wishlist/);
+ assert.match(page,/✓ OWNED/);
+ assert.match(page,/☆ WISHLIST/);
+ assert.match(page,/Rock Montreal/);
+ assert.match(page,/Live at Wembley/);
+ assert.match(page,/Blu-ray/);
+ assert.doesNotMatch(page,/Queen tribute concert/,"Notes should not produce false positive ownership search");
+ assert.match(page,/data-letter="All" aria-pressed="true"/);
+ a.listeners.input({target:{id:"searchInput",value:"Unknown Artist",selectionStart:14}});
+ page=a.elements.view.innerHTML;
+ assert.match(page,/Not found in <strong>this device’s Encore catalog<\/strong>/);
+ assert.doesNotMatch(page,/you don.t own/i);
+ const restored=JSON.parse(a.records.get("encoreConcertVaultV1")).discs;
+ assert.equal(restored.length,4);
+ assert.equal(restored.find(d=>d.id==="q").lastWatched,"2026-11-08");
+ assert.equal(restored.find(d=>d.id==="q").favorite,true);
+});
+test("Wishlist A-Z view retains the purchase lookup across library sections",async()=>{
+ const seed={version:1,discs:[
+  {id:"a",artist:"Aerosmith",title:"Live in Houston",format:"DVD",status:"Owned"},
+  {id:"w",artist:"The Who",title:"Concert XYZ",format:"DVD",status:"Wishlist"}
+ ]};
+ const a=app({encoreConcertVaultV1:JSON.stringify(seed)});await a.start();
+ let page=a.page("wishlist");
+ assert.match(page,/data-letter="W"/);
+ await a.listeners.click({target:{closest(){return {dataset:{letter:"W"}};}}});
+ page=a.elements.view.innerHTML;
+ assert.match(page,/The Who/);
+ assert.doesNotMatch(page,/Aerosmith/);
+ a.listeners.input({target:{id:"searchInput",value:"Aerosmith",selectionStart:9}});
+ page=a.elements.view.innerHTML;
+ assert.match(page,/✓ OWNED/);
+ assert.match(page,/Live in Houston/);
+ assert.match(page,/No matching concerts in this section/);
 });
