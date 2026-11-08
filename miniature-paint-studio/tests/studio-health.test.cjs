@@ -60,11 +60,11 @@ test("Photo storage, export, import and privacy boundaries are explicit",()=>{
  assert.match(src,/async function importBackup/);
  assert.match(src,/await photoClear\(\)/);
  assert.match(src,/photos\[photoKey\(p.id,slot\)\]=await fileToDataUrl\(blob\)/);
- assert.match(src,/DIRECT AI/i);
- assert.match(html,/academy\.js\?v=1/);
- assert.match(html,/app\.js\?v=1/);
- assert.match(html,/styles\.css\?v=1/);
- assert.match(sw,/mini-paint-studio-shell-v1/);
+ assert.match(src,/AI Horde/i);
+ assert.match(html,/academy\.js\?v=2/);
+ assert.match(html,/app\.js\?v=2/);
+ assert.match(html,/styles\.css\?v=2/);
+ assert.match(sw,/mini-paint-studio-shell-v2/);
  assert.equal(manifest.start_url,"./");
  assert.ok(css.includes("@media(max-width:550px)"));
 });
@@ -76,9 +76,18 @@ test("User-entered miniature names are HTML-escaped in page views",async()=>{
  assert.ok(page.includes("&lt;img src=x onerror=alert(1)&gt;"));
  assert.ok(!page.includes(attack));
 });
-test("No automatic paid API/key or network upload is introduced",()=>{
- assert.doesNotMatch(src,/fetch\(/);
+test("Free in-app AI image-to-image is wired with clear privacy boundaries",async()=>{
+ assert.match(src,/source_processing:"img2img"/);
+ assert.match(src,/source_image:source/);
+ assert.match(src,/https:\/\/aihorde\.net\/api\/v2/);
+ assert.match(src,/apikey":"0000000000"/);
+ assert.match(src,/await photoSet\(p\.id,"concept",painted\)/);
+ assert.match(src,/volunteer machines/);
  assert.doesNotMatch(src,/X-Scout-Key/);
  assert.match(src,/no account or Scout Cloud synchronization/i);
- assert.match(src,/Direct AI image generation is not yet connected/);
+ const app=openStudio();await app.ready();
+ const inspiration=app.page("inspiration/nova-warrior");
+ assert.match(inspiration,/generatePaintPreview/);
+ assert.match(inspiration,/Surprise Me!/);
+ assert.match(inspiration,/No artwork card required/);
 });
