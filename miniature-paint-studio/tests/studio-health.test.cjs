@@ -61,10 +61,10 @@ test("Photo storage, export, import and privacy boundaries are explicit",()=>{
  assert.match(src,/await photoClear\(\)/);
  assert.match(src,/photos\[photoKey\(p.id,slot\)\]=await fileToDataUrl\(blob\)/);
  assert.match(src,/AI Horde/i);
- assert.match(html,/academy\.js\?v=4/);
- assert.match(html,/app\.js\?v=4/);
- assert.match(html,/styles\.css\?v=4/);
- assert.match(sw,/mini-paint-studio-shell-v4/);
+ assert.match(html,/academy\.js\?v=5/);
+ assert.match(html,/app\.js\?v=5/);
+ assert.match(html,/styles\.css\?v=5/);
+ assert.match(sw,/mini-paint-studio-shell-v5/);
  assert.equal(manifest.start_url,"./");
  assert.ok(css.includes("@media(max-width:550px)"));
 });
@@ -111,4 +111,29 @@ test("Paint with Scout copies a ready-to-paste prompt into the same conversation
  assert.match(src,/if\(e\.target\.id==="scoutNotes"\)/);
  assert.ok(src.includes('photoTarget=p.id+"|concept"'));
  assert.doesNotMatch(src,/window\.open\("https:\/\/chatgpt\.com\//);
+});
+
+test("Painting plan request includes owned rack and saves plan with miniature",async()=>{
+ const owned={version:1,miniatures:[{id:"x",name:"Draugr",game:"Trudvang",type:"Monster",status:"Unpainted",journal:[],steps:[],paintingPlan:"Bone: Ivory 70.918 base, earth wash, ivory highlights."}],paints:[
+  {id:"one",brand:"Vallejo",range:"Model Color",name:"Ivory",number:"70.918",quantity:1,color:"#e7d9b0"},
+  {id:"two",brand:"Vallejo",range:"Game Color",name:"Scarlet Red",number:"72.012",quantity:0,color:"#b32a20"}
+ ],lessonProgress:{}};
+ const app=openStudio({miniPaintStudioV1:JSON.stringify(owned)});
+ await app.ready();
+ const project=app.page("mini/x");
+ assert.match(project,/Saved Painting Plan/);
+ assert.match(project,/Ivory 70\.918 base/);
+ const lab=app.page("inspiration/x");
+ assert.match(lab,/Build My Painting Plan/);
+ assert.match(lab,/1 owned paints/);
+ assert.match(lab,/copyPaintPlanRequest/);
+ assert.match(lab,/paintPlanForm/);
+ assert.match(lab,/Bone: Ivory 70\.918 base/);
+ assert.match(src,/function ownedPaintsForPrompt/);
+ assert.match(src,/function paintPlanPrompt/);
+ assert.match(src,/if\(btn\.id==="copyPaintPlanRequest"\)/);
+ assert.match(src,/if\(event\.target\.id==="paintPlanForm"\)/);
+ assert.match(src,/p\.paintingPlan=String/);
+ assert.match(src,/filter\(x=>x\.quantity>0\)/);
+ assert.match(src,/p\.paintingPlan=String\(x\.paintingPlan/);
 });
