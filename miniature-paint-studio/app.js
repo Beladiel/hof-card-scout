@@ -68,7 +68,11 @@ function load(){
   const loaded=parseSavedWorkspace(primary);
   if(loaded){
    state=loaded;
-   try{localStorage.setItem(SAFETY_KEY,primary);}catch(e){console.warn("Could not refresh local safety copy",e);}
+   // Never overwrite an existing safety copy merely by opening the page:
+   // it may contain a richer collection if primary storage was just reset.
+   if(safety===null){
+    try{localStorage.setItem(SAFETY_KEY,primary);}catch(e){console.warn("Could not initialize local safety copy",e);}
+   }
    return;
   }
  }catch(e){console.warn("Primary project data cannot be read; checking safety copy",e);}
