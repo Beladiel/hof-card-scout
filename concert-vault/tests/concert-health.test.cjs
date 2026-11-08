@@ -24,7 +24,7 @@ function app(initial={},instrument=false){
 test("App is fully local and independent of other hobby apps",()=>{
  assert.match(source,/encoreConcertVaultV1/);
  assert.doesNotMatch(source,/miniPaintStudioV1/);
- assert.match(index,/Encore Concert Vault/);
+ assert.match(index,/<title>Encore · Concert Vault<\/title>/);
  assert.match(index,/app\.js\?v=1/);
  assert.match(sw,/encore-shell-v1/);
  assert.match(css,/@media\(max-width:640px\)/);
