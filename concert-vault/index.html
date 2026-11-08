@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d1017">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Encore">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Encore: your personal concert Blu-ray, DVD and 4K disc collection.">
+<title>Encore · Concert Vault</title>
+<link rel="icon" type="image/svg+xml" href="./icon.svg">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="stylesheet" href="./styles.css?v=1">
+<script src="./app.js?v=1" defer></script>
+</head>
+<body>
+<div class="shell">
+<header class="masthead">
+  <div class="brand"><div class="brand-icon" aria-hidden="true">♫</div><div><div class="eyebrow">SCOUT'S LIVE MUSIC COLLECTION</div><h1><em>Encore</em> Concert Vault</h1></div></div>
+  <span class="version">v1.0</span>
+</header>
+<nav class="nav" aria-label="Main navigation">
+<button type="button" class="active" data-nav="collection">♫ Collection</button>
+<button type="button" data-nav="wishlist">☆ Wish List</button>
+<button type="button" data-nav="pick">▶ Concert Night</button>
+<button type="button" data-nav="backup">⇩ Backup & Import</button>
+</nav>
+<main id="view" aria-live="polite"><div class="empty">Opening your concert collection…</div></main>
+<footer class="footer">Every disc is a front-row seat. · Your catalog stays on this device. · Free, no account required.</footer>
+</div>
+<div id="modalRoot"></div>
+<input type="file" id="coverPicker" accept="image/*" hidden>
+<input type="file" id="backupPicker" accept=".json,application/json" hidden>
+<div class="toast" id="toast" role="status"></div>
+</body>
+</html>
