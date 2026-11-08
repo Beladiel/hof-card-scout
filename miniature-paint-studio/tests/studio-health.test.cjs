@@ -102,5 +102,5 @@ test("Paint with Scout offers a free manual photo share and import workflow",asy
  assert.match(html,/No separate AI API fees/);
  assert.match(src,/function scoutPaintPrompt/);
  assert.match(src,/await navigator\.share\(/);
- assert.match(src,/photoTarget=p\.id\+"\\|concept"/);
+ assert.ok(src.includes('photoTarget=p.id+"|concept"'));
 });
