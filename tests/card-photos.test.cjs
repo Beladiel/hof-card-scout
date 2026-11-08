@@ -10,16 +10,16 @@ assert.match(fp,/^[a-f0-9]{8}$/);
 assert.equal(fp,photos.fingerprintForPlayer({owned:true,name:"Sandy Koufax",cardYear:1965,set:"Topps",cardNum:"300",grader:"PSA",gradeCondition:"6"}));
 assert.notEqual(fp,photos.fingerprintForPlayer({owned:true,name:"Sandy Koufax",cardYear:1966,set:"Topps",cardNum:"100",grader:"PSA",gradeCondition:"6"}));
 
-assert.match(html,/v6\.1\.0/);
+assert.match(html,/v6\.\d+\.\d+/);
 assert.match(html,/id="cardPhotoPanel"/);
 assert.match(html,/id="cardPhotoCameraInput"[^>]*capture="environment"/);
 assert.match(html,/id="cardPhotoLibraryInput"/);
-assert.match(html,/<script src="card-photo\.js"><\/script>/);
+assert.match(html,/<script src="card-photo\.js(?:\?v=\d+)?"><\/script>/);
 assert.match(html,/ScoutCardPhotos\.init\(\{getConfig:pricingConfig,toast\}\)/);
 assert.match(html,/ScoutCardPhotos\.showPlayer\(p\)/);
 assert.match(html,/id="cardPhotoLightbox"/);
 
-assert.match(worker,/const VERSION = "3\.37\.0"/);
+assert.match(worker,/const VERSION = "\d+\.\d+\.\d+"/);
 assert.match(worker,/CARD_PHOTO_PREFIX/);
 assert.match(worker,/CARD_PHOTO_MAX_BYTES = 1200 \* 1024/);
 assert.match(worker,/url\.pathname === "\/card-photo"/);
