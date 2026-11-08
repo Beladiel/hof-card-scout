@@ -720,7 +720,7 @@ function editPaint(id){
  modal('<h2>'+(p?"Edit paint":"Add paint to rack")+'</h2><p>Only enter bottles you own. Use the color swatch as an approximate reference.</p><form id="paintForm"><div class="form-grid">'+
  '<label class="field wide">PAINT NAME<input name="name" type="text" required maxlength="90" placeholder="e.g., Leather Brown" value="'+esc(data.name)+'"></label>'+
  '<label class="field">BRAND<select name="brand">'+["Vallejo","Citadel","Army Painter","Reaper","Other"].map(x=>'<option '+(x===data.brand?"selected":"")+'>'+x+'</option>').join("")+'</select></label>'+
- '<label class="field">PAINT RANGE<select name="range">'+["Game Color","Model Color","Game Wash","Model Wash","Mecha Color","Metal Color","Primer","Other"].map(x=>'<option '+(x===data.range?"selected":"")+'>'+x+'</option>').join("")+'</select></label>'+
+ '<label class="field">PAINT RANGE<select name="range">'+["Game Color","Model Color","Fantasy-Pro","Extra Opaque","Shade","Layer","Technical","Texture","Contrast","Game Wash","Model Wash","Mecha Color","Metal Color","Primer","Other"].map(x=>'<option '+(x===data.range?"selected":"")+'>'+x+'</option>').join("")+'</select></label>'+
  '<label class="field">PRODUCT NUMBER<input name="number" maxlength="30" value="'+esc(data.number)+'" placeholder="70.xxx or 72.xxx"></label>'+
  '<label class="field">APPROXIMATE SWATCH<input name="color" type="color" value="'+esc(paintDisplaySwatch(data))+'" style="height:46px;padding:4px"></label>'+
  '<label class="field">BOTTLES OWNED<input name="quantity" type="number" min="0" max="99" step="1" value="'+esc(data.quantity)+'"></label>'+
