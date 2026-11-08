@@ -1,0 +1,29 @@
+name: LifePlanner Mobile Health
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lifeplanner-mobile/**'
+      - '.github/workflows/lifeplanner-mobile-health.yml'
+  pull_request:
+    paths:
+      - 'lifeplanner-mobile/**'
+      - '.github/workflows/lifeplanner-mobile-health.yml'
+  workflow_dispatch:
+jobs:
+  mobile-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate scripts
+        run: |
+          node --check lifeplanner-mobile/app.js
+          node --check lifeplanner-mobile/sw.js
+      - name: Run LifePlanner tests
+        run: node --test lifeplanner-mobile/tests/mobile-health.test.cjs
