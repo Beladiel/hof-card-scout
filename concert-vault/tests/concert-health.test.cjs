@@ -45,7 +45,7 @@ test("Existing concert catalog survives a version change",async()=>{
  const a=app({encoreConcertVaultV1:JSON.stringify(seed)});await a.start();
  const owned=a.page("collection");assert.match(owned,/Favorite Band/);assert.match(owned,/DTS 5.1/);assert.doesNotMatch(owned,/Another Artist/);
  assert.match(a.page("wishlist"),/Another Artist/);
- assert.match(a.page("pick"),/PICK MY CONCERT/);
+ assert.match(a.page("pick"),/PICK FROM ALL CONCERTS/);
  assert.match(a.page("backup"),/DOWNLOAD COMPLETE BACKUP/);
  assert.equal(JSON.parse(a.records.get("encoreConcertVaultV1")).discs.length,2);
 });
@@ -128,4 +128,61 @@ test("Stored untrusted concert names are escaped in missing-cover cards",async()
  assert.doesNotMatch(html,/Missing a cover.*<script>/);
  assert.match(source,/esc\(d.artist\)/);
  assert.match(source,/esc\(d.title\)/);
+});
+
+test("Marking watched stamps a permanent date, and clearing the round preserves it",async()=>{
+ const seed={version:1,discs:[
+  {id:"one",artist:"Band One",title:"Show One",format:"DVD",status:"Owned",watched:false},
+  {id:"two",artist:"Band Two",title:"Show Two",format:"Blu-ray",status:"Owned",watched:true,lastWatched:"2025-06-12",rating:5,favorite:true},
+  {id:"three",artist:"Band Three",title:"Old Show",format:"DVD",status:"Owned",watched:true}
+ ]};
+ const a=app({encoreConcertVaultV1:JSON.stringify(seed)});await a.start();
+ let page=a.page("pick");
+ assert.match(page,/RESET WATCHED INDICATORS/);
+ assert.match(page,/Last Watched dates/);
+ assert.match(page,/1<\/strong> ready to pick/);
+ const click=async(action,id)=>a.listeners.click({target:{closest(){return {dataset:{action,id}};}}});
+ await click("watched","one");
+ let data=JSON.parse(a.records.get("encoreConcertVaultV1")).discs;
+ const date=data.find(x=>x.id==="one").lastWatched;
+ assert.match(date,/^20\d\d-\d\d-\d\d$/);
+ assert.equal(data.find(x=>x.id==="one").watched,true);
+ assert.equal(data.find(x=>x.id==="two").lastWatched,"2025-06-12");
+ assert.match(a.page("collection"),/Last watched: /);
+ await click("reset-watched");
+ data=JSON.parse(a.records.get("encoreConcertVaultV1")).discs;
+ assert.deepEqual(data.map(d=>d.watched),[false,false,false]);
+ assert.equal(data.find(x=>x.id==="one").lastWatched,date);
+ assert.equal(data.find(x=>x.id==="two").lastWatched,"2025-06-12");
+ assert.equal(data.find(x=>x.id==="two").rating,5);
+ assert.equal(data.find(x=>x.id==="two").favorite,true);
+ assert.equal(data.find(x=>x.id==="three").lastWatched,"","Never invent a date for legacy watched marks");
+ page=a.page("pick");
+ assert.match(page,/3<\/strong> ready to pick/);
+ assert.match(page,/RESET WATCHED INDICATORS/);
+ const reloaded=app({encoreConcertVaultV1:JSON.stringify({version:1,discs:data})});
+ await reloaded.start();
+ const reloadedData=JSON.parse(reloaded.records.get("encoreConcertVaultV1")).discs;
+ assert.equal(reloadedData.find(x=>x.id==="one").lastWatched,date);
+ assert.equal(reloadedData.find(x=>x.id==="two").lastWatched,"2025-06-12");
+ assert.equal(reloadedData.find(x=>x.id==="two").watched,false);
+});
+test("Unmarking a single concert preserves its last-watched date",async()=>{
+ const data={version:1,discs:[{id:"s",artist:"Music",title:"Live",format:"Blu-ray",status:"Owned",watched:true,lastWatched:"2024-05-21"}]};
+ const a=app({encoreConcertVaultV1:JSON.stringify(data)});await a.start();
+ await a.listeners.click({target:{closest(){return {dataset:{action:"watched",id:"s"}};}}});
+ const saved=JSON.parse(a.records.get("encoreConcertVaultV1")).discs[0];
+ assert.equal(saved.watched,false);
+ assert.equal(saved.lastWatched,"2024-05-21");
+ assert.match(a.page("collection"),/May 21, 2024/);
+});
+test("Existing entries without dates load safely; editor exposes editable history field",async()=>{
+ const seed={version:1,discs:[{id:"legacy",artist:"Old",title:"Performance",format:"DVD",status:"Owned",watched:true}]};
+ const a=app({encoreConcertVaultV1:JSON.stringify(seed)});await a.start();
+ assert.match(a.page("collection"),/Last watched: Not recorded/);
+ await a.listeners.click({target:{closest(){return {dataset:{action:"edit",id:"legacy"}};}}});
+ assert.match(a.elements.modalRoot.innerHTML,/LAST WATCHED \(SAVED HISTORY\)/);
+ assert.match(a.elements.modalRoot.innerHTML,/name="lastWatched" type="date"/);
+ assert.match(a.elements.modalRoot.innerHTML,/WATCHED THIS ROUND/);
+ assert.equal(JSON.parse(a.records.get("encoreConcertVaultV1")).discs[0].watched,true);
 });
