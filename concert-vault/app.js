@@ -3,7 +3,7 @@
 "use strict";
 const KEY="encoreConcertVaultV1",SAFETY="encoreConcertVaultSafetyV1",DB_NAME="encoreConcertCoversV1";
 const FMT=["Blu-ray","DVD","4K UHD","Other"],STATS=["Owned","Wishlist"],AUDIO=["Unknown","Stereo","Dolby Digital 5.1","DTS 5.1","DTS-HD Master Audio","Dolby TrueHD","Dolby Atmos","PCM 2.0","PCM 5.1","Other"];
-let state={version:1,discs:[]},db=null,view="collection",search="",formatFilter="All",editing=null,coverFor=null,pickId=null,storageProblem=false,recovered=false,urls=[],coverQueue=[],coverIds=new Set(),coverBytes=0,coverFilter="",coverBusy=false;
+let state={version:1,discs:[]},db=null,view="collection",search="",letterFilter="All",formatFilter="All",editing=null,coverFor=null,pickId=null,storageProblem=false,recovered=false,urls=[],coverQueue=[],coverIds=new Set(),coverBytes=0,coverFilter="",coverBusy=false;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 const uuid=()=>typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID():"disc-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2);
@@ -229,11 +229,61 @@ async function saveQueued(ids){
 function discKey(d){return [d.artist,d.title,d.format].map(x=>x.toLowerCase().trim().replace(/\s+/g," ")).join("|");}
 function header(){const c=counts();return '<section class="hero"><span class="eyebrow">YOUR LIVE MUSIC LIBRARY</span><h2>The concert never ends.</h2><p>Catalog the concert DVDs, Blu-rays, and 4K discs on your shelves. Keep track of great performances, surround sound mixes, favorites, and the next show to play.</p><div class="actions"><button class="btn primary" data-action="add">+ ADD A CONCERT</button><button class="btn ghost" data-view="pick">♫ WHAT SHOULD I WATCH?</button></div></section><div class="stats"><div class="stat"><strong>'+c.owned+'</strong><span>Owned discs</span></div><div class="stat"><strong>'+c.wishlist+'</strong><span>Wishlist</span></div><div class="stat"><strong>'+c.favorites+'</strong><span>Favorites</span></div><div class="stat"><strong>'+c.unwatched+'</strong><span>Ready this round</span></div></div>';}
 function discCard(d){return '<article class="disc"><div class="cover" data-cover="'+esc(d.id)+'"><span class="no-cover">♫</span><span class="format">'+esc(d.format)+'</span></div><div class="disc-info"><span class="artist">'+esc(d.artist)+'</span><h3>'+esc(d.title)+'</h3><div class="meta">'+esc(d.year||d.releaseYear||"Year unknown")+(d.venue?' · '+esc(d.venue):'')+'</div><div class="meta">'+esc(d.audio)+(d.watched?' · Watched this round':'')+'</div><div class="meta">Last watched: '+esc(showWatchDate(d.lastWatched))+'</div><div class="meta stars">'+(d.favorite?"★ Favorite · ":"")+(d.rating>0?"★".repeat(d.rating):"")+'</div><div class="actions"><button class="btn small" data-action="edit" data-id="'+esc(d.id)+'">DETAILS</button><button class="btn small" data-action="favorite" data-id="'+esc(d.id)+'">'+(d.favorite?"★":"☆")+'</button><button class="btn small" data-action="watched" data-id="'+esc(d.id)+'">'+(d.watched?"WATCHED ✓":"MARK WATCHED")+'</button></div></div></article>';}
+
+const AZ=["All",..."ABCDEFGHIJKLMNOPQRSTUVWXYZ","#"];
+function artistInitial(value){
+ const artist=String(value||"").trim().replace(/^(?:the|an|a)\s+/i,"").replace(/^[^A-Za-z0-9]+/,"");
+ const ch=artist.charAt(0).toUpperCase();
+ return /^[A-Z]$/.test(ch)?ch:"#";
+}
+function alphabeticalArtist(value){
+ return String(value||"").trim().replace(/^(?:the|an|a)\s+/i,"").toLowerCase();
+}
+function matchDisc(d,q){
+ const needle=String(q||"").trim().toLocaleLowerCase();
+ return !needle||[d.artist,d.title,d.venue,d.notes,d.audio].some(value=>String(value||"").toLocaleLowerCase().includes(needle));
+}
+function sortConcerts(a,b){
+ return alphabeticalArtist(a.artist).localeCompare(alphabeticalArtist(b.artist))||
+ a.title.localeCompare(b.title)||a.format.localeCompare(b.format);
+}
+function alphabetBar(){
+ const present=new Set(state.discs.map(d=>artistInitial(d.artist)));
+ return '<nav class="alphabet-bar" aria-label="Jump to artist letter">'+AZ.map(letter=>
+  '<button type="button" data-letter="'+esc(letter)+'" aria-pressed="'+String(letter===letterFilter)+'" '+
+  (letter!=="All"&&!present.has(letter)?'disabled ':'')+
+  'class="alphabet-button'+(letter===letterFilter?' selected':'')+'">'+(letter==="All"?"ALL":esc(letter))+'</button>'
+ ).join("")+'</nav><p class="alpha-caption">Browse by <strong>artist name</strong> (ignoring “The,” “A,” and “An”). # is for names beginning with a number or symbol.</p>';
+}
+function ownershipLookup(){
+ if(!search.trim())return '';
+ const results=state.discs.filter(d=>matchDisc(d,search)).sort((a,b)=>(a.status==="Owned"?0:1)-(b.status==="Owned"?0:1)||sortConcerts(a,b));
+ const owned=results.filter(d=>d.status==="Owned").length;
+ const wanted=results.filter(d=>d.status==="Wishlist").length;
+ return '<div class="ownership-results" role="status" aria-live="polite"><div class="ownership-results-head"><strong>Ownership check</strong><span>'+
+ (results.length?owned+' owned · '+wanted+' on wishlist':'No matching entry saved')+'</span></div>'+
+ (results.length?'<div class="ownership-items">'+results.slice(0,30).map(d=>
+  '<div class="ownership-item"><div class="ownership-item-name"><strong>'+esc(d.artist)+'</strong><span>'+esc(d.title)+'</span></div>'+
+  '<div class="ownership-item-meta"><span class="ownership-status '+(d.status==="Owned"?'is-owned':'is-wishlist')+'">'+
+  (d.status==="Owned"?'✓ OWNED':'☆ WISHLIST')+'</span><span class="ownership-format">'+esc(d.format)+'</span></div>'+
+  '</div>').join("")+'</div>'+ (results.length>30?'<p class="meta">Showing 30 of '+results.length+' matches; enter more of the title to narrow the search.</p>':''):
+  '<p class="meta">Not found in <strong>this device’s Encore catalog</strong>. This doesn’t prove you don’t own it — check that your collection is fully cataloged.</p>')+'</div>';
+}
 function collectionPage(wishlist=false){
- const discs=state.discs.filter(d=>(wishlist?d.status==="Wishlist":d.status==="Owned")&&[d.artist,d.title,d.venue,d.notes,d.audio].join(" ").toLowerCase().includes(search.toLowerCase())&&(formatFilter==="All"||d.format===formatFilter)).sort((a,b)=>a.artist.localeCompare(b.artist)||a.title.localeCompare(b.title));
+ const discs=state.discs.filter(d=>(wishlist?d.status==="Wishlist":d.status==="Owned")&&
+ (letterFilter==="All"||artistInitial(d.artist)===letterFilter)&&matchDisc(d,search)&&
+ (formatFilter==="All"||d.format===formatFilter)).sort(sortConcerts);
  return '<div class="section-head"><div><h2>'+(wishlist?"Wish List":"Your Concert Collection")+'</h2><p>'+(wishlist?"Concerts you hope to own someday.":"Your discs, performances and memories — all in one place.")+'</p></div><div class="actions"><button class="btn" data-view="covers">📷 COVER HELPER</button><button class="btn primary" data-action="add">+ ADD</button></div></div>'+
- '<div class="tools"><input id="searchInput" type="search" aria-label="Search concerts" placeholder="Search artist, title, venue or audio…" value="'+esc(search)+'"><select id="formatFilter" aria-label="Filter format">'+opts(["All",...FMT],formatFilter)+'</select></div>'+
- (discs.length?'<div class="cards">'+discs.map(discCard).join("")+'</div>':'<div class="empty"><div style="font-size:35px">♫</div><p>'+(search||formatFilter!=="All"?"No matching concerts. Try another filter.":wishlist?"Your wish list is empty. Add a performance you would love to own.":"Your concert shelf is ready. Add your first Blu-ray or DVD.")+'</p><button class="btn primary" data-action="add">+ ADD CONCERT</button></div>');
+ '<div class="concert-search"><label for="searchInput" class="eyebrow">QUICK OWNERSHIP CHECK · ARTIST OR TITLE</label>'+
+ '<input id="searchInput" type="search" autocomplete="off" aria-label="Check whether I own a concert" placeholder="Before buying, search an artist or title…" value="'+esc(search)+'">'+
+ '<p class="meta">Checks your whole saved library, including owned discs and wishlist entries. Typing clears the A–Z filter.</p>'+
+ ownershipLookup()+'</div>'+
+ alphabetBar()+
+ '<div class="tools"><select id="formatFilter" aria-label="Filter disc format">'+opts(["All",...FMT],formatFilter)+'</select>'+
+ '<span class="result-count">'+discs.length+' '+(wishlist?"wishlist":"owned")+' concert'+(discs.length===1?'':'s')+' shown</span></div>'+
+ (discs.length?'<div class="cards">'+discs.map(discCard).join("")+'</div>':'<div class="empty"><div style="font-size:35px">♫</div><p>'+
+ (search||letterFilter!=="All"||formatFilter!=="All"?"No matching concerts in this section. Try All letters or another search.":wishlist?"Your wish list is empty. Add a performance you would love to own.":"Your concert shelf is ready. Add your first Blu-ray or DVD.")+
+ '</p><button class="btn primary" data-action="add">+ ADD CONCERT</button></div>');
 }
 function pickPage(){
  const choices=state.discs.filter(d=>d.status==="Owned");
@@ -347,6 +397,12 @@ function bind(){
   const button=e.target.closest("button");if(!button)return;
   if(button.dataset.nav){location.hash="#"+button.dataset.nav;return;}
   if(button.dataset.view){location.hash="#"+button.dataset.view;return;}
+  if(button.dataset.letter){
+   const letter=button.dataset.letter;
+   if(!AZ.includes(letter))return;
+   letterFilter=letter;search="";
+   render();return;
+  }
   const action=button.dataset.action,id=button.dataset.id;
   if(action==="add")openModal();
   if(action==="cover-batch"){$("coverBatchPicker").value="";$("coverBatchPicker").click();}
@@ -392,7 +448,11 @@ function bind(){
  });
  document.addEventListener("input",e=>{
   if(e.target.id==="coverFilter"){coverFilter=e.target.value;drawCoverQueue();return;}
-  if(e.target.id==="searchInput"){search=e.target.value;const pos=e.target.selectionStart;render();const node=$("searchInput");if(node){node.focus();node.setSelectionRange(pos,pos);}}
+  if(e.target.id==="searchInput"){
+   search=e.target.value;letterFilter="All";
+   const pos=e.target.selectionStart;
+   render();const node=$("searchInput");if(node){node.focus();node.setSelectionRange(pos,pos);}
+  }
  });
  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
  window.addEventListener("hashchange",render);
