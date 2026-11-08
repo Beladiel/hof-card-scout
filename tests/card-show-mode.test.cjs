@@ -21,6 +21,23 @@ test("Card Show only shows targets and needs by default; guards incoming duplica
   assert.deepEqual(h.showRows([needed,incoming,plain,upgrade,target],"needs","babe").map(p=>p.name),["Babe Ruth"]);
 });
 
+test("Card Show needs, targets, and inventory sort by surname, not first name",()=>{
+  const a={name:"Yogi Berra",last:"Berra",owned:false,target:"1958 Topps #370"};
+  const b={name:"Babe Ruth",last:"Ruth",owned:false,target:""};
+  const c={name:"Cal Ripken Jr.",last:"Ripken",owned:false,target:""};
+  const d={name:"Lou Gehrig",last:"Gehrig",owned:false,target:"1933 Goudey"};
+  const result=h.showRows([c,b,d,a],"needs","").map(p=>p.name);
+  assert.deepEqual(result,["Yogi Berra","Lou Gehrig","Cal Ripken Jr.","Babe Ruth"]);
+  assert.deepEqual(h.showRows([d,a],"targets","").map(p=>p.name),["Yogi Berra","Lou Gehrig"]);
+  const withoutLast=[{name:"Cal Ripken Jr.",owned:false},{name:"Tony Gwynn",owned:false}];
+  assert.deepEqual(h.showRows(withoutLast,"needs","").map(p=>p.name),["Tony Gwynn","Cal Ripken Jr."]);
+  const inventory=h.documentedRows([
+    {name:"Babe Ruth",last:"Ruth",owned:true},
+    {name:"Yogi Berra",last:"Berra",owned:true}
+  ],()=>"",{});
+  assert.deepEqual(inventory.map(p=>p.player),["Yogi Berra","Babe Ruth"]);
+});
+
 test("Live price check prefill uses target identity, not the owned card",()=>{
   const p=h.prefill(upgrade);
   assert.equal(p.name,"Willie Mays");
