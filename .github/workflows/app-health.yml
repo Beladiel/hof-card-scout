@@ -10,6 +10,10 @@ on:
       - 'special-collection.js'
       - 'src/index.js'
       - 'tests/photo-mission-health.test.cjs'
+      - 'tests/card-photos.test.cjs'
+      - 'tests/collection-value-foundation.test.cjs'
+      - 'tests/collection-value-dashboard.test.cjs'
+      - 'tests/collection-value-history-dashboard.test.cjs'
       - '.github/workflows/app-health.yml'
   pull_request:
     paths:
@@ -19,6 +23,10 @@ on:
       - 'special-collection.js'
       - 'src/index.js'
       - 'tests/photo-mission-health.test.cjs'
+      - 'tests/card-photos.test.cjs'
+      - 'tests/collection-value-foundation.test.cjs'
+      - 'tests/collection-value-dashboard.test.cjs'
+      - 'tests/collection-value-history-dashboard.test.cjs'
       - '.github/workflows/app-health.yml'
 
 permissions:
@@ -42,4 +50,5 @@ jobs:
           node --check collection-value.js
           node --check collection-value-dashboard.js
       - name: Test Photo Mission and app integration
-        run: node --test tests/photo-mission-health.test.cjs
+        run: |
+          node --test tests/photo-mission-health.test.cjs tests/card-photos.test.cjs tests/collection-value-foundation.test.cjs tests/collection-value-dashboard.test.cjs tests/collection-value-history-dashboard.test.cjs
