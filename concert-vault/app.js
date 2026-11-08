@@ -3,6 +3,7 @@
 "use strict";
 const KEY="encoreConcertVaultV1",SAFETY="encoreConcertVaultSafetyV1",DB_NAME="encoreConcertCoversV1";
 const FMT=["Blu-ray","DVD","4K UHD","Other"],STATS=["Owned","Wishlist"],AUDIO=["Unknown","Stereo","Dolby Digital 5.1","DTS 5.1","DTS-HD Master Audio","Dolby TrueHD","Dolby Atmos","PCM 2.0","PCM 5.1","Other"];
+const SCOUT_PICKS=[{"artist":"ZZ Top","title":"Live from Texas","format":"Blu-ray","why":"Texas blues-rock and classic hits"},{"artist":"INXS","title":"Live Baby Live","format":"Blu-ray","why":"Wembley Stadium, 1991"},{"artist":"Led Zeppelin","title":"Celebration Day","format":"DVD","why":"2007 reunion concert"},{"artist":"Joe Bonamassa","title":"Live at the Greek Theatre","format":"Blu-ray","why":"Blues guitar and a tribute to the Three Kings"},{"artist":"Chicago","title":"Chicago & Friends: Live at 55","format":"Blu-ray","why":"Greatest hits with special guests"},{"artist":"Aerosmith","title":"Rock for the Rising Sun","format":"Blu-ray","why":"Aerosmith performing in Japan"},{"artist":"Eagles","title":"Farewell I Tour: Live from Melbourne","format":"Blu-ray","why":"An evening of Eagles classics"},{"artist":"Whitesnake","title":"Made in Japan","format":"Blu-ray","why":"1980s hard rock onstage"},{"artist":"Zac Brown Band","title":"Pass the Jar","format":"DVD","why":"Country and Southern-rock live set"}];
 let state={version:1,discs:[]},db=null,view="collection",search="",letterFilter="All",formatFilter="All",editing=null,coverFor=null,pickId=null,storageProblem=false,recovered=false,urls=[],coverQueue=[],coverIds=new Set(),coverBytes=0,coverFilter="",coverBusy=false;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
@@ -269,11 +270,24 @@ function ownershipLookup(){
   '</div>').join("")+'</div>'+ (results.length>30?'<p class="meta">Showing 30 of '+results.length+' matches; enter more of the title to narrow the search.</p>':''):
   '<p class="meta">Not found in <strong>this device’s Encore catalog</strong>. This doesn’t prove you don’t own it — check that your collection is fully cataloged.</p>')+'</div>';
 }
+function scoutPicksPanel(){
+ // Curated, opt-in shopping suggestions. Never mutate owned records.
+ const ownedArtists=new Set(state.discs.map(d=>String(d.artist||"").trim().toLocaleLowerCase()));
+ const available=SCOUT_PICKS.map((p,i)=>({p,i})).filter(({p})=>!ownedArtists.has(p.artist.toLocaleLowerCase()));
+ return '<section class="panel scout-picks-panel"><div><span class="eyebrow">SHOPPING SHORTLIST</span><h2>Scout\'s Concert Picks</h2>'+
+ '<p>Choose any concerts you would consider buying, then add them directly to your Wish List. Artists already in your library are automatically hidden. No purchases are made.</p></div>'+
+ (available.length?'<div class="scout-picks-list">'+available.map(({p,i})=>
+ '<label class="scout-pick"><input type="checkbox" data-scout-pick="'+i+'"><span><strong>'+esc(p.artist)+'</strong>'+
+ '<span class="scout-pick-title">'+esc(p.title)+'</span><small>'+esc(p.format)+' · '+esc(p.why)+'</small></span></label>'
+ ).join('')+'</div><div class="actions"><button type="button" class="btn primary" data-action="scout-wishlist-add">☆ ADD SELECTED TO WISH LIST</button></div>':
+ '<p class="meta">Every suggestion from this shortlist is already on your shelf or wish list. Ask Scout for a fresh batch!</p>')+'</section>';
+}
 function collectionPage(wishlist=false){
  const discs=state.discs.filter(d=>(wishlist?d.status==="Wishlist":d.status==="Owned")&&
  (letterFilter==="All"||artistInitial(d.artist)===letterFilter)&&matchDisc(d,search)&&
  (formatFilter==="All"||d.format===formatFilter)).sort(sortConcerts);
  return '<div class="section-head"><div><h2>'+(wishlist?"Wish List":"Your Concert Collection")+'</h2><p>'+(wishlist?"Concerts you hope to own someday.":"Your discs, performances and memories — all in one place.")+'</p></div><div class="actions"><button class="btn" data-view="covers">📷 COVER HELPER</button><button class="btn primary" data-action="add">+ ADD</button></div></div>'+
+ (wishlist?scoutPicksPanel():"")+
  '<div class="concert-search"><label for="searchInput" class="eyebrow">QUICK OWNERSHIP CHECK · ARTIST OR TITLE</label>'+
  '<input id="searchInput" type="search" autocomplete="off" aria-label="Check whether I own a concert" placeholder="Before buying, search an artist or title…" value="'+esc(search)+'">'+
  '<p class="meta">Checks your whole saved library, including owned discs and wishlist entries. Typing clears the A–Z filter.</p>'+
@@ -404,6 +418,22 @@ function bind(){
    render();return;
   }
   const action=button.dataset.action,id=button.dataset.id;
+  if(action==="scout-wishlist-add"){
+   if(storageProblem){toast("Saved catalog needs recovery before adding to wish list");return;}
+   const selected=[...document.querySelectorAll("input[data-scout-pick]:checked")]
+    .map(input=>SCOUT_PICKS[Number(input.dataset.scoutPick)]).filter(Boolean);
+   if(!selected.length){toast("Select one or more concerts first");return;}
+   const existingArtists=new Set(state.discs.map(d=>String(d.artist||"").trim().toLocaleLowerCase()));
+   const candidates=selected.filter(p=>!existingArtists.has(p.artist.toLocaleLowerCase()));
+   if(!candidates.length){toast("Those artists are already in your library");render();return;}
+   if(!confirm("Add "+candidates.length+" selected concert(s) to your Wish List? No owned discs will be changed."))return;
+   for(const p of candidates){state.discs.push(normalize({
+    artist:p.artist,title:p.title,format:p.format,status:"Wishlist",
+    notes:"Scout's concert recommendation (November 2026). Check seller, price and condition before purchasing."
+   }));}
+   if(save()){render();toast(candidates.length+" concert(s) added to your Wish List");}
+   return;
+  }
   if(action==="add")openModal();
   if(action==="cover-batch"){$("coverBatchPicker").value="";$("coverBatchPicker").click();}
   if(action==="cover-camera"){$("coverCameraPicker").value="";$("coverCameraPicker").click();}
