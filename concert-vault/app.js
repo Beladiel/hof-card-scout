@@ -355,7 +355,7 @@ function pickPage(){
 function backupPage(){
  return '<div class="section-head"><div><h2>Backup & Import</h2><p>Keep your collection safe on your iPhone.</p></div></div>'+
  '<div class="notice">Your catalog and cover photos are saved privately in this Home Screen app or browser. Different browser contexts may have different collections. <strong>Keep one permanent app icon and save occasional backups.</strong></div>'+
- '<div class="backup-grid"><div class="panel"><h2>Save full backup</h2><p>Downloads a JSON file containing your concert entries and any locally uploaded cover photos. Store it in Files or iCloud Drive.</p><button class="btn primary" data-action="export">↓ DOWNLOAD COMPLETE BACKUP</button></div>'+
+ '<div class="backup-grid"><div class="panel"><h2>Save full backup</h2><p>Downloads a JSON file containing your concert entries and any locally uploaded cover photos. Store it in Files or iCloud Drive.</p><button class="btn primary" data-action="export">↓ DOWNLOAD COMPLETE BACKUP</button></div><div class="panel"><h2>App updates</h2><p>Refresh Encore to get the latest features without deleting or resetting your locally saved collection.</p><button class="btn" type="button" data-action="refresh-app">↻ CHECK FOR UPDATES</button></div>'+
  '<div class="panel"><h2>Restore / merge backup</h2><p>Safely adds concerts missing from this installation. Existing entries are not overwritten, and duplicate titles are skipped.</p><button class="btn" data-action="restore">↑ CHOOSE BACKUP FILE</button></div></div>'+
  '<div class="panel"><h2>Import from Scout</h2><p>Send a photo of concert disc covers to Scout in your existing conversation. Paste the JSON batch Scout creates below. Only entries you confirm are added, and duplicates are skipped.</p><form id="scoutBatchForm"><label class="field wide">SCOUT CONCERT BATCH<textarea name="batch" rows="6" required placeholder=\'{"format":"scout-concert-batch","concerts":[{"artist":"...","title":"...","format":"Blu-ray","status":"Owned"}]}\'></textarea></label><div class="actions" style="margin-top:12px"><button class="btn primary" type="submit">IMPORT BATCH</button></div></form></div>';
 }
@@ -469,6 +469,18 @@ function bind(){
    if(save()){render();toast(candidates.length+" concert(s) added to your Wish List");}
    return;
   }
+  if(action==="refresh-app"){
+   toast("Checking Encore for updates…");
+   try{
+    if("serviceWorker" in navigator){
+     const registration=await navigator.serviceWorker.getRegistration();
+     if(registration){await registration.update();if(registration.waiting)registration.waiting.postMessage({type:"SKIP_WAITING"});}
+    }
+   }catch(e){console.warn("Update check",e);}
+   // Reload only; never clear localStorage, IndexedDB, or Home Screen app data.
+   location.reload();
+   return;
+  }
   if(action==="add")openModal();
   if(action==="cover-batch"){$("coverBatchPicker").value="";$("coverBatchPicker").click();}
   if(action==="cover-camera"){$("coverCameraPicker").value="";$("coverCameraPicker").click();}
@@ -523,6 +535,12 @@ function bind(){
  window.addEventListener("hashchange",render);
  $("modalRoot").addEventListener("click",e=>{if(e.target.id==="modalBackdrop")closeModal();});
 }
-async function start(){load();bind();await openDB();render();if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(e=>console.warn(e));}
+async function start(){
+ load();bind();await openDB();render();
+ if("serviceWorker" in navigator){
+  navigator.serviceWorker.addEventListener("controllerchange",()=>location.reload());
+  navigator.serviceWorker.register("./sw.js").then(reg=>reg.update()).catch(e=>console.warn("App update",e));
+ }
+}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
 })();
