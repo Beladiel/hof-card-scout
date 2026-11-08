@@ -499,10 +499,53 @@ function matchingPaints(need){
  const found=state.paints.filter(p=>unique.some(w=>(p.name+" "+p.notes).toLowerCase().includes(w))).slice(0,8);
  return found.length?'<div style="display:flex;gap:6px;flex-wrap:wrap">'+found.map(p=>'<span class="recipe-chip"><span style="background:'+esc(p.color)+';width:14px;height:14px;border-radius:50%;border:1px solid #0002"></span>'+esc(p.name)+' · '+esc(p.number)+'</span>').join("")+'</div><p>Suggested by color words only; confirm the color on your model before using it.</p>':'<p>No obvious name-based match from your rack yet. Check similar colors by eye.</p>';
 }
+function importScoutPaintBatch(input){
+ if(typeof input!=="string"||!input.trim())throw Error("Paste a Scout paint batch first.");
+ if(input.length>35000)throw Error("Batch is too large. Split it into smaller groups.");
+ let payload;
+ try{payload=JSON.parse(input);}catch{throw Error("This is not valid JSON. Copy the complete paint batch from Scout.");}
+ const paints=Array.isArray(payload)?payload:payload&&payload.format==="scout-paint-batch"&&Array.isArray(payload.paints)?payload.paints:null;
+ if(!paints||!paints.length)throw Error('Expected a "scout-paint-batch" JSON object with a nonempty "paints" list.');
+ if(paints.length>100)throw Error("Import at most 100 paint bottles in one batch.");
+ const norm=x=>String(x||"").trim().toLowerCase().replace(/\s+/g," ");
+ const toKey=x=>{
+  const brand=norm(x.brand),range=norm(x.range),number=norm(x.number),name=norm(x.name);
+  return [brand,range,number?"code:"+number:"name:"+name].join("|");
+ };
+ const existing=new Set(state.paints.map(toKey));
+ const extraNames=new Set(state.paints.map(x=>[norm(x.brand),norm(x.range),norm(x.name)].join("|")));
+ const candidates=[],seen=new Set();let duplicates=0;
+ for(let i=0;i<paints.length;i++){
+  const x=paints[i];
+  if(!x||typeof x!=="object"||Array.isArray(x))throw Error("Paint "+(i+1)+" is not an entry.");
+  const brand=String(x.brand||"").trim(),range=String(x.range||"").trim(),name=String(x.name||"").trim();
+  if(!brand||!range||!name)throw Error("Paint "+(i+1)+" is missing a brand, range, or paint name. Ask Scout to verify the label.");
+  if(brand.length>60||range.length>60||name.length>90)throw Error("Paint "+(i+1)+" has a field that is too long.");
+  const number=String(x.number||"").trim(),notes=String(x.notes||"").trim();
+  if(number.length>30||notes.length>500)throw Error("Paint "+(i+1)+" has an invalid number or note length.");
+  const qty=x.quantity===undefined?1:Number(x.quantity);
+  if(!Number.isInteger(qty)||qty<1||qty>99)throw Error("Paint "+(i+1)+" has an invalid quantity.");
+  const color=x.color&&/^#[0-9a-f]{6}$/i.test(x.color)?x.color:"#8a7357";
+  const paint={brand,range,name,number,quantity:qty,color,notes};
+  const key=toKey(paint),nameKey=[norm(brand),norm(range),norm(name)].join("|");
+  if(existing.has(key)||seen.has(key)||extraNames.has(nameKey)){duplicates++;continue;}
+  candidates.push(paint);seen.add(key);
+ }
+ if(!candidates.length)return {added:0,duplicates,accepted:0};
+ const summary="Add "+candidates.length+" new bottle"+(candidates.length===1?"":"s")+" to your local Paint Rack? "+duplicates+" duplicate"+(duplicates===1?"":"s")+" will be skipped. Existing entries will not change.";
+ if(!confirm(summary))return {added:0,duplicates,cancelled:true};
+ for(const item of candidates)state.paints.push(normalizePaint(Object.assign({id:ID()},item)));
+ if(!save())throw Error("Couldn't save the updated rack. Please export a backup.");
+ return {added:candidates.length,duplicates,accepted:paints.length};
+}
+
 function renderPaints(){
  const paints=state.paints.filter(p=>[p.brand,p.range,p.name,p.number].join(" ").toLowerCase().includes(paintSearch.toLowerCase()));
  return '<div class="page-head"><div><div class="eyebrow">PAINT THE COLORS YOU OWN</div><h1>My Paint Rack</h1><p>Catalog your actual Vallejo and other paints so tutorials can suggest colors already on your desk.</p></div><button class="btn btn-primary" data-add-paint>+ ADD PAINT</button></div>'+
  '<div class="panel accent"><h2>'+state.paints.length+' bottles cataloged</h2><p>We know from your station photo that you primarily paint with Vallejo, but I have not guessed your exact paint names or numbers. Add bottles as you go. Your inventory stays private on this device.</p><div class="actions"><button class="btn btn-primary btn-sm" data-add-paint>+ ADD A VALLEJO BOTTLE</button></div></div>'+
+ '<section class="panel" style="margin:16px 0"><div class="eyebrow">FASTER PAINT INVENTORY</div><h2>📷 Import from Scout</h2><p>Photograph a few paint bottles and send the pictures in your existing Scout conversation. I will identify readable labels and give you a paint batch to copy. Paste it below to add those bottles without typing each one.</p>'+
+ '<form id="scoutPaintBatchForm"><label class="field">PASTE PAINT BATCH FROM SCOUT<textarea id="scoutPaintBatch" rows="5" maxlength="35000" placeholder=\'Paste the JSON paint batch Scout prepared from your bottle photos here…\' required></textarea></label><button class="btn btn-primary" type="submit" style="margin-top:10px">◉ IMPORT PAINT BATCH</button></form>'+
+ '<p class="section-sub">New bottles are merged into your existing rack. Repeated bottles are skipped, not counted twice. Existing quantities, paint names and notes are never overwritten. You will review the import count before saving. All inventory stays on this device.</p></section>'+
  '<div class="tools-row"><input id="paintSearch" class="search-input" type="search" placeholder="Search paint, range or number…" value="'+esc(paintSearch)+'"></div>'+
  (paints.length?'<div class="paint-list">'+paints.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>'<article class="paint-card"><div class="paint-dot" style="--paint-color:'+esc(p.color)+'"></div><div class="paint-info"><strong>'+esc(p.name)+'</strong><span>'+esc(p.brand)+' '+esc(p.range)+' · '+esc(p.number||"No product number")+'</span><span>Qty '+p.quantity+(p.notes?" · "+esc(p.notes):"")+'</span></div><div class="paint-controls"><button class="btn btn-outline btn-sm" data-edit-paint="'+esc(p.id)+'">EDIT</button></div></article>').join("")+'</div>':'<div class="empty"><span class="icon">🎨</span>No paints here yet. Start by adding just five favorite Vallejo bottles—or change your search.</div>');
 }
@@ -719,6 +762,16 @@ function wire(){
   if(e.target.id==="paintSearch"){paintSearch=e.target.value;render();const x=$("paintSearch");x?.focus();x?.setSelectionRange(paintSearch.length,paintSearch.length);}
  });
  document.body.addEventListener("submit",event=>{
+  if(event.target.id==="scoutPaintBatchForm"){
+   event.preventDefault();
+   try{
+    const result=importScoutPaintBatch($("scoutPaintBatch")?.value||"");
+    if(result.cancelled){notice("Paint import cancelled.");return;}
+    render();
+    notice(result.added+" new paint"+(result.added===1?"":"s")+" imported; "+result.duplicates+" duplicate"+(result.duplicates===1?"":"s")+" skipped.");
+   }catch(e){notice("Paint import: "+(e.message||e));}
+   return;
+  }
   if(event.target.id==="paintPlanForm"){
    event.preventDefault();
    const p=mini(activeMiniId);if(!p)return;
