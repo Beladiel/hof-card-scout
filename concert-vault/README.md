@@ -1,6 +1,14 @@
-# Encore Concert Vault · v1.1
+# Encore Concert Vault · v1.2
 
 A free, private, mobile-first library for physical live-concert Blu-rays, DVDs and 4K UHD discs.
+
+## New in v1.2 — watch rotation and permanent viewing date
+
+- Each concert has a stored **Last Watched** date (YYYY-MM-DD) separate from the existing **Watched This Round** flag.
+- Marking a concert watched stamps today's date in local time; the date is visible on collection cards, on the Concert Night result, and in the concert editor, where it may be manually corrected or backdated.
+- **Concert Night → Reset Watched Indicators** clears just the current-round flags (after confirmation). It does not erase Last Watched dates, ratings, favorites, or any other collection fields.
+- **Surprise Me with One Not Watched This Round** draws from owned discs not yet watched in the current round. Use the reset button to make them eligible again.
+- Existing watch flags without historical dates remain valid but do not gain invented dates. All values remain in the same device-local catalog and full backups.
 
 ## New in v1.1 — Cover Helper
 
