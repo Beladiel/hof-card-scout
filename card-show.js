@@ -235,9 +235,10 @@ function prefill(p){
   if(!p)return null;
   if(p.target){
     const m=clean(p.target).match(/\b((?:18|19|20)\d{2})\b/);
-    const yr=Number(p.targetYear||m&&m[1]||0);
+    const oldTarget=opts&&typeof opts.parseTargetLabel==="function"?opts.parseTargetLabel(p.target)||{}:{};
+    const yr=Number(p.targetYear||oldTarget.year||m&&m[1]||0);
     return {
-      name:p.name,cardYear:yr||"",set:p.targetSet||"",cardNum:p.targetCardNum||"",
+      name:p.name,cardYear:yr||"",set:p.targetSet||oldTarget.set||"",cardNum:p.targetCardNum||oldTarget.cardNum||"",
       grader:/^(PSA|SGC|CGC|CSG|HGA|TAG|ISA|BGS \/ Beckett)$/i.test(clean(p.targetGrader))?p.targetGrader:"Raw",
       gradeCondition:p.targetGrade||"",userNotes:p.targetNotes||"",
       autograph:p.targetAutoPreference==="Autograph required"
