@@ -61,10 +61,10 @@ test("Photo storage, export, import and privacy boundaries are explicit",()=>{
  assert.match(src,/await photoClear\(\)/);
  assert.match(src,/photos\[photoKey\(p.id,slot\)\]=await fileToDataUrl\(blob\)/);
  assert.match(src,/AI Horde/i);
- assert.match(html,/academy\.js\?v=6/);
- assert.match(html,/app\.js\?v=6/);
- assert.match(html,/styles\.css\?v=6/);
- assert.match(sw,/mini-paint-studio-shell-v6/);
+ assert.match(html,/academy\.js\?v=7/);
+ assert.match(html,/app\.js\?v=7/);
+ assert.match(html,/styles\.css\?v=7/);
+ assert.match(sw,/mini-paint-studio-shell-v7/);
  assert.equal(manifest.start_url,"./");
  assert.ok(css.includes("@media(max-width:550px)"));
 });
@@ -170,4 +170,41 @@ test("Photo-based Scout paint batch import deduplicates and keeps existing bottl
  assert.equal(JSON.parse(app.storage.get("miniPaintStudioV1")).paints.length,3);
  assert.throws(()=>app.window.__importPaintBatch("not json"),/not valid JSON/);
  assert.throws(()=>app.window.__importPaintBatch(JSON.stringify({format:"scout-paint-batch",paints:[{name:"Unknown"}]})),/missing a brand, range, or paint name/);
+});
+
+test("Updates preserve custom miniatures and all locally stored project fields",async()=>{
+ const data={version:1,miniatures:[
+  {id:"draugr-1",name:"Draugr",game:"Trudvang",type:"Monster",status:"Painting",notes:"Keep my skeleton figure",paintingPlan:"Ivory on bones",steps:[0,1],journal:[{id:"j1",at:"2026-11-08",text:"Weathered steel"}]},
+  {id:"another",name:"Tiny Hero",game:"Trudvang",type:"Character / Hero",status:"Unpainted",notes:"",steps:[]}
+ ],paints:[{id:"p",brand:"Vallejo",range:"Model Color",name:"Ivory",number:"70.918",quantity:1,color:"#eeccaa"}],lessonProgress:{}};
+ const app=openStudio({miniPaintStudioV1:JSON.stringify(data)});await app.ready();
+ const after=JSON.parse(app.storage.get("miniPaintStudioV1"));
+ assert.equal(after.miniatures.length,2);
+ assert.ok(after.miniatures.some(x=>x.id==="draugr-1"&&x.name==="Draugr"));
+ assert.equal(after.miniatures.find(x=>x.id==="draugr-1").paintingPlan,"Ivory on bones");
+ assert.equal(after.miniatures.find(x=>x.id==="draugr-1").journal[0].text,"Weathered steel");
+ assert.equal(after.paints.length,1);
+ assert.match(app.page("projects"),/Draugr/);
+ assert.match(app.page("home"),/BACK UP MY PROJECTS AND PHOTOS/);
+});
+test("Malformed primary storage recovers from local safety copy",async()=>{
+ const data={version:1,miniatures:[{id:"saved-draugr",name:"Draugr",game:"Trudvang",type:"Monster",status:"Unpainted"}],paints:[],lessonProgress:{}};
+ const app=openStudio({miniPaintStudioV1:"{BROKEN",miniPaintStudioV1SafetyCopy:JSON.stringify(data)});
+ await app.ready();
+ assert.match(app.page("projects"),/Draugr/);
+ assert.match(app.page("home"),/recovered from an on-device safety copy/);
+ assert.equal(JSON.parse(app.storage.get("miniPaintStudioV1")).miniatures[0].id,"saved-draugr");
+});
+test("If both saved copies are unreadable the app does not wipe primary storage",async()=>{
+ const app=openStudio({miniPaintStudioV1:"{INVALID",miniPaintStudioV1SafetyCopy:"[INVALID"});
+ await app.ready();
+ assert.equal(app.storage.get("miniPaintStudioV1"),"{INVALID");
+ assert.equal(app.storage.get("miniPaintStudioV1SafetyCopy"),"[INVALID");
+ assert.match(app.page("home"),/Saved data needs recovery/);
+ assert.doesNotMatch(app.page("projects"),/Dual-Axe Warrior/);
+});
+test("Browser workspace with just starter project warns users not to recreate lost miniature",async()=>{
+ const app=openStudio();await app.ready();
+ assert.match(app.page("home"),/Missing a miniature, like your Draugr/);
+ assert.match(app.page("backup"),/BACKUP & RESTORE/);
 });
