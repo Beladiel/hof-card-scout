@@ -135,5 +135,5 @@ test("Painting plan request includes owned rack and saves plan with miniature",a
  assert.match(src,/if\(event\.target\.id==="paintPlanForm"\)/);
  assert.match(src,/p\.paintingPlan=String/);
  assert.match(src,/filter\(x=>x\.quantity>0\)/);
- assert.match(src,/p\.paintingPlan=String\(x\.paintingPlan/);
+ assert.match(src,/x\.paintingPlan=String\(x\.paintingPlan/);
 });
