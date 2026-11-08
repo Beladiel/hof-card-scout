@@ -47,7 +47,7 @@ test("All major pages and technique lesson render without exception",async()=>{
  const app=openStudio();await app.ready();
  for(const [route,needle] of [
   ["home","At the Workbench"],["projects","My Miniatures"],["mini/nova-warrior","Painting Journal"],
-  ["inspiration/nova-warrior","ART-TO-MINI LAB"],["academy","Painting Academy"],
+  ["inspiration/nova-warrior","Art-to-Mini Lab"],["academy","Painting Academy"],
   ["lesson/leather","Worn Brown Leather"],["paints","My Paint Rack"],["backup","Backup & Restore"]
  ]){
   const page=app.page(route);assert.ok(page.includes(needle),"Missing "+needle+" in "+route);
@@ -79,6 +79,6 @@ test("User-entered miniature names are HTML-escaped in page views",async()=>{
 test("No automatic paid API/key or network upload is introduced",()=>{
  assert.doesNotMatch(src,/fetch\(/);
  assert.doesNotMatch(src,/X-Scout-Key/);
- assert.match(src,/No account\/cloud sync/);
+ assert.match(src,/no account or Scout Cloud synchronization/i);
  assert.match(src,/Direct AI image generation is not yet connected/);
 });
