@@ -9,6 +9,25 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 const uuid=()=>typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID():"disc-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2);
 const now=()=>new Date().toISOString();
+// Search live seller listings instead of embedding individual offers that may expire.
+function shoppingSearch(d,store){
+ const q=[d.artist,d.title,d.format==="Other"?"DVD Blu-ray":d.format,"concert"].filter(Boolean).join(" ");
+ return store==="ebay"?"https://www.ebay.com/sch/i.html?_nkw="+encodeURIComponent(q):
+ "https://www.google.com/search?tbm=shop&q="+encodeURIComponent(q);
+}
+function safeListingUrl(value){
+ const s=String(value||"").trim().slice(0,1200);
+ if(!s)return "";
+ try{const u=new URL(s);return u.protocol==="https:"&&!u.username&&!u.password?u.href:"";}catch{return "";}
+}
+function shoppingLinks(d){
+ const href=(url,label)=>'<a class="btn small shop-link" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+label+' ↗</a>';
+ return '<div class="actions shop-actions">'+
+ (d.shoppingUrl?href(d.shoppingUrl,"SAVED SELLER"):"")+
+ href(shoppingSearch(d,"ebay"),"SEARCH EBAY")+
+ href(shoppingSearch(d,"google"),"COMPARE PRICES")+'</div>';
+}
+
 const todayLocal=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");};
 const validWatchDate=value=>/^(?:19|20)\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/.test(String(value||""))&&!Number.isNaN(new Date(value+"T12:00:00").getTime())?String(value):"";
 const showWatchDate=value=>validWatchDate(value)?new Date(value+"T12:00:00").toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}):"Not recorded";
@@ -16,14 +35,14 @@ const cleanText=(value,max=300)=>String(value??"").trim().slice(0,max);
 const opts=(items,selected)=>items.map(item=>'<option value="'+esc(item)+'" '+(item===selected?"selected":"")+'>'+esc(item)+'</option>').join("");
 const stamp=v=>{if(!v)return "";const d=new Date(v);return Number.isNaN(d.getTime())?"":d.toLocaleDateString();};
 function normalize(d){
- const x=Object.assign({id:uuid(),artist:"",title:"",format:"Blu-ray",status:"Owned",year:"",releaseYear:"",venue:"",audio:"Unknown",discs:1,watched:false,lastWatched:"",favorite:false,rating:0,notes:"",addedAt:now(),updatedAt:now()},d||{});
+ const x=Object.assign({id:uuid(),artist:"",title:"",format:"Blu-ray",status:"Owned",year:"",releaseYear:"",venue:"",audio:"Unknown",discs:1,watched:false,lastWatched:"",favorite:false,rating:0,notes:"",shoppingUrl:"",addedAt:now(),updatedAt:now()},d||{});
  x.id=cleanText(x.id,90)||uuid();x.artist=cleanText(x.artist,160);x.title=cleanText(x.title,180);x.venue=cleanText(x.venue,180);
  x.format=FMT.includes(x.format)?x.format:"Other";x.status=STATS.includes(x.status)?x.status:"Owned";
  x.year=/^(19|20)\d{2}$/.test(String(x.year||""))?String(x.year):"";
  x.releaseYear=/^(19|20)\d{2}$/.test(String(x.releaseYear||""))?String(x.releaseYear):"";
  x.audio=AUDIO.includes(x.audio)?x.audio:"Other";x.discs=Math.max(1,Math.min(30,parseInt(x.discs,10)||1));
  x.watched=Boolean(x.watched);x.lastWatched=validWatchDate(x.lastWatched);x.favorite=Boolean(x.favorite);x.rating=Math.max(0,Math.min(5,Number(x.rating)||0));
- x.notes=cleanText(x.notes,3000);x.addedAt=cleanText(x.addedAt,40)||now();x.updatedAt=cleanText(x.updatedAt,40)||now();return x;
+ x.notes=cleanText(x.notes,3000);x.shoppingUrl=safeListingUrl(x.shoppingUrl);x.addedAt=cleanText(x.addedAt,40)||now();x.updatedAt=cleanText(x.updatedAt,40)||now();return x;
 }
 function parse(raw){if(!raw)return null;const data=JSON.parse(raw);if(!data||!Array.isArray(data.discs))return null;return {version:1,discs:data.discs.map(normalize)};}
 function load(){
@@ -229,7 +248,20 @@ async function saveQueued(ids){
 
 function discKey(d){return [d.artist,d.title,d.format].map(x=>x.toLowerCase().trim().replace(/\s+/g," ")).join("|");}
 function header(){const c=counts();return '<section class="hero"><span class="eyebrow">YOUR LIVE MUSIC LIBRARY</span><h2>The concert never ends.</h2><p>Catalog the concert DVDs, Blu-rays, and 4K discs on your shelves. Keep track of great performances, surround sound mixes, favorites, and the next show to play.</p><div class="actions"><button class="btn primary" data-action="add">+ ADD A CONCERT</button><button class="btn ghost" data-view="pick">♫ WHAT SHOULD I WATCH?</button></div></section><div class="stats"><div class="stat"><strong>'+c.owned+'</strong><span>Owned discs</span></div><div class="stat"><strong>'+c.wishlist+'</strong><span>Wishlist</span></div><div class="stat"><strong>'+c.favorites+'</strong><span>Favorites</span></div><div class="stat"><strong>'+c.unwatched+'</strong><span>Ready this round</span></div></div>';}
-function discCard(d){return '<article class="disc"><div class="cover" data-cover="'+esc(d.id)+'"><span class="no-cover">♫</span><span class="format">'+esc(d.format)+'</span></div><div class="disc-info"><span class="artist">'+esc(d.artist)+'</span><h3>'+esc(d.title)+'</h3><div class="meta">'+esc(d.year||d.releaseYear||"Year unknown")+(d.venue?' · '+esc(d.venue):'')+'</div><div class="meta">'+esc(d.audio)+(d.watched?' · Watched this round':'')+'</div><div class="meta">Last watched: '+esc(showWatchDate(d.lastWatched))+'</div><div class="meta stars">'+(d.favorite?"★ Favorite · ":"")+(d.rating>0?"★".repeat(d.rating):"")+'</div><div class="actions"><button class="btn small" data-action="edit" data-id="'+esc(d.id)+'">DETAILS</button><button class="btn small" data-action="favorite" data-id="'+esc(d.id)+'">'+(d.favorite?"★":"☆")+'</button><button class="btn small" data-action="watched" data-id="'+esc(d.id)+'">'+(d.watched?"WATCHED ✓":"MARK WATCHED")+'</button></div></div></article>';}
+function discCard(d){
+ const wanted=d.status==="Wishlist";
+ return '<article class="disc"><div class="cover" data-cover="'+esc(d.id)+'"><span class="no-cover">♫</span><span class="format">'+esc(d.format)+'</span></div>'+
+ '<div class="disc-info"><span class="artist">'+esc(d.artist)+'</span><h3>'+esc(d.title)+'</h3>'+
+ (wanted?'<div class="meta">☆ Wish List · '+esc(d.format)+'</div><div class="meta">Shop links search current seller listings; availability and prices can change.</div>':
+ '<div class="meta">'+esc(d.year||d.releaseYear||"Year unknown")+(d.venue?' · '+esc(d.venue):'')+'</div>'+
+ '<div class="meta">'+esc(d.audio)+(d.watched?' · Watched this round':'')+'</div>'+
+ '<div class="meta">Last watched: '+esc(showWatchDate(d.lastWatched))+'</div>'+
+ '<div class="meta stars">'+(d.favorite?"★ Favorite · ":"")+(d.rating>0?"★".repeat(d.rating):"")+'</div>')+
+ (wanted?shoppingLinks(d):"")+
+ '<div class="actions"><button class="btn small" data-action="edit" data-id="'+esc(d.id)+'">'+(wanted?"DETAILS / MARK OWNED":"DETAILS")+'</button>'+
+ (wanted?"":'<button class="btn small" data-action="favorite" data-id="'+esc(d.id)+'">'+(d.favorite?"★":"☆")+'</button><button class="btn small" data-action="watched" data-id="'+esc(d.id)+'">'+(d.watched?"WATCHED ✓":"MARK WATCHED")+'</button>')+
+ '</div></div></article>';
+}
 
 const AZ=["All",..."ABCDEFGHIJKLMNOPQRSTUVWXYZ","#"];
 function artistInitial(value){
@@ -275,13 +307,15 @@ function scoutPicksPanel(){
  const ownedArtists=new Set(state.discs.map(d=>String(d.artist||"").trim().toLocaleLowerCase()));
  const available=SCOUT_PICKS.map((p,i)=>({p,i})).filter(({p})=>!ownedArtists.has(p.artist.toLocaleLowerCase()));
  return '<section class="panel scout-picks-panel"><div><span class="eyebrow">SHOPPING SHORTLIST</span><h2>Scout\'s Concert Picks</h2>'+
- '<p>Choose any concerts you would consider buying, then add them directly to your Wish List. Artists already in your library are automatically hidden. No purchases are made.</p></div>'+
+ '<p>Check concerts to add to your Wish List, or compare sellers first. Shop links open live search results, not guaranteed in-stock offers. Your saved library stays private.</p></div>'+
  (available.length?'<div class="scout-picks-list">'+available.map(({p,i})=>
- '<label class="scout-pick"><input type="checkbox" data-scout-pick="'+i+'"><span><strong>'+esc(p.artist)+'</strong>'+
- '<span class="scout-pick-title">'+esc(p.title)+'</span><small>'+esc(p.format)+' · '+esc(p.why)+'</small></span></label>'
+ '<div class="scout-pick-item"><label class="scout-pick"><input type="checkbox" data-scout-pick="'+i+'"><span><strong>'+esc(p.artist)+'</strong>'+
+ '<span class="scout-pick-title">'+esc(p.title)+'</span><small>'+esc(p.format)+' · '+esc(p.why)+'</small></span></label>'+
+ '<div class="scout-pick-shops">'+shoppingLinks(p)+'</div></div>'
  ).join('')+'</div><div class="actions"><button type="button" class="btn primary" data-action="scout-wishlist-add">☆ ADD SELECTED TO WISH LIST</button></div>':
  '<p class="meta">Every suggestion from this shortlist is already on your shelf or wish list. Ask Scout for a fresh batch!</p>')+'</section>';
 }
+
 function collectionPage(wishlist=false){
  const discs=state.discs.filter(d=>(wishlist?d.status==="Wishlist":d.status==="Owned")&&
  (letterFilter==="All"||artistInitial(d.artist)===letterFilter)&&matchDisc(d,search)&&
@@ -348,6 +382,7 @@ function openModal(id){
  '<label class="field">WATCHED THIS ROUND<select name="watched">'+opts(["No","Yes"],x.watched?"Yes":"No")+'</select></label>'+
  '<label class="field">LAST WATCHED (SAVED HISTORY)<input name="lastWatched" type="date" value="'+esc(x.lastWatched)+'"></label>'+ 
  '<label class="field">FAVORITE<select name="favorite">'+opts(["No","Yes"],x.favorite?"Yes":"No")+'</select></label>'+
+ '<label class="field wide">SELLER LINK (OPTIONAL — HTTPS)<input type="url" name="shoppingUrl" maxlength="1200" inputmode="url" placeholder="https://example.com/your-listing" value="'+esc(x.shoppingUrl)+'"></label>'+
  '<label class="field wide">NOTES, SONG HIGHLIGHTS, EDITION INFO<textarea name="notes" maxlength="3000" rows="4" placeholder="Favorite performance, sound mix, bonus songs, how the disc looks on your TV…">'+esc(x.notes)+'</textarea></label></div>'+
  '<div class="modal-foot"><div class="actions">'+(d?'<button type="button" class="btn" data-action="cover" data-id="'+esc(d.id)+'">📷 ADD / CHANGE COVER</button><button type="button" class="btn danger" data-action="delete" data-id="'+esc(d.id)+'">DELETE</button>':"")+'</div><button type="submit" class="btn primary">SAVE CONCERT</button></div></form></div></div>';
  $("modalRoot").innerHTML=h;$("modalRoot").querySelector("input")?.focus();
