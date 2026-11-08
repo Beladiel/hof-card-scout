@@ -1,0 +1,18 @@
+{
+  "name": "Miniature Paint Studio",
+  "short_name": "Paint Studio",
+  "description": "Miniature painting tracker and tutorial academy",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "theme_color": "#172923",
+  "background_color": "#f3f0e8",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}
