@@ -14,13 +14,13 @@ const manifest=JSON.parse(fs.readFileSync(path.join(root,"manifest.webmanifest")
 const m={exports:[]};vm.runInNewContext(academySrc,{module:m});
 const lessons=m.exports;
 
-function openStudio(seed){
+function openStudio(seed,appSource=src){
  const storage=new Map(seed?Object.entries(seed):[]),callbacks={},view={innerHTML:"",textContent:"",classList:{toggle(){},add(){},remove(){}},addEventListener(){}};
  const window={PaintAcademy:lessons,scrollTo(){},addEventListener(name,fn){callbacks[name]=fn;}};
  const doc={readyState:"loading",body:{addEventListener(){}},addEventListener(name,fn){callbacks[name]=fn;},getElementById(){return view;},querySelectorAll(){return []}};
  const loc={hash:""},context={window,document:doc,localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},navigator:{},location:loc,crypto:{randomUUID:()=>"seed-id"},setTimeout(){},clearTimeout(){},confirm(){return true;},console:{warn(){},log(){}}};
- vm.runInNewContext(src,context);
- return {storage,callbacks,view,loc,async ready(){await callbacks.DOMContentLoaded();},page(route){loc.hash="#"+route;callbacks.hashchange();return view.innerHTML;}};
+ vm.runInNewContext(appSource,context);
+ return {window,storage,callbacks,view,loc,async ready(){await callbacks.DOMContentLoaded();},page(route){loc.hash="#"+route;callbacks.hashchange();return view.innerHTML;}};
 }
 test("Academy has substantial lesson guidance for signature techniques",()=>{
  assert.equal(lessons.length,13);
@@ -61,10 +61,10 @@ test("Photo storage, export, import and privacy boundaries are explicit",()=>{
  assert.match(src,/await photoClear\(\)/);
  assert.match(src,/photos\[photoKey\(p.id,slot\)\]=await fileToDataUrl\(blob\)/);
  assert.match(src,/AI Horde/i);
- assert.match(html,/academy\.js\?v=5/);
- assert.match(html,/app\.js\?v=5/);
- assert.match(html,/styles\.css\?v=5/);
- assert.match(sw,/mini-paint-studio-shell-v5/);
+ assert.match(html,/academy\.js\?v=6/);
+ assert.match(html,/app\.js\?v=6/);
+ assert.match(html,/styles\.css\?v=6/);
+ assert.match(sw,/mini-paint-studio-shell-v6/);
  assert.equal(manifest.start_url,"./");
  assert.ok(css.includes("@media(max-width:550px)"));
 });
@@ -136,4 +136,38 @@ test("Painting plan request includes owned rack and saves plan with miniature",a
  assert.match(src,/p\.paintingPlan=String/);
  assert.match(src,/filter\(x=>x\.quantity>0\)/);
  assert.match(src,/x\.paintingPlan=String\(x\.paintingPlan/);
+});
+
+test("Photo-based Scout paint batch import deduplicates and keeps existing bottle details",async()=>{
+ const saved={version:1,miniatures:[],paints:[
+  {id:"existing",brand:"Vallejo",range:"Model Color",name:"Ivory",number:"70.918",quantity:4,color:"#f4e7bc",notes:"Old bottle"}
+ ],lessonProgress:{}};
+ const instrumented=src.replace('if(document.readyState==="loading")','window.__importPaintBatch=importScoutPaintBatch; if(document.readyState==="loading")');
+ const app=openStudio({miniPaintStudioV1:JSON.stringify(saved)},instrumented);
+ await app.ready();
+ assert.match(app.page("paints"),/Import from Scout/);
+ assert.match(app.page("paints"),/scoutPaintBatchForm/);
+ const batch={format:"scout-paint-batch",paints:[
+  {brand:"Vallejo",range:"Model Color",name:"Ivory",number:"70.918",quantity:1},
+  {brand:"Vallejo",range:"Model Color",name:"Flat Brown",number:"70.984",quantity:1},
+  {brand:"Vallejo",range:"Model Color",name:"Flat Brown",number:"70.984",quantity:1},
+  {brand:"Vallejo",range:"Game Color",name:"Goblin Green",number:"72.030",quantity:2}
+ ]};
+ const result=app.window.__importPaintBatch(JSON.stringify(batch));
+ assert.equal(result.added,2);
+ assert.equal(result.duplicates,2);
+ const data=JSON.parse(app.storage.get("miniPaintStudioV1"));
+ assert.equal(data.paints.length,3);
+ const ivory=data.paints.find(p=>p.number==="70.918");
+ assert.equal(ivory.quantity,4);
+ assert.equal(ivory.notes,"Old bottle");
+ const brown=data.paints.find(p=>p.number==="70.984");
+ assert.equal(brown.quantity,1);
+ assert.equal(brown.color,"#8a7357");
+ const again=app.window.__importPaintBatch(JSON.stringify(batch));
+ assert.equal(again.added,0);
+ assert.equal(again.duplicates,4);
+ assert.equal(JSON.parse(app.storage.get("miniPaintStudioV1")).paints.length,3);
+ assert.throws(()=>app.window.__importPaintBatch("not json"),/not valid JSON/);
+ assert.throws(()=>app.window.__importPaintBatch(JSON.stringify({format:"scout-paint-batch",paints:[{name:"Unknown"}]})),/missing a brand, range, or paint name/);
 });
