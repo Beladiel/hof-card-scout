@@ -258,7 +258,7 @@ test("Project workbench recommends only owned bottles for warrior, with optional
  assert.match(page,/data-recipe-step="0"/);
  assert.match(page,/data-recipe-choice="red-cloth"/);
  assert.match(page,/option value="alt"/);
- assert.equal(app.callbacks["body:change"] instanceof Function,true);
+ assert.equal(typeof app.callbacks["body:change"],"function");
  app.callbacks["body:change"]({target:{id:"",dataset:{recipeChoice:"red-cloth"},value:"alt"}});
  let updated=JSON.parse(app.storage.get("miniPaintStudioV1"));
  assert.equal(updated.miniatures[0].recipeChoices["red-cloth"],"alt");
