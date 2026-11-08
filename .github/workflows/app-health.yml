@@ -1,0 +1,45 @@
+name: Card Scout App Health
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'photo-mission.js'
+      - 'card-photo.js'
+      - 'special-collection.js'
+      - 'src/index.js'
+      - 'tests/photo-mission-health.test.cjs'
+      - '.github/workflows/app-health.yml'
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'photo-mission.js'
+      - 'card-photo.js'
+      - 'special-collection.js'
+      - 'src/index.js'
+      - 'tests/photo-mission-health.test.cjs'
+      - '.github/workflows/app-health.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-tests:
+    name: Syntax, cloud-photo and navigation checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript syntax
+        run: |
+          node --check src/index.js
+          node --check photo-mission.js
+          node --check card-photo.js
+          node --check special-collection.js
+          node --check collection-value.js
+          node --check collection-value-dashboard.js
+      - name: Test Photo Mission and app integration
+        run: node --test tests/photo-mission-health.test.cjs
