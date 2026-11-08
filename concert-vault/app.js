@@ -166,6 +166,7 @@ function drawCoverQueue(){
 }
 async function addCoverFiles(files){
  if(!files.length||coverBusy)return;
+ if(!state.discs.length){toast("Add your concert entries before assigning cover photos.");return;}
  if(!db){toast("Local photo storage is not available on this device");return;}
  const remaining=Math.max(0,24-coverQueue.length);
  if(!remaining){toast("Save or clear this batch before selecting more photos (24 maximum).");return;}
@@ -205,7 +206,8 @@ async function saveQueued(ids){
  const targets=chosen.map(q=>q.target);
  if(new Set(targets).size!==targets.length){toast("Two photos are matched to the same concert. Select different entries.");return;}
  if(targets.some(id=>!state.discs.some(d=>d.id===id))){toast("A selected concert is no longer in the catalog.");return;}
- const overwritten=targets.filter(id=>coverIds.has(id));
+ const overwritten=[];
+ for(const id of targets){if(await coverGet(id))overwritten.push(id);}
  if(overwritten.length&&!confirm("Replace "+overwritten.length+" existing cover"+(overwritten.length===1?"":"s")+" with the selected photos?"))return;
  coverBusy=true;drawCoverQueue();
  let done=0;
