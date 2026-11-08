@@ -1640,7 +1640,13 @@ function scheduleCloudSave(){
   cloudSaveTimer=setTimeout(()=>cloudSaveNow(false),CLOUD_SYNC_DEBOUNCE_MS);
 }
 async function cloudSaveNow(forceTimestamp=false){
-  if(cloudSyncBusy)return false;
+  if(cloudSyncBusy){
+    // A photo or card edit may occur while a previous cloud request is in flight.
+    // Retry instead of silently dropping the newest save.
+    clearTimeout(cloudSaveTimer);
+    cloudSaveTimer=setTimeout(()=>cloudSaveNow(forceTimestamp),CLOUD_SYNC_DEBOUNCE_MS);
+    return false;
+  }
   const c=pricingConfig();
   if(!c.endpoint||!c.accessKey){
     setCloudStatus("Waiting for the Scout connection on this device.");
