@@ -95,7 +95,7 @@ test("Cover Helper is integrated without moving photos to GitHub",async()=>{
  assert.match(view,/TAKE ONE PHOTO/);
  assert.match(view,/SAVED|saved/);
  assert.match(view,/not on GitHub/);
- assert.match(view,/No photos waiting to be matched/);
+ assert.match(a.elements.coverQueue.innerHTML,/No photos waiting to be matched/);
  assert.match(view,/Local photo storage/);
  assert.match(view,/BACKUP MY COLLECTION/);
  assert.match(index,/data-nav="covers"/);
