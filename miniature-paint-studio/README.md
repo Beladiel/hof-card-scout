@@ -1,4 +1,4 @@
-# Miniature Paint Studio · v1.1
+# Miniature Paint Studio · v1.2
 
 Standalone, mobile-friendly, local-first hobby studio for miniature painters. Live URL (after GitHub Pages deploy):
 
