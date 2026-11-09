@@ -179,6 +179,20 @@ function renderPanel(){
 function escapeStatus(s){return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function init(){
  config=read(PAIR,null);
+ // A private QR code can securely deliver the pairing token in a URL fragment.
+ // Fragments never reach GitHub's web server; remove it from the address immediately.
+ const found=location.hash.match(/^#connect=([A-Za-z0-9_-]{40,180})$/);
+ if(found){
+   const incoming={format:"LifePlannerCloud1",endpoint:"https://ghhxtnyvchmkerxulrxk.supabase.co/functions/v1/lifeplanner-sync",token:found[1]};
+   if(validPair(incoming)){
+     if(!config || config.token!==incoming.token){
+       write(SAFE,{format:"LifePlannerBeforeCloud",exported:new Date().toISOString(),events:window.LifePlannerBridge?.getEvents()||[]});
+       write(PAIR,incoming);write(BASE,{});write(DELETED,{});
+     }
+     config=incoming;
+     history.replaceState(null,"",location.pathname+location.search+"#sync");
+   }
+ }
  if(config&&!validPair(config)){config=null;status("Pairing file invalid. Choose the correct private file.");}
  base=read(BASE,{});tomb=read(DELETED,{});
  if(config){status("☁️ Paired. Connecting to your Windows planner…");setTimeout(syncNow,1200);}
