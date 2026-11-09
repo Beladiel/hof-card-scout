@@ -6,6 +6,7 @@ const CATEGORIES=["Vacation","Milestone","Doctor","School","Personal","Other"];
 const COLOR={Vacation:"#0b807e",Milestone:"#7756ad",Doctor:"#c17825",School:"#3574af",Personal:"#b05c82",Other:"#687485"};
 const ALERTS=[["None",-1],["Same day",0],["1 day before",1],["3 days before",3],["7 days before",7],["14 days before",14],["30 days before",30]];
 const TILES=["Vacation","Milestone","Doctor","School"];
+let cloudApplying=false;
 let state={version:1,events:[],settings:{showAllTiles:true}},storageProblem=false,storageRecovered=false,tab="dashboard",categoryFilter="All",search="",editing=null,pendingImport=null;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
@@ -64,7 +65,7 @@ function load(){
 }
 function save(){
  if(storageProblem){toast("Storage needs recovery: no changes were written");return false;}
- try{const data=JSON.stringify(state);localStorage.setItem(KEY,data);localStorage.setItem(SAFETY,data);return true;}catch(e){console.warn("Unable to store planner",e);toast("Could not save. Download a backup before making more changes.");return false;}
+ try{const data=JSON.stringify(state);localStorage.setItem(KEY,data);localStorage.setItem(SAFETY,data);if(!cloudApplying)window.LifePlannerCloud?.changed();return true;}catch(e){console.warn("Unable to store planner",e);toast("Could not save. Download a backup before making more changes.");return false;}
 }
 function toast(text){const node=$("toast");if(!node)return;node.textContent=text;node.classList.add("show");clearTimeout(toast._timer);toast._timer=setTimeout(()=>node.classList.remove("show"),3200);}
 function sortEvents(a,b){return a.day.localeCompare(b.day)||a.time.localeCompare(b.time)||a.title.localeCompare(b.title);}
@@ -126,8 +127,8 @@ function eventPage(completed=false){
  filters()+listEvents(rows);
 }
 function syncPage(){
- return '<div class="page-head"><div><h2>Backup & PC Transfer</h2><p>Built to understand the original Windows LifePlanner v1.2 backup.</p></div></div>'+
- '<div class="alert"><strong>Local-first version:</strong> Events added here live on your iPhone. Automatic two-way cloud synchronization is not connected yet. Until it is, use backups to transfer updates between the PC and phone.</div>'+
+ return (window.LifePlannerCloud?.renderPanel() || '') + '<div class="page-head"><div><h2>Backup & PC Transfer</h2><p>Built to understand the original Windows LifePlanner v1.2 backup.</p></div></div>'+
+ '<div class="alert"><strong>Cloud sync:</strong> Once both devices are paired, changes can travel between your existing Windows LifePlanner and the phone automatically while both apps are open. You can still save and restore separate JSON backups below.</div>'+
  '<section class="panel"><span class="eyebrow">START HERE</span><h3>Bring your Windows events to iPhone</h3>'+
  '<ol class="sync-steps"><li>On your PC, open LifePlanner and select <strong>Save Backup</strong>.</li>'+
  '<li>Send that JSON file to your iPhone using Files, iCloud Drive or an attachment you trust.</li>'+
@@ -140,8 +141,8 @@ function syncPage(){
  '<p>Creates an original-format <strong>LifePlanner1</strong> JSON backup that your desktop app can open using Restore Backup.</p>'+
  '<button class="btn" data-action="backup-pc">↓ Export for PC</button></section></div>'+
  '<div class="alert warn"><strong>Important:</strong> Windows <strong>Restore Backup</strong> replaces its entire event list. Save a backup of the PC first. Imported Merge adds missing events but does not overwrite matching events or provide automatic conflict resolution.</div>'+
- '<section class="panel"><h3>Next step: secure automatic sync</h3>'+
- '<p>The desktop app keeps its original SQLite database under Windows AppData. We can build a small desktop sync adapter and connect both devices through a private account-backed cloud service. No desktop data will be changed until that connection is configured and verified.</p></section>';
+ '<section class="panel"><h3>How private syncing works</h3>'+
+ '<p>Your Windows LifePlanner stays installed and retains its own SQLite database. Use the supplied cloud sync companion and the private pairing file. A backup is made automatically before the first PC sync. Never post the pairing file online.</p></section>';
 }
 function banner(){
  if(storageProblem)return '<div class="alert error"><strong>Storage needs recovery.</strong> Both the primary and on-device safety copy are unreadable. LifePlanner will not overwrite them. Open your original Home Screen icon or import a previous backup once the storage issue is resolved.</div>';
@@ -195,6 +196,7 @@ function doDelete(id){
  if(storageProblem)return toast("Storage needs recovery");
  const item=state.events.find(e=>e.id===id);if(!item)return;
  if(!confirm('Delete "'+item.title+'"? This removes it from this device and its completed history.'))return;
+ window.LifePlannerCloud?.recordDeleted(id);
  state.events=state.events.filter(e=>e.id!==id);
  if(save()){closeEditor();render();toast("Event deleted");}
 }
@@ -318,8 +320,24 @@ function showReminders(){
   box.after(note);
  }
 }
+window.LifePlannerBridge={
+ getEvents:()=>state.events.map(e=>({...e})),
+ setEvents:rows=>{
+   if(storageProblem)return false;
+   const old=state.events;
+   try{
+     const next=rows.map(e=>normalizeEvent(e,false));
+     cloudApplying=true;state.events=next;
+     if(!save()){state.events=old;return false;}
+     render();
+     return true;
+   }catch(e){console.warn("Cloud snapshot was rejected",e);state.events=old;return false;}
+   finally{cloudApplying=false;}
+ },
+ refresh:()=>render()
+};
 async function start(){
- load();registerEvents();render();showReminders();
+ load();registerEvents();window.LifePlannerCloud?.init();render();showReminders();
  if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(e=>console.warn("LifePlanner offline shell",e));
 }
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
