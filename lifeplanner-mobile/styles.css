@@ -81,3 +81,6 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
  .event{gap:9px}.event-date{width:55px}
  .stat{padding:10px 6px}.stat strong{font-size:21px}
 }
+/* Cloud pairing statuses */
+#cloudStatus {overflow-wrap:anywhere}
+.panel button[data-cloud] {min-width:136px}
