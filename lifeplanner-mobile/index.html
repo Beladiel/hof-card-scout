@@ -11,14 +11,15 @@
 <title>LifePlanner Mobile · Scout</title>
 <link rel="icon" type="image/svg+xml" href="./icon.svg">
 <link rel="manifest" href="./manifest.webmanifest">
-<link rel="stylesheet" href="./styles.css?v=1">
-<script src="./app.js?v=1" defer></script>
+<link rel="stylesheet" href="./styles.css?v=2">
+<script src="./app.js?v=2" defer></script>
+<script src="./cloud-sync.js?v=2" defer></script>
 </head>
 <body>
 <div class="shell">
  <header class="masthead">
   <div class="logo">✦</div>
-  <div class="brand"><span class="kicker">SCOUT'S EVERYDAY ORGANIZER</span><h1>Life<span>Planner</span></h1><span class="edition">Mobile v1.0</span></div>
+  <div class="brand"><span class="kicker">SCOUT'S EVERYDAY ORGANIZER</span><h1>Life<span>Planner</span></h1><span class="edition">Mobile v2.0</span></div>
   <button class="btn add-main" type="button" data-action="add">+ Add</button>
  </header>
  <nav class="tabs" aria-label="LifePlanner sections">
@@ -28,10 +29,11 @@
   <button data-tab="sync">⇅ Backup & Sync</button>
  </nav>
  <main id="content" aria-live="polite"><div class="empty">Loading your planner…</div></main>
- <footer class="footer">Private on this device · Your original Windows LifePlanner is unchanged</footer>
+ <footer class="footer">Private cloud sync optional · Your original Windows LifePlanner stays on your PC</footer>
 </div>
 <div id="dialog"></div>
 <input type="file" id="importPicker" accept=".json,application/json" hidden>
+<input type="file" id="cloudPairFile" accept=".json,application/json" hidden>
 <div id="toast" role="status" class="toast"></div>
 </body>
 </html>
