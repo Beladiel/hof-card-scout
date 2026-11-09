@@ -33,7 +33,13 @@ function cloudRecords(rows) {
  }
  return out;
 }
-function same(a,b) {return JSON.stringify(a===undefined?null:a)===JSON.stringify(b===undefined?null:b);}
+function stable(value) {
+ if(value===undefined || value===null)return "null";
+ if(Array.isArray(value))return "["+value.map(stable).join(",")+"]";
+ if(typeof value==="object")return "{"+Object.keys(value).sort().map(k=>JSON.stringify(k)+":"+stable(value[k])).join(",")+"}";
+ return JSON.stringify(value);
+}
+function same(a,b) {return stable(a)===stable(b);}
 function localRecords(){
  const b=window.LifePlannerBridge;
  if(!b)return {};
