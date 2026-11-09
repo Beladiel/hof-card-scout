@@ -170,13 +170,37 @@ function renderPanel(){
   '<h3>'+(connected?'Connected to your Windows LifePlanner':'Connect Windows + iPhone')+'</h3>'+
   '<p>Syncs your appointments, countdowns, notes and completed history while both apps are running. Edits are saved on each device first. Simultaneous edits become separate conflict copies rather than being overwritten.</p>'+
   '<div class="alert" id="cloudStatus" role="status">'+escapeStatus(lastStatus)+'</div>'+
+  (connected ? '' : '<label for="cloudPairInput" style="display:block;font-weight:750;margin:14px 0 5px">Already have the private pairing link?</label>'+
+  '<input id="cloudPairInput" type="password" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Private pairing link or code" placeholder="Paste your private pairing link here" style="width:100%;max-width:620px;min-height:44px;padding:10px;border-radius:9px;border:1px solid #cbd8e6;margin-bottom:9px">'+
+  '<p class="small">If the QR code opened in Safari but your Home Screen app still says Not paired, paste the private pairing link directly into this screen. Each app can keep separate local storage.</p>')+
   '<div class="actions">'+
   (connected?'<button class="btn primary" type="button" data-cloud="sync">⇅ Sync now</button>'+
              '<button class="btn" type="button" data-cloud="disconnect">Disconnect phone</button>':
-             '<button class="btn primary" type="button" data-cloud="pair">🔐 Choose private pairing file</button>')+
+             '<button class="btn primary" type="button" data-cloud="paste">🔗 Pair from pasted link</button>'+
+             '<button class="btn" type="button" data-cloud="pair">📁 Choose private pairing file</button>')+
   '</div><p class="small">Automatic checks every 30 seconds while this app is open. No account password or gift-exchange details are shared. Your Windows planner keeps its own local database.</p></section>';
 }
 function escapeStatus(s){return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function pairPastedLink(){
+ const raw=($("cloudPairInput")?.value||"").trim();
+ const token= /^[A-Za-z0-9_-]{40,180}$/.test(raw) ? raw :
+   (raw.match(/(?:^|[#?&])connect=([A-Za-z0-9_-]{40,180})(?:$|[&#])/i)?.[1] || "");
+ if(!token){status("⚠️ Please paste the entire PRIVATE_iPhone_Pairing_Link from your setup ZIP, or choose the connection JSON file.");return;}
+ const incoming={format:"LifePlannerCloud1",endpoint:"https://ghhxtnyvchmkerxulrxk.supabase.co/functions/v1/lifeplanner-sync",token};
+ if(!validPair(incoming)){status("⚠️ The pairing link is not in the expected format.");return;}
+ try{
+  if(!config || config.token!==incoming.token){
+   write(SAFE,{format:"LifePlannerBeforeCloud",exported:new Date().toISOString(),events:window.LifePlannerBridge?.getEvents()||[]});
+   write(PAIR,incoming);write(BASE,{});write(DELETED,{});
+   base={};tomb={};
+  }
+  config=incoming;
+  history.replaceState(null,"",location.pathname+location.search+"#sync");
+  status("🔐 Pairing code accepted. Connecting to your LifePlanner cloud…");
+  window.LifePlannerBridge?.refresh();
+  syncNow();
+ }catch(e){status("⚠️ Couldn't save the connection on this device: "+(e.message||e));}
+}
 function init(){
  config=read(PAIR,null);
  // A private QR code can securely deliver the pairing token in a URL fragment.
@@ -200,6 +224,7 @@ function init(){
    const button=e.target.closest("[data-cloud]");if(!button)return;
    const action=button.dataset.cloud;
    if(action==="pair")$("cloudPairFile").click();
+   if(action==="paste")pairPastedLink();
    if(action==="sync")syncNow();
    if(action==="disconnect"&&confirm("Disconnect cloud syncing on this phone? The events already saved on the phone and PC will remain.")){
      localStorage.removeItem(PAIR);
