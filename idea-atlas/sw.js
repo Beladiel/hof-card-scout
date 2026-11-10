@@ -1,6 +1,6 @@
 // Idea Atlas service worker v1.2. Always prefer fresh HTML and idea catalog.
-const CACHE='idea-atlas-offline-v2';
-const CORE=['./','./index.html','./manifest.webmanifest','./icon.svg','./apple-touch-icon.png','./catalog.js'];
+const CACHE='idea-atlas-offline-v3';
+const CORE=['./','./index.html','./manifest.webmanifest','./icon.svg','./apple-touch-icon.png','./catalog.js','./code-lab.js'];
 self.addEventListener('install',event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting()));
 });
