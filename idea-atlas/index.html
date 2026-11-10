@@ -22,10 +22,10 @@
 <div class="app">
   <header class="top">
     <div class="brand"><div class="brandmark" aria-hidden="true">✦</div><span>IDEA ATLAS</span></div>
-    <div class="topright"><span class="version">PERSONAL VAULT · V1.1</span><button class="dotsbtn" id="menuButton" aria-label="Open backup and settings menu" aria-expanded="false">⋯</button></div>
+    <div class="topright"><span class="version">PERSONAL VAULT · V1.2</span><button class="dotsbtn" id="menuButton" aria-label="Open backup and settings menu" aria-expanded="false">⋯</button></div>
   </header>
   <div id="menu" class="menu hidden" role="menu">
-    <button id="exportButton">↓ Export my backup (JSON)</button>
+    <button id="refreshCatalogButton">↻ Check for new ideas</button><button id="exportButton">↓ Export my backup (JSON)</button>
     <button id="importButton">↑ Import a backup</button>
     <button id="resetButton">↻ Restore original starter entries</button>
   </div>
@@ -102,10 +102,10 @@ function clone(v){return JSON.parse(JSON.stringify(v));}
 // phone-only vault without restoring intentionally deleted starter projects.
 const originalCatalogIds=['box-architect','circuit-sandbox','cuelab','rulebook-rescue','starship-explorer'];
 function initData(){return {version:2,ideas:clone(initialIdeas),catalogSeenIds:initialIdeas.map(i=>i.id),lessons:{},created:new Date().toISOString()};}
-function mergeNewIdeas(val){
+function mergeNewIdeas(val,catalog=initialIdeas){
  const seen=new Set(Array.isArray(val.catalogSeenIds)?val.catalogSeenIds:originalCatalogIds);
  const existing=new Set(val.ideas.map(i=>i.id));
- for(const idea of initialIdeas){
+ for(const idea of catalog){
    if(!seen.has(idea.id)){
      if(!existing.has(idea.id))val.ideas.push(clone(idea));
      seen.add(idea.id);
@@ -146,6 +146,25 @@ el('modalCover').addEventListener('click',e=>{if(e.target===el('modalCover'))clo
 el('menuButton').addEventListener('click',()=>{let open=el('menu').classList.toggle('hidden')===false;el('menuButton').setAttribute('aria-expanded',String(open));});el('exportButton').addEventListener('click',exportData);el('importButton').addEventListener('click',()=>{el('menu').classList.add('hidden');el('fileInput').click();});el('fileInput').addEventListener('change',e=>importData(e.target.files[0]));
 el('resetButton').addEventListener('click',()=>{el('menu').classList.add('hidden');if(!confirm('Restore the published starter ideas and the seven lesson outlines? This replaces any edits, new ideas or progress currently stored here. Export a backup first if you want to keep them.'))return;db=initData();save();render();toast('Starter vault restored.');});el('resetLessons').addEventListener('click',()=>{if(!confirm('Reset all seven lesson statuses to not started?'))return;db.lessons={};save();render();toast('Lesson progress reset.');});
 render();save();
+function checkPublishedIdeas(announce=false){
+ const scr=document.createElement('script');
+ scr.src='./catalog.js?nocache='+Date.now();
+ scr.async=true;
+ scr.onload=()=>{
+  const before=db.ideas.length;
+  const catalog=Array.isArray(window.IDEA_ATLAS_PUBLISHED_IDEAS)?window.IDEA_ATLAS_PUBLISHED_IDEAS:initialIdeas;
+  db=mergeNewIdeas(db,catalog);
+  save();render();
+  const added=db.ideas.length-before;
+  if(announce)toast(added?added+' new project'+(added===1?'':'s')+' added!':'Ideas are up to date ('+db.ideas.length+').');
+  scr.remove();
+ };
+ scr.onerror=()=>{if(announce)toast('Could not check online. Try again when connected.');scr.remove();};
+ document.head.appendChild(scr);
+}
+el('refreshCatalogButton').addEventListener('click',()=>{el('menu').classList.add('hidden');checkPublishedIdeas(true);});
+checkPublishedIdeas(false);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkPublishedIdeas(false);});
 })();
 </script>
 <script>
