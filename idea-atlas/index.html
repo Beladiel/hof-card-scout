@@ -22,9 +22,10 @@
 <div class="app">
   <header class="top">
     <div class="brand"><div class="brandmark" aria-hidden="true">✦</div><span>IDEA ATLAS</span></div>
-    <div class="topright"><span class="version">PERSONAL VAULT · V1.4</span><button class="dotsbtn" id="menuButton" aria-label="Open backup and settings menu" aria-expanded="false">⋯</button></div>
+    <div class="topright"><span class="version" id="syncBadge">LOCAL · V1.5</span><button class="dotsbtn" id="menuButton" aria-label="Open backup and settings menu" aria-expanded="false">⋯</button></div>
   </header>
   <div id="menu" class="menu hidden" role="menu">
+    <button id="cloudSyncButton">☁ Set up cloud sync</button>
     <button id="refreshCatalogButton">↻ Check for new ideas</button><button id="exportButton">↓ Export my backup (JSON)</button>
     <button id="importButton">↑ Import a backup</button>
     <button id="resetButton">↻ Restore original starter entries</button>
@@ -52,7 +53,7 @@
         <button class="primary" id="addIdeaButton">＋ New idea</button>
       </div>
       <div class="cards" id="ideasGrid"></div>
-      <div class="toolbar-bottom"><span class="hint" id="ideaHint">Star your favorites to keep track of the ideas that excite you most.</span><span class="hint">Saved on this device • JSON backup available</span></div>
+      <div class="toolbar-bottom"><span class="hint" id="ideaHint">Star your favorites to keep track of the ideas that excite you most.</span><span class="hint" id="storageHint">Saved on this device • JSON backup available</span></div>
     </section>
     <section id="academySection" class="hidden" role="tabpanel" aria-labelledby="academyTab">
       <div class="academyhero">
@@ -82,6 +83,8 @@
 <div id="toast" class="toast hidden" role="status"></div>
 <input id="fileInput" type="file" accept=".json,application/json" class="hidden" aria-label="Choose backup file">
 <script src="./code-lab.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.86.0/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
+<script src="./cloud-sync.js"></script>
 <script>
 (()=>{'use strict';
 const STORAGE_KEY='idea-atlas-v1';
@@ -143,7 +146,7 @@ function mergeNewIdeas(val,catalog=initialIdeas){
  return val;
 }
 function loadData(){try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return initData();const val=JSON.parse(raw);if(!val||!Array.isArray(val.ideas)||!val.lessons||typeof val.lessons!=='object'||Array.isArray(val.lessons))return initData();if(!val.codeLab||typeof val.codeLab!=='object'||Array.isArray(val.codeLab))val.codeLab={};return mergeNewIdeas(val);}catch(e){return initData();}}
-let storageOk=true;function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(db));storageOk=true;}catch(e){storageOk=false;el('ideaHint').textContent='Storage unavailable here. Export a backup before you close this page.';}}
+let storageOk=true;function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(db));storageOk=true;window.dispatchEvent(new CustomEvent('idea-atlas-local-save'));}catch(e){storageOk=false;el('ideaHint').textContent='Storage unavailable here. Export a backup before you close this page.';}}
 function safe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function attrs(s){return safe(s).replace(/`/g,'&#96;');}
 function toast(msg){let n=el('toast');n.textContent=msg;n.classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(()=>n.classList.add('hidden'),2600);}
@@ -204,6 +207,16 @@ el('menuButton').addEventListener('click',()=>{let open=el('menu').classList.tog
 el('resetButton').addEventListener('click',()=>{el('menu').classList.add('hidden');if(!confirm('Restore the published starter ideas and the seven lesson outlines? This replaces any edits, new ideas or progress currently stored here. Export a backup first if you want to keep them.'))return;db=initData();save();render();toast('Starter vault restored.');});el('resetLessons').addEventListener('click',()=>{if(!confirm('Reset all seven lesson statuses to not started?'))return;db.lessons={};save();render();toast('Lesson progress reset.');});
 el('resetCodeLessons').addEventListener('click',()=>{if(!confirm('Reset only the coding mission statuses? Your app ideas and fraud lessons stay unchanged.'))return;db.codeLab={};save();render();toast('Coding mission progress reset.');});
 render();save();
+window.IdeaAtlasBridge={
+ getData:()=>clone(db),
+ setData:value=>{if(!value||!Array.isArray(value.ideas)||!value.lessons||typeof value.lessons!=='object')throw Error('Invalid cloud vault');db=mergeNewIdeas(clone(value));save();render();},
+ openModal,
+ closeModal,
+ toast,
+ safe,
+ attrs
+};
+window.dispatchEvent(new CustomEvent('idea-atlas-ready'));
 function checkPublishedIdeas(announce=false){
  const scr=document.createElement('script');
  scr.src='./catalog.js?nocache='+Date.now();
