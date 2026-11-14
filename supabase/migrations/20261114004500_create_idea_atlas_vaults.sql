@@ -10,22 +10,26 @@ alter table public.idea_atlas_vaults enable row level security;
 revoke all on table public.idea_atlas_vaults from anon;
 grant select, insert, update, delete on table public.idea_atlas_vaults to authenticated;
 
+drop policy if exists "vault owners can read" on public.idea_atlas_vaults;
 create policy "vault owners can read"
 on public.idea_atlas_vaults for select
 to authenticated
 using ((select auth.uid()) = user_id);
 
+drop policy if exists "vault owners can insert" on public.idea_atlas_vaults;
 create policy "vault owners can insert"
 on public.idea_atlas_vaults for insert
 to authenticated
 with check ((select auth.uid()) = user_id);
 
+drop policy if exists "vault owners can update" on public.idea_atlas_vaults;
 create policy "vault owners can update"
 on public.idea_atlas_vaults for update
 to authenticated
 using ((select auth.uid()) = user_id)
 with check ((select auth.uid()) = user_id);
 
+drop policy if exists "vault owners can delete" on public.idea_atlas_vaults;
 create policy "vault owners can delete"
 on public.idea_atlas_vaults for delete
 to authenticated
