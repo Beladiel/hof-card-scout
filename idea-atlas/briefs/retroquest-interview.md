@@ -272,6 +272,16 @@ RetroQuest will already sync data between iPhone and laptop. What backup protect
 - **B — Manual backup and restore:** Include a simple Export Backup and Restore Backup feature for all personal game progress, notes, bookmarks and collection entries.
 - **C — Automatic snapshots plus manual backup:** Keep a limited history of recoverable snapshots on a free-tier storage solution when feasible, and also allow backup export and restore.
 
+**Answer: C — Automatic backups plus manual export. Confirmed November 15, 2026.**
+
+Alongside automatic Google-account cloud syncing, provide recoverable snapshots of personal game data (collection, progress, map discoveries, notebook entries, bookmarks, guide wishlist and code favorites) where feasible within a genuinely free storage tier. Provide easy manual Export Backup and Restore Backup controls regardless, using a portable format such as JSON. Allow the user to inspect backup date and content before restoring, warn about any data replacement, and safeguard against corrupt or partial backups. Prefer keeping a small rolling history with explicit retention limits. Do not claim unlimited snapshots or recovery before provider limits and restore behavior are verified.
+
+### Question 28 — Game completion and achievements
+Once you've finished a retro game, what kind of completion tracking would you enjoy?
+- **A — Simple completion status:** Mark the game Completed and optionally record the date, with no additional achievement system.
+- **B — RetroQuest achievements:** Track game-specific optional milestones such as beating a boss, discovering a secret or finishing a challenge, with nostalgic badges.
+- **C — Both:** Keep a simple Completed status and an optional achievement checklist/badge system for supported games; skip achievements when you just want a walkthrough.
+
 **Answer:** Pending.
 
 ## Interview workflow
