@@ -162,6 +162,16 @@ How detailed should the cheat-code and secrets section be?
 - **B — Organized reference:** Group cheats by type, include game/platform compatibility and clear instructions, and warn about codes that may affect saves.
 - **C — Organized reference plus favorites:** Everything in B, plus let players bookmark or favorite useful codes and mark ones they have tried.
 
+**Answer: C — Organized reference plus favorites. Confirmed November 15, 2026.**
+
+Organize game cheats, secrets, passwords and codes by category, with search, clear activation instructions, platform/edition-specific compatibility and warnings for codes that may harm save progress. Let players favorite cheats and mark whether they've tried each one, with this personal state syncing between devices and remaining usable offline. Mark codes as verified only when supported by trustworthy evidence; never imply that all codes work on all game versions.
+
+### Question 17 — Who should be able to use RetroQuest?
+Should RetroQuest be just your personal companion, a public resource, or a community project?
+- **A — Personal only:** Keep the app and guides primarily for your own use, with your personal game library.
+- **B — Public guide library:** Anyone can browse guides, maps and codes, while each signed-in player gets private progress, bookmarks and notes.
+- **C — Community contributions:** Public browsing plus a way for other players to submit guides, maps, tips or corrections for review before publishing.
+
 **Answer:** Pending.
 
 ## Interview workflow
