@@ -292,6 +292,16 @@ Some retro games have different versions on different consoles, with different c
 - **B — One game with a version selector:** Put the title under a single entry but let you choose its platform or edition to see the correct controls, maps and cheats.
 - **C — Separate entry for each version:** Treat Genesis, NES, SNES, computer and other versions as individual game entries with their own guides and completion records.
 
+**Answer: A — Track only the version I own. Confirmed November 15, 2026.**
+
+For each game the user manually enters, store its actual owned platform/edition and display guides, walkthroughs, controls, maps and codes specifically matching that version. Do not create extra entries or a version-switching interface for editions the user does not own. If the user later buys another release, they may add it as a separate manually entered game. Clearly identify the platform on game pages and avoid applying codes or directions from incompatible versions.
+
+### Question 30 — Development and release approach
+How should Sparky build and deliver RetroQuest, given the feature set and the goal of keeping everything free?
+- **A — All features before release:** Complete the full planned app, all four starter guides and cross-device sync before publishing a usable version.
+- **B — Tested milestones:** Build a functional foundation first (personal library, one working guide and progress), test it on iPhone and laptop, then add offline packs, maps, sync and remaining features in clearly verified stages.
+- **C — Guide-first launch:** Publish a lightweight reference hub with manuals and external walkthrough links as soon as possible, then add interactive guide functionality and the personal library afterward.
+
 **Answer:** Pending.
 
 ## Interview workflow
