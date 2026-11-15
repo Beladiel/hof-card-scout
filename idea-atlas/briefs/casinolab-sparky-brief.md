@@ -28,6 +28,8 @@
 
 - **Interactive lesson practice (confirmed, November 14, 2026):** use **demonstrate, then practice**. Each appropriate lesson begins with explicitly labeled, controlled example outcomes that teach important cases (such as establishing a point, winning, or sevening out). Afterward, the learner gets actual random dice rolls and feedback to apply the concept. The preset outcomes are educational demonstrations only: they must never be labeled as random, never alter the player's persistent real Free Play bankroll/history, and must use the same rules/payout logic as the random simulation. The random-practice phase uses the same fair dice engine as Free Play. This is choice **C**.
 
+- **Starting play-money bankroll (confirmed, November 14, 2026):** begin the persistent main bankroll with **$1,000 in virtual credits**. Provide an **optional virtual allowance** (a deliberate, player-initiated replenishment) when the balance runs low. **Account for every allowance/top-up separately from game winnings and losses** so reports clearly show net gambling results versus new credits issued. Keep a dedicated adjustment ledger, and ensure total bankroll reconciles as starting balance + net gambling result + allowances/other explicit adjustments. No real-money purchases, deposits, or cash-outs. **Allowance size, frequency, and trigger behavior are not yet decided**; do not invent those requirements. This is the user's choice **C** for Interview Question 10.
+
 ## 1. What we already agreed
 
 CasinoLab combines the older **Craps Tutor + Simulation** and **Casino Strategies Tutor** ideas into one educational, realistic, **play-money-only** casino learning app.
