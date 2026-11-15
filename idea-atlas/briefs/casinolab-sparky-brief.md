@@ -26,6 +26,8 @@
 
 - **Learn to Play lesson navigation (confirmed, November 14, 2026):** offer **both** a recommended progressive beginner-to-advanced learning path and a browseable lesson library with **every individual lesson accessible in any order**. Do not gate or lock content behind prior lessons. Every lesson should offer hands-on practice on the actual bubble-craps simulation where applicable, with clear progress indicators without requiring linear completion. This is the user's choice **C** for the Learn to Play experience.
 
+- **Interactive lesson practice (confirmed, November 14, 2026):** use **demonstrate, then practice**. Each appropriate lesson begins with explicitly labeled, controlled example outcomes that teach important cases (such as establishing a point, winning, or sevening out). Afterward, the learner gets actual random dice rolls and feedback to apply the concept. The preset outcomes are educational demonstrations only: they must never be labeled as random, never alter the player's persistent real Free Play bankroll/history, and must use the same rules/payout logic as the random simulation. The random-practice phase uses the same fair dice engine as Free Play. This is choice **C**.
+
 ## 1. What we already agreed
 
 CasinoLab combines the older **Craps Tutor + Simulation** and **Casino Strategies Tutor** ideas into one educational, realistic, **play-money-only** casino learning app.
