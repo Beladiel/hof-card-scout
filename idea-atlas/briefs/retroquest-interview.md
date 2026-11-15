@@ -252,6 +252,16 @@ When you manually add a game that doesn't have its own interactive RetroQuest wa
 - **B — External help links:** Show available links to reputable existing walkthroughs and manuals, even before we create a RetroQuest guide.
 - **C — External links plus a guide wishlist:** Offer outside walkthroughs where available and let you mark the game as a priority for a future original interactive guide.
 
+**Answer: C — External guides plus a guide wishlist. Confirmed November 15, 2026.**
+
+For manually entered games that lack a native RetroQuest interactive guide, show links to credible third-party walkthroughs and legally available manuals where such links exist. Label external resources clearly, do not copy their content, and never promise a link when none has been found. Include a separate **Guide Wishlist** flag to request and prioritize original RetroQuest interactive guides for those titles; this is distinct from the game ownership Wishlist status. The app should save and sync guide-wishlist choices with the personal library and not imply that adding a request automatically generates a complete guide.
+
+### Question 26 — New-guide notifications
+When an original RetroQuest guide becomes available for a game on your Guide Wishlist, how would you like to find out?
+- **A — No alerts:** See the guide whenever you next browse that game's page.
+- **B — In-app updates:** Show a New Guide badge and a compact What's New section inside RetroQuest, without phone notifications.
+- **C — Optional phone notifications:** Include in-app updates plus opt-in push alerts when supported by the iPhone/PWA setup, with a notification-free fallback.
+
 **Answer:** Pending.
 
 ## Interview workflow
