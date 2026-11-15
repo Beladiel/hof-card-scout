@@ -242,6 +242,16 @@ How should you add a new retro game to your personal collection?
 - **B — Manual game entry:** Type the title and choose the system yourself, including games that aren't in RetroQuest's catalog yet.
 - **C — Both:** Search an existing catalog for quick additions, but also add a game manually if it isn't listed yet.
 
+**Answer: B — Add games manually. Confirmed November 15, 2026.**
+
+Provide a straightforward Add Game form where the user enters a game title and chooses its platform, even if no RetroQuest walkthrough or indexed catalog record exists yet. Allow optional collection status (Owned, Playing, Completed or Wishlist), preserve the entry in local and cloud-synced storage, and avoid requiring a catalog search or automatic matching to complete entry. When a manual entry corresponds to a supported guide, the app can provide a guide link without overwriting the user's manually entered title or platform.
+
+### Question 25 — When a game has no RetroQuest guide
+When you manually add a game that doesn't have its own interactive RetroQuest walkthrough yet, what should the app offer?
+- **A — Collection entry only:** Keep it listed in your personal collection until we create a guide for it.
+- **B — External help links:** Show available links to reputable existing walkthroughs and manuals, even before we create a RetroQuest guide.
+- **C — External links plus a guide wishlist:** Offer outside walkthroughs where available and let you mark the game as a priority for a future original interactive guide.
+
 **Answer:** Pending.
 
 ## Interview workflow
