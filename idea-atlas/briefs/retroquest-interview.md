@@ -92,6 +92,16 @@ How should RetroQuest work when the iPhone has no internet access?
 - **B — Save selected guides:** Mark individual games to keep their walkthroughs, maps, hints, cheats and progress available offline. No manual file handling; the app handles storage.
 - **C — Automatic offline library:** Automatically store every opened, fully supported guide and its maps for offline use. More storage, less manual setup.
 
+**Answer: B — Save selected games for offline use. Confirmed November 15, 2026.**
+
+Allow the player to save individual supported game guides for offline use, including full original walkthrough text, interactive map assets, hint ladders and cheats. The app should manage cached files automatically with no opening or importing separate files on iPhone. Keep guide progress and local notes usable offline and provide storage/update controls. External third-party walkthrough links will continue to need connectivity unless licensing explicitly permits offline copies.
+
+### Question 10 — Cross-device progress syncing
+How should RetroQuest handle saved progress across an iPhone and other devices?
+- **A — This-device only:** Save progress on each device separately, with no sync or account required.
+- **B — Manual transfer:** Save locally and provide optional backup/export and restore to move progress when needed.
+- **C — Automatic sync:** Use a free, account-based sync option to keep game progress, collection and notes consistent on iPhone and computer, including handling changes made offline once reconnected.
+
 **Answer:** Pending.
 
 ## Interview workflow
