@@ -212,6 +212,16 @@ Some games, such as Phantasy Star III, can have different story paths. How shoul
 - **B — Multiple playthrough slots:** Create separate named saves for each playthrough, keeping its checkpoints, inventory checklists, notes and discoveries independently.
 - **C — Multiple slots plus branching story tracking:** Everything in B, plus visual route/branch tracking where a game has meaningful choices, with spoilers concealed until requested.
 
+**Answer: A — One playthrough per game. Confirmed November 15, 2026.**
+
+Maintain one active saved progress record per game, encompassing walkthrough checkpoints, item/achievement trackers, map discoveries and relevant notes. Do not add multi-slot management or per-branch visual story tracking in the initial release. Starting a new run must require a clearly labeled confirmation before resetting gameplay progress; avoid unintentionally removing the user's general bookmarks, personal game notes or ownership status. The exact reset UX can be finalized during implementation.
+
+### Question 22 — Updates to downloaded offline guides
+When a guide you saved offline gets an improved map, corrected instructions or new cheats, how should RetroQuest update it?
+- **A — Automatic updates:** Download the latest version silently when online, without changing your saved progress.
+- **B — Ask before updating:** Show a short summary of what's new and let you approve the update for each game.
+- **C — Manual updates only:** Keep saved guides unchanged until you choose Check for Updates.
+
 **Answer:** Pending.
 
 ## Interview workflow
