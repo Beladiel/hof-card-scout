@@ -18,6 +18,8 @@
 
 - **Dice rolling control (confirmed, November 14, 2026):** Manual rolling **only**. The player presses a prominent **ROLL** button when ready; animate the two dice bouncing inside the bubble dome and settle them to reveal the outcome. Do **not** add an automatic countdown or time-limited betting window. The player can inspect or place bets at their own pace before pressing ROLL in both learning and free-play contexts. One deliberate press = one independently generated dice roll; disable repeat taps during the animation to prevent unintended multiple rolls.
 
+- **Free Play coaching (confirmed, November 14, 2026):** provide a clearly visible optional **Casino Coach** on/off toggle. When enabled, after each manual roll, explain in concise plain language which active bets won, lost, pushed, or remain in play and why, with corresponding payouts where relevant. When disabled, show normal machine results, chip/bankroll updates, and roll history without interruptive instructional text. The toggle should not affect game mechanics or RNG, and players should still be able to tap any bet for rules, payout, and odds help at any time. Learn to Play retains guided instruction regardless of this Free Play setting.
+
 ## 1. What we already agreed
 
 CasinoLab combines the older **Craps Tutor + Simulation** and **Casino Strategies Tutor** ideas into one educational, realistic, **play-money-only** casino learning app.
