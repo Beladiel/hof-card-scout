@@ -262,6 +262,16 @@ When an original RetroQuest guide becomes available for a game on your Guide Wis
 - **B — In-app updates:** Show a New Guide badge and a compact What's New section inside RetroQuest, without phone notifications.
 - **C — Optional phone notifications:** Include in-app updates plus opt-in push alerts when supported by the iPhone/PWA setup, with a notification-free fallback.
 
+**Answer: B — In-app announcements. Confirmed November 15, 2026.**
+
+When a new original RetroQuest guide is published, show a compact What's New section and a clear New Guide indicator inside RetroQuest, especially for titles on the user's Guide Wishlist. Do not send iPhone push notifications or request notification permissions. Keep the update indicators unobtrusive and let the user dismiss or mark announcements as seen. This applies to newly available interactive guides, not unverified external links.
+
+### Question 27 — Protecting saved game progress
+RetroQuest will already sync data between iPhone and laptop. What backup protection should it offer if a device or cloud account has a problem?
+- **A — Cloud sync only:** Rely on your automatically synchronized data; no additional backup controls.
+- **B — Manual backup and restore:** Include a simple Export Backup and Restore Backup feature for all personal game progress, notes, bookmarks and collection entries.
+- **C — Automatic snapshots plus manual backup:** Keep a limited history of recoverable snapshots on a free-tier storage solution when feasible, and also allow backup export and restore.
+
 **Answer:** Pending.
 
 ## Interview workflow
