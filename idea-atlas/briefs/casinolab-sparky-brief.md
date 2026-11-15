@@ -34,6 +34,8 @@
 
 - **Table minimum choices (confirmed, November 14, 2026):** before entering a Free Play session, offer **four fixed table-minimum presets: $5, $10, $15, and $25** in virtual chips. This is choice **B** for Interview Question 12. Do **not** require arbitrary custom table minimums. Show the chosen minimum on the table and enforce the applicable minimum for bets where relevant; some bets also have denomination or payout-unit requirements, and not all bets necessarily share the same minimum. Explain these rules with the existing tap-to-learn bet help. A $1,000 starting bankroll and optional below-$100 allowance remain as previously decided.
 
+- **iPhone hybrid layout (confirmed, November 14, 2026):** use a **smart hybrid** responsive interface. During betting, keep the transparent dice dome visible above a compact, touch-friendly craps betting layout with chip and quick-bet controls. When the user presses the manual **ROLL** button, temporarily **expand the dome** to showcase the realistic animated bounce/settle of the two dice, then return to the compact betting layout showing the result, active bets, payouts and bankroll. Preserve bets and game state throughout the transition. The expanded view should not require another navigation tap; support accessible reduced-motion handling. This confirms choice **C** for Interview Question 13.
+
 ## 1. What we already agreed
 
 CasinoLab combines the older **Craps Tutor + Simulation** and **Casino Strategies Tutor** ideas into one educational, realistic, **play-money-only** casino learning app.
