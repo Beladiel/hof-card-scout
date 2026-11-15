@@ -142,6 +142,16 @@ When you read a walkthrough, what media should accompany the steps?
 - **B — Illustrated walkthroughs:** Include screenshots or original annotated illustrations at important steps to help recognize locations, items and enemies.
 - **C — Illustrated walkthroughs plus optional video links:** Use images/maps within guides and add optional links to relevant gameplay clips or demonstrations when available.
 
+**Answer: C — Illustrated walkthroughs plus optional video links. Confirmed November 15, 2026.**
+
+Include relevant screenshots and original/appropriately licensed annotated illustrations alongside interactive maps and written directions at key points in each supported guide. Where reliable relevant gameplay demonstrations exist, link to them as an optional resource. All video should be optional, not required to understand a step; label external links and protect against unintended spoilers. Respect image and video rights, and don't bundle copyrighted media without permission. Only app-owned or licensed guide illustrations should be included in offline packs.
+
+### Question 15 — Bookmarks and personal game notes
+What personal tools should RetroQuest include while you work through a game?
+- **A — Bookmarks only:** Save favorite guide sections, maps and checklist points for quick return.
+- **B — Personal notes only:** Keep a private notebook per game for discoveries, clues, reminders and strategy ideas.
+- **C — Both:** Bookmark important guide spots and add personal notes for each game, with the notes and bookmarks syncing between devices.
+
 **Answer:** Pending.
 
 ## Interview workflow
