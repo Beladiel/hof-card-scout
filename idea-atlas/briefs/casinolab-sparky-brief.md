@@ -20,6 +20,8 @@
 
 - **Free Play coaching (confirmed, November 14, 2026):** provide a clearly visible optional **Casino Coach** on/off toggle. When enabled, after each manual roll, explain in concise plain language which active bets won, lost, pushed, or remain in play and why, with corresponding payouts where relevant. When disabled, show normal machine results, chip/bankroll updates, and roll history without interruptive instructional text. The toggle should not affect game mechanics or RNG, and players should still be able to tap any bet for rules, payout, and odds help at any time. Learn to Play retains guided instruction regardless of this Free Play setting.
 
+- **Bet placement controls (confirmed, November 14, 2026):** support **both** (1) choose a virtual chip denomination and tap the corresponding craps betting area to place that chip, and (2) tap/select a wager in a convenient **quick-bet panel** to enter or adjust its amount. Both must feed the same validated underlying bet engine and bankroll ledger and be fully touch-accessible on iPhone. Provide clear selection state, distinguish **place/select bet** from **read bet explanation** (e.g., a separate info control or help affordance, so tapping to wager is not hijacked), allow adjustments/undo before a roll where rules permit, enforce available balance and legal bet increments/minimums, and ensure changes appear in both views. These are two interaction methods, not separate bankrolls or separate games.
+
 ## 1. What we already agreed
 
 CasinoLab combines the older **Craps Tutor + Simulation** and **Casino Strategies Tutor** ideas into one educational, realistic, **play-money-only** casino learning app.
