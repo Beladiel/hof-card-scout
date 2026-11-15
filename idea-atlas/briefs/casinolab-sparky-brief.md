@@ -30,6 +30,8 @@
 
 - **Starting play-money bankroll (confirmed, November 14, 2026):** begin the persistent main bankroll with **$1,000 in virtual credits**. Provide an **optional virtual allowance** (a deliberate, player-initiated replenishment) when the balance runs low. **Account for every allowance/top-up separately from game winnings and losses** so reports clearly show net gambling results versus new credits issued. Keep a dedicated adjustment ledger, and ensure total bankroll reconciles as starting balance + net gambling result + allowances/other explicit adjustments. No real-money purchases, deposits, or cash-outs. **Allowance size, frequency, and trigger behavior are not yet decided**; do not invent those requirements. This is the user's choice **C** for Interview Question 10.
 
+- **Virtual allowance trigger (confirmed, November 14, 2026):** when the **persistent main bankroll falls below $100**, gently **offer an optional $500 play-money allowance**. The player may **accept or decline**; never auto-credit it. Log each accepted allowance as a separate bankroll adjustment, not a win, and keep net betting performance statistics unaffected. Avoid interrupting an active roll and avoid repeatedly prompting after a decline; reasonable re-offer behavior may be designed later, as frequency/cooldown was not explicitly decided. This confirms choice **B** from Interview Question 11.
+
 ## 1. What we already agreed
 
 CasinoLab combines the older **Craps Tutor + Simulation** and **Casino Strategies Tutor** ideas into one educational, realistic, **play-money-only** casino learning app.
