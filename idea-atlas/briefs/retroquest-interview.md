@@ -122,6 +122,16 @@ What visual style should RetroQuest use across its game catalog, guides and maps
 - **B — Modern reference:** Clean, readable interface with restrained retro accents; prioritize easy navigation of long guides and maps.
 - **C — Switchable themes:** Offer both a retro arcade theme and a clean modern theme, remembering the preference across devices.
 
+**Answer: A — Classic retro arcade. Confirmed November 15, 2026.**
+
+Use a classic retro-arcade visual direction across RetroQuest: pixel-inspired typography, classic console palettes, nostalgic menus, retro game accents and restrained pixel-art embellishments. Maintain comfortable reading sizes and contrast, accessible controls, and responsive map and walkthrough interfaces. This is the one selected theme for launch; a modern alternate theme is not required.
+
+### Question 13 — Learning a new game
+When trying a retro title for the first time (like Power Monger), what should the Getting Started section provide?
+- **A — Quick-start control guide:** A concise original controller-button diagram, key commands and essential tips; jump straight into playing.
+- **B — Guided beginner lesson:** A step-by-step first-session tutorial explaining buttons and mechanics through real starting objectives, with checkable progress.
+- **C — Both:** A one-screen quick-reference control guide plus an optional interactive, beginner-friendly tutorial that players can skip once comfortable.
+
 **Answer:** Pending.
 
 ## Interview workflow
