@@ -24,6 +24,8 @@
 
 - **Dice animation and sounds (confirmed, November 14, 2026):** create a **realistic bubble-craps presentation** in Free Play: two oversized, convincing 3D-looking dice bounce and tumble visibly inside a transparent dome for a few seconds, then settle on the result of the manual ROLL action. Include optional dice/machine sound effects with a clear mute control. This choice is **B, not a speed-mode selector**: do not assume quick-roll or instant-result UI modes are part of the intended baseline. Animation is presentation only; the verified fair RNG and rules engine determine results, and sound/motion must not change outcomes. Account for mobile browser audio permissions and reduced-motion accessibility settings. Prevent multiple roll submissions while the animation is active.
 
+- **Learn to Play lesson navigation (confirmed, November 14, 2026):** offer **both** a recommended progressive beginner-to-advanced learning path and a browseable lesson library with **every individual lesson accessible in any order**. Do not gate or lock content behind prior lessons. Every lesson should offer hands-on practice on the actual bubble-craps simulation where applicable, with clear progress indicators without requiring linear completion. This is the user's choice **C** for the Learn to Play experience.
+
 ## 1. What we already agreed
 
 CasinoLab combines the older **Craps Tutor + Simulation** and **Casino Strategies Tutor** ideas into one educational, realistic, **play-money-only** casino learning app.
