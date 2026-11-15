@@ -11,6 +11,7 @@
 
 - **Bubble craps is the preferred primary experience**, with large animated dice in a transparent dome. The traditional felt layout can remain an optional alternative as a future view.
 - **Home screen choice (confirmed):** display two prominent options, **Learn to Play** (step-by-step interactive tutorials) and **Free Play** (immediate virtual casino session, with optional contextual explanations). Both must use the same bubble-craps visual and underlying verified game engine.
+- **Free Play table choice (confirmed, November 14, 2026):** make all *major* craps betting options available immediately (including Pass Line, Don't Pass, Come, Don't Come, Odds, Place bets, Field, Hardways and other common bets), without locking them behind lessons. Tapping any bet opens concise tap-to-learn help explaining when it can be placed, what it pays, how it wins/loses, and the applicable house edge under the chosen paytable. Keep Learn to Play progressive and guided. This is the intended **Free Play launch experience**; Sparky can implement and test the underlying bets in stages, but should not label the MVP with Pass Line only as full Free Play or claim the complete table is finished until the major bets actually work.
 - **Interview still ongoing**: the remaining teaching flow, bankroll defaults, bet coverage, visual presentation, and controls are not finalized. Avoid assuming answers before the user confirms them.
 
 ## 1. What we already agreed
