@@ -30,6 +30,16 @@ Offer both a guided, chapter-by-chapter mode that saves progress and protects ag
 - **B — Guide directory:** Launch a broad search and directory of reputable existing walkthroughs with links to their sources; faster coverage but less integrated experience.
 - **C — Hybrid:** Detailed original interactive guides for selected games plus a searchable directory linking to trusted outside guides for other titles.
 
+**Answer: C — Hybrid approach. Confirmed November 15, 2026.**
+
+Create fully interactive, original, fact-checked guides for selected games, beginning with Power Monger for Genesis. For many other retro games, offer a searchable directory linking to reputable existing walkthroughs with appropriate attribution instead of copying protected content.
+
+### Question 4 — Map experience
+How should maps behave inside RetroQuest?
+- **A — Full maps:** Open complete zoomable maps showing locations, treasure, exits and key points immediately.
+- **B — Discovery maps:** Reveal areas and hidden details gradually as the player manually marks progress, protecting exploration surprises.
+- **C — Both styles:** Let players toggle between a fully revealed reference map and a discovery-focused map with hidden areas and secrets.
+
 **Answer:** Pending.
 
 ## Interview workflow
