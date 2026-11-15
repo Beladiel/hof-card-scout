@@ -72,6 +72,16 @@ How should RetroQuest give help when a player gets stuck?
 - **B — Direct solution:** Provide the exact answer or route immediately when asked, with an optional spoiler warning.
 - **C — Both:** Offer a spoiler-free progressive-hint ladder or a direct full solution, letting the player choose each time.
 
+**Answer: C — Both options. Confirmed November 15, 2026.**
+
+Each hint-supported objective should offer a progressive hint ladder (subtle nudge, stronger clue, full solution) **and** a separate direct-answer option for players who want the solution immediately. Let players choose each time; avoid exposing spoilers until requested, show clear spoilers warnings and remember reveal state when appropriate.
+
+### Question 8 — Physical game collection tracking
+How much of a personal cartridge collection manager should RetroQuest include?
+- **A — Simple collection:** Mark games as owned, playing, finished or wishlisted, with minimal details.
+- **B — Detailed collection:** Track original cartridge vs box/manual, condition, purchase price, purchase date and personal notes, alongside playing status.
+- **C — Walkthrough focus:** Skip a collection manager for now; RetroQuest is for guides, while a later feature can handle ownership.
+
 **Answer:** Pending.
 
 ## Interview workflow
