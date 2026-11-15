@@ -222,6 +222,16 @@ When a guide you saved offline gets an improved map, corrected instructions or n
 - **B — Ask before updating:** Show a short summary of what's new and let you approve the update for each game.
 - **C — Manual updates only:** Keep saved guides unchanged until you choose Check for Updates.
 
+**Answer: A — Automatic updates. Confirmed November 15, 2026.**
+
+When an internet connection is available, the app automatically checks for and downloads newer versions of selected offline game guides, maps, hints and cheats. Guide content and the player's progress, bookmarks, favorites, discovered locations and private notes must be stored separately so updates do not reset or overwrite personal data. Use stable content identifiers and safe migrations for changed sections or maps; test in-place update and rollback behavior, avoid heavy cellular downloads where possible, and keep already-downloaded guides functional if an update fails.
+
+### Question 23 — Original game manuals
+Should RetroQuest help you find the original instruction manuals that came with classic games?
+- **A — No manual section:** Use RetroQuest's custom controls and beginner tutorials instead.
+- **B — Links to manuals:** Where lawful copies or official archives are available, include a quick link to the original game manual.
+- **C — Manuals plus searchable quick reference:** Provide authorized links to original manuals, and add original searchable summaries of controls, menus, and game rules within RetroQuest.
+
 **Answer:** Pending.
 
 ## Interview workflow
