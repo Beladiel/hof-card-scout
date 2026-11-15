@@ -60,6 +60,17 @@ What should the first usable release of RetroQuest contain?
 - **B — Small Genesis starter pack:** Launch with streamlined, usable guides for Power Monger, Phantasy Star III, and a few other Genesis favorites; expand each guide in stages.
 - **C — Large game directory first:** Release a broad searchable Genesis catalog and source links, while interactive walkthroughs for selected games arrive afterward.
 
+**Answer: B — Small Genesis starter collection. Confirmed November 15, 2026.**
+
+Include **Power Monger**, **Phantasy Star III: Generations of Doom**, **Phantasy Star II**, and **King's Quest**. Begin with usable guides for these games and improve/deepen guides in stages. Power Monger remains the first learning-from-scratch pilot. King's Quest is a title/series label; the exact installment and platform have not yet been specified, so keep that open rather than assuming a Genesis release.
+
+### Question 7 — Which King's Quest?
+Which King's Quest title or titles should be part of the starter collection?
+- **A — King's Quest I: Quest for the Crown**
+- **B — King's Quest V: Absence Makes the Heart Go Yonder!**
+- **C — The entire King's Quest series** (add entries and guides over time)
+- **D — Another specific King's Quest installment** (name the number or game and platform)
+
 **Answer:** Pending.
 
 ## Interview workflow
