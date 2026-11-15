@@ -102,6 +102,16 @@ How should RetroQuest handle saved progress across an iPhone and other devices?
 - **B — Manual transfer:** Save locally and provide optional backup/export and restore to move progress when needed.
 - **C — Automatic sync:** Use a free, account-based sync option to keep game progress, collection and notes consistent on iPhone and computer, including handling changes made offline once reconnected.
 
+**Answer: C — Automatic cloud syncing. Confirmed November 15, 2026.**
+
+Keep the collection, individual-game walkthrough progress, saved checkpoints, discovery-map state and notes synchronized between iPhone and laptop under the same account. Updates made offline stay available locally and synchronize automatically on reconnection. Implement conflict handling so an older device cannot silently overwrite newer progress, and retain an export/backup recovery path. Use only a reliable free-tier provider and no paid API; investigate technical feasibility during build, rather than promising unlimited storage or unsupported account integrations.
+
+### Question 11 — Sign-in for cloud sync
+How would you like to sign in to sync RetroQuest between your devices?
+- **A — Google sign-in:** Use your Google account to sign in to RetroQuest and sync across devices.
+- **B — Email sign-in:** Use an email one-time code or magic link; no third-party sign-in button.
+- **C — Both Google and email:** Offer both methods, with account linking safeguards so the same library is not accidentally split across accounts.
+
 **Answer:** Pending.
 
 ## Interview workflow
