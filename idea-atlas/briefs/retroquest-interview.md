@@ -40,6 +40,16 @@ How should maps behave inside RetroQuest?
 - **B — Discovery maps:** Reveal areas and hidden details gradually as the player manually marks progress, protecting exploration surprises.
 - **C — Both styles:** Let players toggle between a fully revealed reference map and a discovery-focused map with hidden areas and secrets.
 
+**Answer: C — Both map styles. Confirmed November 15, 2026.**
+
+Offer two map views for guides with mapped areas: a fully revealed zoomable reference map displaying treasures, exits, secrets and other points of interest, and a discovery view that hides unexplored rooms/sections and spoilers until revealed by the player. Allow switching freely while preserving discovery progress; don't inadvertently expose secrets in previews.
+
+### Question 5 — How should players track their location and progress?
+When playing on an original cartridge and using RetroQuest on an iPhone, how should the companion know what to show next?
+- **A — Manual checkpoints:** Choose the current chapter, area or objective from a list and check off completed steps. Simple, reliable and offline-friendly.
+- **B — Natural-language lookup:** Type where you are or what you just did (e.g., "I reached the first village") to jump to relevant guide content. Needs robust local search without paid AI.
+- **C — Both:** Manual checkpoint tracking for precise progress plus a text-search/jump tool to quickly relocate when returning to a game.
+
 **Answer:** Pending.
 
 ## Interview workflow
