@@ -112,6 +112,16 @@ How would you like to sign in to sync RetroQuest between your devices?
 - **B — Email sign-in:** Use an email one-time code or magic link; no third-party sign-in button.
 - **C — Both Google and email:** Offer both methods, with account linking safeguards so the same library is not accidentally split across accounts.
 
+**Answer: A — Google sign-in. Confirmed November 15, 2026.**
+
+Use Google sign-in as the primary and only required account sign-in method for cloud syncing across iPhone and computer. Do not build a separate password system or require email magic links as an additional path at launch. Select a free-tier authentication provider during implementation, verify its pricing and browser compatibility, and preserve local offline progress when signed out; never overwrite unsynced changes. Account linking is out of scope unless revisited.
+
+### Question 12 — Visual style
+What visual style should RetroQuest use across its game catalog, guides and maps?
+- **A — Retro arcade:** Pixel-inspired fonts, classic console colors and nostalgic game-like styling, while keeping text legible.
+- **B — Modern reference:** Clean, readable interface with restrained retro accents; prioritize easy navigation of long guides and maps.
+- **C — Switchable themes:** Offer both a retro arcade theme and a clean modern theme, remembering the preference across devices.
+
 **Answer:** Pending.
 
 ## Interview workflow
