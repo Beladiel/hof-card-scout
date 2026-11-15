@@ -132,6 +132,16 @@ When trying a retro title for the first time (like Power Monger), what should th
 - **B — Guided beginner lesson:** A step-by-step first-session tutorial explaining buttons and mechanics through real starting objectives, with checkable progress.
 - **C — Both:** A one-screen quick-reference control guide plus an optional interactive, beginner-friendly tutorial that players can skip once comfortable.
 
+**Answer: C — Both options. Confirmed November 15, 2026.**
+
+Provide both a concise, platform- and version-specific control reference (including an accurate Genesis controller diagram for the launch games) and an optional interactive first-session tutorial that teaches actual mechanics through guided, checkable objectives. Experienced players can skip tutorials and use the quick reference; tutorial progress should save across sessions. Verify controls against reputable sources before publishing.
+
+### Question 14 — How should guides use images and videos?
+When you read a walkthrough, what media should accompany the steps?
+- **A — Mostly text and interactive maps:** Prioritize quick-loading instructions, diagrams and maps, with minimal images.
+- **B — Illustrated walkthroughs:** Include screenshots or original annotated illustrations at important steps to help recognize locations, items and enemies.
+- **C — Illustrated walkthroughs plus optional video links:** Use images/maps within guides and add optional links to relevant gameplay clips or demonstrations when available.
+
 **Answer:** Pending.
 
 ## Interview workflow
