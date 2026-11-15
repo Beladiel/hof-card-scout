@@ -32,6 +32,8 @@
 
 - **Virtual allowance trigger (confirmed, November 14, 2026):** when the **persistent main bankroll falls below $100**, gently **offer an optional $500 play-money allowance**. The player may **accept or decline**; never auto-credit it. Log each accepted allowance as a separate bankroll adjustment, not a win, and keep net betting performance statistics unaffected. Avoid interrupting an active roll and avoid repeatedly prompting after a decline; reasonable re-offer behavior may be designed later, as frequency/cooldown was not explicitly decided. This confirms choice **B** from Interview Question 11.
 
+- **Table minimum choices (confirmed, November 14, 2026):** before entering a Free Play session, offer **four fixed table-minimum presets: $5, $10, $15, and $25** in virtual chips. This is choice **B** for Interview Question 12. Do **not** require arbitrary custom table minimums. Show the chosen minimum on the table and enforce the applicable minimum for bets where relevant; some bets also have denomination or payout-unit requirements, and not all bets necessarily share the same minimum. Explain these rules with the existing tap-to-learn bet help. A $1,000 starting bankroll and optional below-$100 allowance remain as previously decided.
+
 ## 1. What we already agreed
 
 CasinoLab combines the older **Craps Tutor + Simulation** and **Casino Strategies Tutor** ideas into one educational, realistic, **play-money-only** casino learning app.
