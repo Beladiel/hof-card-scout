@@ -202,6 +202,16 @@ What should the RetroQuest home screen emphasize when you open it on your iPhone
 - **B — Game library:** Lead with a visual shelf of owned/playing/wishlist games and a search bar; choose a game to access its guides.
 - **C — Both:** Show a prominent Resume Current Game area above a compact game library, with quick access to search, maps and favorites.
 
+**Answer: C — Both approaches. Confirmed November 15, 2026.**
+
+The mobile home screen should prominently display **Continue Playing** for the current game, including the last checkpoint and an easy Resume Guide control. Below that, show a compact, visual personal game library with game cover images when permitted, a search bar, Owned/Playing/Completed/Wishlist filters and quick links to favorites, saved maps and guide sections. Keep the layout usable on iPhone and laptop, in the selected classic retro arcade visual style.
+
+### Question 21 — Multiple playthroughs and branching paths
+Some games, such as Phantasy Star III, can have different story paths. How should RetroQuest track separate runs through the same game?
+- **A — One progress record per game:** Keep one active walkthrough, set of checklists and map progress for each title; starting over resets that game's tracked progress.
+- **B — Multiple playthrough slots:** Create separate named saves for each playthrough, keeping its checkpoints, inventory checklists, notes and discoveries independently.
+- **C — Multiple slots plus branching story tracking:** Everything in B, plus visual route/branch tracking where a game has meaningful choices, with spoilers concealed until requested.
+
 **Answer:** Pending.
 
 ## Interview workflow
