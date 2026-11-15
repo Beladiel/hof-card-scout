@@ -69,6 +69,8 @@
 
 - **Learning progress tracking (confirmed November 14, 2026; Interview Question 30, choice B):** include a **Learning Progress Dashboard** showing lesson completion, quiz/question accuracy, optional payout-calculation challenge accuracy, and topics where the learner could use additional practice. Record attempts and outcomes transparently so accuracy is based on meaningful answered questions rather than mere page visits; give access to revisit and retry any lesson. Keep this separate from casino bankroll and Statistics Lab, and avoid requiring XP, levels, badge collecting or gamified achievement systems (choice C was not selected). Store progress locally with the user's other app data and preserve it when leaving and returning.
 
+- **Lesson assessments (confirmed November 14, 2026; Interview Question 31, choice C):** include **both** short multiple-choice knowledge checks and **interactive hands-on bubble-craps challenges** in Learn to Play. Hands-on tasks should assess practical actions such as placing a specified legal bet, reading the point and active wagers, correctly interpreting a dice result, and predicting a payout. Give clear feedback and explanations after attempts, let learners retry without losing bankroll, and track accuracy and lesson completion in the agreed Learning Progress Dashboard. Keep controlled demonstrations clearly distinct from randomly rolled practice, and do not let educational questions modify persistent Free Play money or odds. No XP/badge system is required.
+
 ## 1. What we already agreed
 
 CasinoLab combines the older **Craps Tutor + Simulation** and **Casino Strategies Tutor** ideas into one educational, realistic, **play-money-only** casino learning app.
