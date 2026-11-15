@@ -182,6 +182,16 @@ Since the user plays on a cartridge console while using RetroQuest on an iPhone,
 - **B — Tap-to-listen:** Add a Read Aloud control using free on-device/browser text-to-speech where supported, so a step or hint can be spoken.
 - **C — Voice-assisted companion:** Include tap-to-listen plus optional spoken commands such as "next step", "repeat" and "give me a hint" where browser/device speech recognition works; always provide touch controls as fallback.
 
+**Answer: A — Text and visuals only. Confirmed November 15, 2026.**
+
+Keep RetroQuest silent and screen-based. Instructions, steps, hints, walkthroughs and maps should be presented through text and visual UI only. Do not add read-aloud buttons, text-to-speech, voice commands, microphone permissions or speech API dependencies for the initial release. Maintain readable text, clear layouts and accessible touch controls.
+
+### Question 19 — Game-specific strategy tools
+Beyond walkthroughs and maps, how much game-specific help should RetroQuest provide?
+- **A — Reference charts:** Clear searchable lists for character abilities, RPG equipment, enemies, spells or strategy-game units and terrain.
+- **B — Charts plus interactive trackers:** References plus checklists to track collected items, unlocked abilities, defeated bosses and similar game-specific milestones.
+- **C — Full interactive strategy tools:** Everything in B plus game-specific calculators or planners such as party builders, unit comparisons, route planners or resource estimators, where accurate data allows.
+
 **Answer:** Pending.
 
 ## Interview workflow
