@@ -16,6 +16,8 @@
 
 - **Bankroll and sessions (confirmed, November 14, 2026):** Free Play uses a persistent, play-money virtual bankroll that carries between app visits, with a session history including starting and ending balances, chips wagered, net results, and meaningful activity stats. Also let the player start separate practice sessions with a custom starting amount; practice must not alter the persistent main bankroll or permanently inflate its statistics. Save progress locally and support explicit user-controlled reset; never use real-money payments or cash-out. Provide easy explanations distinguishing net profit, amounts staked, and outcome variance.
 
+- **Dice rolling control (confirmed, November 14, 2026):** Manual rolling **only**. The player presses a prominent **ROLL** button when ready; animate the two dice bouncing inside the bubble dome and settle them to reveal the outcome. Do **not** add an automatic countdown or time-limited betting window. The player can inspect or place bets at their own pace before pressing ROLL in both learning and free-play contexts. One deliberate press = one independently generated dice roll; disable repeat taps during the animation to prevent unintended multiple rolls.
+
 ## 1. What we already agreed
 
 CasinoLab combines the older **Craps Tutor + Simulation** and **Casino Strategies Tutor** ideas into one educational, realistic, **play-money-only** casino learning app.
