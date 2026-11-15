@@ -282,6 +282,16 @@ Once you've finished a retro game, what kind of completion tracking would you en
 - **B — RetroQuest achievements:** Track game-specific optional milestones such as beating a boss, discovering a secret or finishing a challenge, with nostalgic badges.
 - **C — Both:** Keep a simple Completed status and an optional achievement checklist/badge system for supported games; skip achievements when you just want a walkthrough.
 
+**Answer: A — Simple game completion. Confirmed November 15, 2026.**
+
+Keep game completion tracking straightforward: the user can mark a game **Completed**, with an optional completion date, and then move on. Do not add RetroQuest achievement badges, trophies, XP, score systems, or optional achievement challenges. Game-specific item and boss checklists chosen in Question 19 remain available as walkthrough trackers, but are not a gamified achievement system.
+
+### Question 29 — Games available on multiple platforms
+Some retro games have different versions on different consoles, with different controls, levels or secrets. How should RetroQuest organize these?
+- **A — Track only the version you own:** Add just your specific platform's copy; other editions matter only if you add them later.
+- **B — One game with a version selector:** Put the title under a single entry but let you choose its platform or edition to see the correct controls, maps and cheats.
+- **C — Separate entry for each version:** Treat Genesis, NES, SNES, computer and other versions as individual game entries with their own guides and completion records.
+
 **Answer:** Pending.
 
 ## Interview workflow
