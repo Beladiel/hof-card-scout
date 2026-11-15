@@ -232,6 +232,16 @@ Should RetroQuest help you find the original instruction manuals that came with 
 - **B — Links to manuals:** Where lawful copies or official archives are available, include a quick link to the original game manual.
 - **C — Manuals plus searchable quick reference:** Provide authorized links to original manuals, and add original searchable summaries of controls, menus, and game rules within RetroQuest.
 
+**Answer: C — Manuals plus searchable references. Confirmed November 15, 2026.**
+
+For each supported title, provide links to official or otherwise lawfully available original instruction manuals where possible, alongside RetroQuest's own verified and searchable explanations of controls, menus, game mechanics and rules. Label the manual source and version. Do not copy, host or bundle copyrighted manuals without permission, and do not assume every game has a legitimate online manual. Make the in-app quick references usable offline when their content is original or properly licensed.
+
+### Question 24 — Adding games to your library
+How should you add a new retro game to your personal collection?
+- **A — Search the game catalog:** Search by title and console, select the matching game/version, and mark it Owned, Playing, Completed or Wishlist.
+- **B — Manual game entry:** Type the title and choose the system yourself, including games that aren't in RetroQuest's catalog yet.
+- **C — Both:** Search an existing catalog for quick additions, but also add a game manually if it isn't listed yet.
+
 **Answer:** Pending.
 
 ## Interview workflow
