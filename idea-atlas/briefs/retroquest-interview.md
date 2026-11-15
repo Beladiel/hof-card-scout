@@ -192,6 +192,16 @@ Beyond walkthroughs and maps, how much game-specific help should RetroQuest prov
 - **B — Charts plus interactive trackers:** References plus checklists to track collected items, unlocked abilities, defeated bosses and similar game-specific milestones.
 - **C — Full interactive strategy tools:** Everything in B plus game-specific calculators or planners such as party builders, unit comparisons, route planners or resource estimators, where accurate data allows.
 
+**Answer: B — Charts plus interactive trackers. Confirmed November 15, 2026.**
+
+Provide verified, searchable game-specific reference charts (equipment, character abilities, enemies, spells, army units, terrain advantages, etc.) plus interactive checklists and trackers for collected items, learned abilities, defeated bosses, quests and milestones when relevant to the game. Persist per-game/per-save progress locally and through the chosen cloud sync. Trackers must not guess the state of an original cartridge game; the player marks progress manually. Full simulation calculators, party builders and army optimizers are not required at launch.
+
+### Question 20 — RetroQuest home screen
+What should the RetroQuest home screen emphasize when you open it on your iPhone?
+- **A — Continue playing:** Lead with the current game, last saved checkpoint and a large Resume Guide button; browsing the full library is secondary.
+- **B — Game library:** Lead with a visual shelf of owned/playing/wishlist games and a search bar; choose a game to access its guides.
+- **C — Both:** Show a prominent Resume Current Game area above a compact game library, with quick access to search, maps and favorites.
+
 **Answer:** Pending.
 
 ## Interview workflow
