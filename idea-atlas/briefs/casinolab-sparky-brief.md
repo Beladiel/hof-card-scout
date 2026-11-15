@@ -7,6 +7,11 @@
 **Repo:** `Beladiel/hof-card-scout`  
 **Purpose:** Living design notes for Sparky. Brainstorm-stage ideas below are proposals, not all confirmed requirements.
 
+## Confirmed interview decisions (November 14, 2026)
+
+- **Bubble craps is the preferred primary experience**, with large animated dice in a transparent dome. The traditional felt layout can remain an optional alternative as a future view.
+- **Interview still ongoing**: the remaining teaching flow, bankroll defaults, bet coverage, visual presentation, and controls are not finalized. Avoid assuming answers before the user confirms them.
+
 ## 1. What we already agreed
 
 CasinoLab combines the older **Craps Tutor + Simulation** and **Casino Strategies Tutor** ideas into one educational, realistic, **play-money-only** casino learning app.
