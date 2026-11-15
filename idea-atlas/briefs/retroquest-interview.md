@@ -50,6 +50,16 @@ When playing on an original cartridge and using RetroQuest on an iPhone, how sho
 - **B — Natural-language lookup:** Type where you are or what you just did (e.g., "I reached the first village") to jump to relevant guide content. Needs robust local search without paid AI.
 - **C — Both:** Manual checkpoint tracking for precise progress plus a text-search/jump tool to quickly relocate when returning to a game.
 
+**Answer: C — Both methods. Confirmed November 15, 2026.**
+
+Enable manually saved checkpoints, step-completion checklists, and an additional text-description search to find a player's place in a game. Search should initially work locally with curated game/section keywords, without paid AI calls. Text search should not automatically mark objectives complete or unexpectedly reveal spoilers.
+
+### Question 6 — First launch content
+What should the first usable release of RetroQuest contain?
+- **A — One polished game:** Fully develop Power Monger for Genesis with a rich walkthrough, maps, hints, and tested progress-saving before adding more games.
+- **B — Small Genesis starter pack:** Launch with streamlined, usable guides for Power Monger, Phantasy Star III, and a few other Genesis favorites; expand each guide in stages.
+- **C — Large game directory first:** Release a broad searchable Genesis catalog and source links, while interactive walkthroughs for selected games arrive afterward.
+
 **Answer:** Pending.
 
 ## Interview workflow
