@@ -172,6 +172,16 @@ Should RetroQuest be just your personal companion, a public resource, or a commu
 - **B — Public guide library:** Anyone can browse guides, maps and codes, while each signed-in player gets private progress, bookmarks and notes.
 - **C — Community contributions:** Public browsing plus a way for other players to submit guides, maps, tips or corrections for review before publishing.
 
+**Answer: A — Personal gaming companion. Confirmed November 15, 2026.**
+
+RetroQuest is designed for the user's own game collection and personal play sessions, not as a public retro gaming reference service. Prioritize personal access from iPhone and laptop with the previously chosen Google sign-in, cloud-synced progress, private notes and bookmarks. Do not build community-submitted content, public user profiles, or a public contribution/moderation system. A public static host does not by itself make files private: clarify appropriate access/security in implementation planning and do not assume hiding UI provides real content protection.
+
+### Question 18 — Spoken walkthrough assistance
+Since the user plays on a cartridge console while using RetroQuest on an iPhone, should guides offer hands-free audio?
+- **A — Text and visuals only:** Keep RetroQuest silent; read the steps, hints and maps on screen.
+- **B — Tap-to-listen:** Add a Read Aloud control using free on-device/browser text-to-speech where supported, so a step or hint can be spoken.
+- **C — Voice-assisted companion:** Include tap-to-listen plus optional spoken commands such as "next step", "repeat" and "give me a hint" where browser/device speech recognition works; always provide touch controls as fallback.
+
 **Answer:** Pending.
 
 ## Interview workflow
