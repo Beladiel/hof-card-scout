@@ -82,6 +82,16 @@ How much of a personal cartridge collection manager should RetroQuest include?
 - **B — Detailed collection:** Track original cartridge vs box/manual, condition, purchase price, purchase date and personal notes, alongside playing status.
 - **C — Walkthrough focus:** Skip a collection manager for now; RetroQuest is for guides, while a later feature can handle ownership.
 
+**Answer: A — Simple collection tracker. Confirmed November 15, 2026.**
+
+Track games as **Owned, Playing, Completed, or Wishlist**, with a quick way to open a game's guide. Keep the first release focused on the walkthrough/companion experience rather than a detailed collector database. Do **not** require box/manual completeness, condition, purchase price, or purchase date.
+
+### Question 9 — Offline access to guides
+How should RetroQuest work when the iPhone has no internet access?
+- **A — Online-only:** Guides and maps require a connection; progress stays saved on the device.
+- **B — Save selected guides:** Mark individual games to keep their walkthroughs, maps, hints, cheats and progress available offline. No manual file handling; the app handles storage.
+- **C — Automatic offline library:** Automatically store every opened, fully supported guide and its maps for offline use. More storage, less manual setup.
+
 **Answer:** Pending.
 
 ## Interview workflow
