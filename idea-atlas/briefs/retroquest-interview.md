@@ -21,6 +21,15 @@ How should players generally access RetroQuest help while playing?
 - **B — Reference library:** Search and browse complete walkthroughs, maps, cheats and guides whenever needed.
 - **C — Both:** A guided companion and a browsable reference library, switchable at any time.
 
+**Answer: C — Both approaches. Confirmed November 15, 2026.**
+
+Offer both a guided, chapter-by-chapter mode that saves progress and protects against spoilers, and a complete searchable reference mode containing walkthroughs, maps, cheats, secrets and strategy guides. Let players switch between modes at any time.
+
+### Question 3 — How should RetroQuest's guide library grow?
+- **A — Original curated guides:** Build each full walkthrough and map in RetroQuest, verifying content carefully; fewer games initially but richer integration.
+- **B — Guide directory:** Launch a broad search and directory of reputable existing walkthroughs with links to their sources; faster coverage but less integrated experience.
+- **C — Hybrid:** Detailed original interactive guides for selected games plus a searchable directory linking to trusted outside guides for other titles.
+
 **Answer:** Pending.
 
 ## Interview workflow
