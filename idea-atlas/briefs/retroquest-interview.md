@@ -62,14 +62,15 @@ What should the first usable release of RetroQuest contain?
 
 **Answer: B — Small Genesis starter collection. Confirmed November 15, 2026.**
 
-Include **Power Monger**, **Phantasy Star III: Generations of Doom**, **Phantasy Star II**, and **King's Quest**. Begin with usable guides for these games and improve/deepen guides in stages. Power Monger remains the first learning-from-scratch pilot. King's Quest is a title/series label; the exact installment and platform have not yet been specified, so keep that open rather than assuming a Genesis release.
+Include **Power Monger**, **Phantasy Star III: Generations of Doom**, **Phantasy Star II**, and **King's Bounty**. Begin with usable guides for these games and improve/deepen guides in stages. Power Monger remains the first learning-from-scratch pilot.
 
-### Question 7 — Which King's Quest?
-Which King's Quest title or titles should be part of the starter collection?
-- **A — King's Quest I: Quest for the Crown**
-- **B — King's Quest V: Absence Makes the Heart Go Yonder!**
-- **C — The entire King's Quest series** (add entries and guides over time)
-- **D — Another specific King's Quest installment** (name the number or game and platform)
+**Correction (November 15, 2026):** The user meant **King's Bounty**, not King's Quest. Design the fourth starter guide around King's Bounty for Sega Genesis. Discard the former question about which King's Quest installment. Corrected by user: the intended game is King's Bounty, not King's Quest. Target the Sega Genesis version for initial guide planning.
+
+### Question 7 — Hint and spoiler control
+How should RetroQuest give help when a player gets stuck?
+- **A — Three progressive hints:** First a subtle nudge, then a clearer hint, then the full answer; reveal each only on request.
+- **B — Direct solution:** Provide the exact answer or route immediately when asked, with an optional spoiler warning.
+- **C — Both:** Offer a spoiler-free progressive-hint ladder or a direct full solution, letting the player choose each time.
 
 **Answer:** Pending.
 
