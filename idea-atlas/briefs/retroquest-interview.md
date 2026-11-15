@@ -1,7 +1,7 @@
 # RetroQuest — Design Interview & Development Decisions
 
 **Project:** RetroQuest: Retro Game Companion
-**Status:** Concept / interview in progress
+**Status:** 30 design choices confirmed; engineering handoff drafted
 **Date started:** November 15, 2026
 
 ## Vision
@@ -302,7 +302,9 @@ How should Sparky build and deliver RetroQuest, given the feature set and the go
 - **B — Tested milestones:** Build a functional foundation first (personal library, one working guide and progress), test it on iPhone and laptop, then add offline packs, maps, sync and remaining features in clearly verified stages.
 - **C — Guide-first launch:** Publish a lightweight reference hub with manuals and external walkthrough links as soon as possible, then add interactive guide functionality and the personal library afterward.
 
-**Answer:** Pending.
+**Answer: B — Build and test in stages. Confirmed November 15, 2026.**
+
+Build a functional personal game library, one verified playable companion walkthrough and durable per-game progress first; test on both iPhone and laptop before expanding. Then deliver richer original guides, discovery/reference maps, cheats, offline packs, Google login and safe free-tier cloud syncing through independently testable milestones. Each release must have real working interactions, documented tests and a rollback route. Do not claim an unfinished screen is functional. Preserve all existing apps and Idea Atlas data, require no paid APIs or extra subscriptions, and check the current terms of any proposed free host/auth provider before use.
 
 ## Interview workflow
-Ask one question at a time. As answers are confirmed, append each decision to this file and update the catalog when practical. Keep original requirements and prior decisions, and later assemble a tested Sparky build handoff.
+All 30 planned decisions have been confirmed. The implementation brief is located at `idea-atlas/briefs/retroquest-sparky-handoff.md`. Continue requirements refinement only where new implementation questions materially affect development. Preserve all prior confirmed choices and keep catalog and handoff synchronized if decisions change.
