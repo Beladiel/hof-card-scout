@@ -152,6 +152,16 @@ What personal tools should RetroQuest include while you work through a game?
 - **B — Personal notes only:** Keep a private notebook per game for discoveries, clues, reminders and strategy ideas.
 - **C — Both:** Bookmark important guide spots and add personal notes for each game, with the notes and bookmarks syncing between devices.
 
+**Answer: C — Both bookmarks and notes. Confirmed November 15, 2026.**
+
+Include bookmarks for specific walkthrough steps, guide sections, maps and points of interest, plus a private per-game notebook for user-entered discoveries, clues, reminders and strategies. Bookmarks and notes must sync across the user's devices through Google sign-in and remain available while offline, then safely reconcile changes after reconnection. Make both tools available without cluttering the core guide.
+
+### Question 16 — Cheats and secret codes
+How detailed should the cheat-code and secrets section be?
+- **A — Simple cheat list:** Show validated codes and secrets in a straightforward searchable list for each game.
+- **B — Organized reference:** Group cheats by type, include game/platform compatibility and clear instructions, and warn about codes that may affect saves.
+- **C — Organized reference plus favorites:** Everything in B, plus let players bookmark or favorite useful codes and mark ones they have tried.
+
 **Answer:** Pending.
 
 ## Interview workflow
