@@ -10,6 +10,7 @@
 ## Confirmed interview decisions (November 14, 2026)
 
 - **Bubble craps is the preferred primary experience**, with large animated dice in a transparent dome. The traditional felt layout can remain an optional alternative as a future view.
+- **Home screen choice (confirmed):** display two prominent options, **Learn to Play** (step-by-step interactive tutorials) and **Free Play** (immediate virtual casino session, with optional contextual explanations). Both must use the same bubble-craps visual and underlying verified game engine.
 - **Interview still ongoing**: the remaining teaching flow, bankroll defaults, bet coverage, visual presentation, and controls are not finalized. Avoid assuming answers before the user confirms them.
 
 ## 1. What we already agreed
