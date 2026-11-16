@@ -23,7 +23,21 @@ This is the isolated public-review copy of Summoner Scout. It is an unofficial, 
 
 ## Data and privacy
 
-This public build uses the separate storage key `summoner-scout.review.v1` and starts with clearly fictional demonstration records. It cannot read the private Site's origin-scoped browser storage. Do not add real account names, screenshots, monster inventories, battle records or private backups to this repository.
+This public build uses the separate storage key `summoner-scout.review.v2` and starts with clearly fictional demonstration records. It cannot read the private Site's origin-scoped browser storage. Version-1 review data is migrated locally, while malformed records remain untouched and trigger recovery or demo fallback. Do not add real account names, screenshots, monster inventories, battle records or private backups to this repository.
+
+## Data model and safety
+
+- Schema version 2 validates all nested fields, ranges, outcomes and record IDs.
+- ToA Normal and Hard have independent current floors, historical bests, milestones and notes.
+- Dungeon runs retain immutable IDs; statistics are filtered by dungeon, difficulty and optional team.
+- Historical dungeon bests are stored separately from editable run history.
+- Every confirmed import first writes a recoverable pre-import snapshot.
+- Imported and user-controlled strings are escaped before HTML rendering.
+- Storage failures show an error and offer backup export rather than claiming success.
+
+## Verification
+
+Run `npm test` for schema, migration, time parsing, statistics, HTML-safety contracts, recovery ordering, mobile safe-area, offline-assets and icon checks. Run `npm run check` for JavaScript syntax checks.
 
 ## Run locally
 

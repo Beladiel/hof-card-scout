@@ -1,0 +1,42 @@
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const { createCanvas } = require('@napi-rs/canvas');
+
+const canvas = createCanvas(180, 180);
+const ctx = canvas.getContext('2d');
+ctx.fillStyle = '#10191b';
+ctx.fillRect(0, 0, 180, 180);
+ctx.fillStyle = '#1a282a';
+ctx.strokeStyle = '#7dd9ae';
+ctx.lineWidth = 7;
+ctx.beginPath();
+ctx.arc(90, 90, 58, 0, Math.PI * 2);
+ctx.fill();
+ctx.stroke();
+ctx.fillStyle = '#e8c86b';
+ctx.beginPath();
+ctx.moveTo(90, 28);
+ctx.lineTo(103, 72);
+ctx.lineTo(146, 85);
+ctx.lineTo(103, 98);
+ctx.lineTo(90, 146);
+ctx.lineTo(77, 98);
+ctx.lineTo(34, 85);
+ctx.lineTo(77, 72);
+ctx.closePath();
+ctx.fill();
+ctx.fillStyle = '#10191b';
+ctx.beginPath();
+ctx.arc(90, 85, 13, 0, Math.PI * 2);
+ctx.fill();
+ctx.strokeStyle = '#10191b';
+ctx.lineWidth = 9;
+ctx.lineCap = 'round';
+ctx.beginPath();
+ctx.moveTo(60, 125);
+ctx.quadraticCurveTo(90, 93, 120, 125);
+ctx.stroke();
+
+fs.writeFileSync(path.join(__dirname, '..', 'dist', 'apple-touch-icon.png'), canvas.toBuffer('image/png'));
+

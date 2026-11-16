@@ -1,0 +1,11 @@
+{
+  "name": "summoner-scout-public-review",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "node test/core.test.js && node test/app-contract.test.js",
+    "check": "node --check dist/core.js && node --check dist/app.js && node --check dist/sw.js",
+    "icon": "node scripts/generate-icon.cjs"
+  }
+}
+
