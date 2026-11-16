@@ -1,2 +1,68 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#111827"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Summoner Scout"><title>Summoner Scout</title><link rel="stylesheet" href="styles.css"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="icon.svg"></head><body><a class="skip" href="#main">Skip to content</a><aside><div class="brand"><span>✦</span><div><b>SUMMONER<br>SCOUT</b><small>PRIVATE FIELD NOTES</small></div></div><nav aria-label="Primary"></nav><div class="privacy">⌁ Local only<br><small>Your records stay in this browser.</small></div></aside><header><div><small>RETURNING SUMMONER COMPANION</small><h1 id="page-title">Home</h1></div><div class="header-actions"><button id="install-btn" class="primary" hidden>Install app</button><button id="backup-btn" class="ghost">Backup</button></div></header><main id="main" tabindex="-1"></main><div id="install-help" class="install-help" hidden><b>Install Summoner Scout</b><span>On iPhone/iPad, tap Share <strong>↗</strong>, then “Add to Home Screen.”</span><button id="dismiss-install" aria-label="Dismiss install instructions">×</button></div><div id="toast" role="status" aria-live="polite"></div><dialog id="backup-dialog"><form method="dialog"><button class="close" aria-label="Close">×</button><h2>Backup & restore</h2><p>Backups are files, not cloud sync. Keep them somewhere safe.</p><button type="button" id="export-btn" class="primary full">Export full JSON backup</button><label class="file">Choose backup JSON<input id="import-file" type="file" accept="application/json"></label><section id="import-preview" hidden></section><button type="button" id="confirm-import" class="danger full" hidden>Replace local data</button></form></dialog><script src="app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Summoner Scout">
+  <title>Summoner Scout — Public Review</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="install.css">
+  <link rel="stylesheet" href="repairs.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <aside>
+    <div class="brand"><span>✦</span><div><b>SUMMONER<br>SCOUT</b><small>PUBLIC REVIEW BUILD</small></div></div>
+    <nav aria-label="Primary"></nav>
+    <div class="privacy">⌁ Demo only<br><small>Records stay in this browser.</small></div>
+  </aside>
+  <header>
+    <div><small>RETURNING SUMMONER COMPANION</small><h1 id="page-title">Home</h1></div>
+    <div class="header-actions"><button id="install-btn" class="primary" hidden>Install app</button><button id="backup-btn" class="ghost">Backup</button></div>
+  </header>
+  <div id="notice" class="notice-bar" role="alert" hidden></div>
+  <main id="main" tabindex="-1"></main>
+  <div id="install-help" class="install-help" hidden><b>Install Summoner Scout</b><span>On iPhone/iPad, tap Share <strong>↗</strong>, then “Add to Home Screen.”</span><button id="dismiss-install" aria-label="Dismiss install instructions">×</button></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <dialog id="backup-dialog">
+    <form method="dialog">
+      <button class="close" aria-label="Close">×</button>
+      <h2>Backup &amp; restore</h2>
+      <p>Backups are files, not cloud sync. Imports are validated before they can replace local data.</p>
+      <button type="button" id="export-btn" class="primary full">Export full JSON backup</button>
+      <button type="button" id="recovery-btn" class="ghost full" hidden>Restore pre-import recovery copy</button>
+      <label class="file">Choose backup JSON<input id="import-file" type="file" accept="application/json"></label>
+      <section id="import-preview" hidden></section>
+      <button type="button" id="confirm-import" class="danger full" hidden>Replace local data</button>
+    </form>
+  </dialog>
+
+  <dialog id="run-dialog">
+    <form id="run-form">
+      <button type="button" class="close" data-close-run aria-label="Close">×</button>
+      <h2 id="run-dialog-title">Log a dungeon run</h2>
+      <input name="id" type="hidden">
+      <div class="form-grid">
+        <label>Dungeon<input name="dungeon" required maxlength="100"></label>
+        <label>Difficulty<input name="difficulty" required maxlength="100"></label>
+        <label>Outcome<select name="outcome"><option>Win</option><option>Loss</option></select></label>
+        <label>Clear time<input name="time" inputmode="decimal" placeholder="1:42.250"></label>
+        <label>Team label<input name="team" maxlength="200"></label>
+        <label>Notes<input name="notes" maxlength="2000"></label>
+      </div>
+      <div class="dialog-actions"><button type="button" class="ghost" data-close-run>Cancel</button><button class="primary">Save run</button></div>
+    </form>
+  </dialog>
+
+  <script src="core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
 

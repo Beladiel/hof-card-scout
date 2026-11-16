@@ -1,0 +1,42 @@
+body { overflow-x: hidden; }
+header > div:first-child { min-width: 0; }
+.header-actions { flex: 0 0 auto; }
+main, .grid, .card { min-width: 0; }
+.grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+.form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.stat-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.notice-bar { margin-left: 230px; padding: .75rem 2.5rem; background: #3a2021; color: #ffd7d3; border-bottom: 1px solid #764044; }
+.review-banner { margin-bottom: 1rem; overflow-wrap: anywhere; }
+.toolbar-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; }
+.run-actions { display: flex; gap: .45rem; }
+.run-actions button { padding: .45rem .6rem; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1rem; }
+.full + .full { margin-top: .6rem; }
+.danger-text { color: #ffb5ad; }
+.helper { font-size: .78rem; color: #9aaba6; }
+.guide-heading { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; cursor: pointer; }
+.guide[open] .guide-heading { margin-bottom: .5rem; }
+.stats-five { grid-template-columns: repeat(5, 1fr); }
+.metric-label { font-size: .68rem; color: #9aaba6; }
+.empty-state { padding: 1.2rem; text-align: center; color: #9aaba6; }
+
+@media (max-width: 850px) {
+  .notice-bar { margin-left: 0; }
+  .toolbar-grid { grid-template-columns: 1fr 1fr; }
+  aside { height: calc(72px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); }
+  main { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+  nav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  nav button { min-width: 0; min-height: 52px; padding: .7rem .1rem; overflow: hidden; font-size: .78rem; }
+}
+
+@media (max-width: 620px) {
+  .toolbar-grid, .stats-five { grid-template-columns: 1fr 1fr; }
+  .notice-bar { padding: .7rem 1rem; }
+  .card { padding: 1rem; }
+  .muted, .helper, label { font-size: .82rem; }
+  header { gap: .5rem; }
+  header > div:first-child > small { display: none; }
+  header .header-actions button { padding: .65rem .7rem; }
+  .eyebrow { font-size: .7rem; }
+}
+
